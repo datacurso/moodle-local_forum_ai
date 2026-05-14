@@ -89,6 +89,9 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->allowedroles = $config->allowedroles ?? null;
             $record->enablediainitconversation = $config->enablediainitconversation ?? 0;
             $record->questionturns = isset($config->questionturns) ? max(0, min(3, (int)$config->questionturns)) : 1;
+            $record->graderid = $config->graderid ?? null;
+            $record->usedelay = $config->usedelay ?? 0;
+            $record->delayminutes = isset($config->delayminutes) ? max(1, (int)$config->delayminutes) : 0;
             $record->timecreated = $config->timecreated;
             $record->timemodified = $config->timemodified;
 
