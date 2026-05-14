@@ -210,5 +210,47 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2025121203, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026050701) {
+        // Define field questionturns to be added to local_forum_ai_config.
+        $table = new xmldb_table('local_forum_ai_config');
+        $field = new xmldb_field('questionturns', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1', 'enablediainitconversation');
+
+        // Conditionally launch add field questionturns.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        if (get_config('local_forum_ai', 'default_enablediainitconversation') === false) {
+            set_config('default_enablediainitconversation', 0, 'local_forum_ai');
+        }
+        if (get_config('local_forum_ai', 'default_usedelay') === false) {
+            set_config('default_usedelay', 0, 'local_forum_ai');
+        }
+        if (get_config('local_forum_ai', 'default_delayminutes') === false) {
+            set_config('default_delayminutes', 60, 'local_forum_ai');
+        }
+        if (get_config('local_forum_ai', 'default_question_turns') === false) {
+            set_config('default_question_turns', 1, 'local_forum_ai');
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026050701, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026050702) {
+        $globalenabled = get_config('local_forum_ai', 'enableforumai');
+        if ($globalenabled === false || $globalenabled === '') {
+            set_config('enableforumai', 1, 'local_forum_ai');
+        }
+
+        $defaultenabled = get_config('local_forum_ai', 'default_enabled');
+        if ($defaultenabled === false || $defaultenabled === '' || (int)$defaultenabled === 0) {
+            set_config('default_enabled', 1, 'local_forum_ai');
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026050702, 'local', 'forum_ai');
+    }
+
     return true;
 }

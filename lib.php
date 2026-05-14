@@ -32,6 +32,10 @@
 function local_forum_ai_extend_settings_navigation(settings_navigation $nav, context $context) {
     global $PAGE, $DB, $USER;
 
+    if (!\local_forum_ai\utils::is_feature_enabled()) {
+        return;
+    }
+
     // Only apply in forum module contexts.
     if ($context->contextlevel != CONTEXT_MODULE || $PAGE->cm->modname !== 'forum') {
         return;
@@ -86,6 +90,10 @@ function local_forum_ai_extend_settings_navigation(settings_navigation $nav, con
 function local_forum_ai_extend_navigation_course($navigation, $course, $context) {
     global $USER;
 
+    if (!\local_forum_ai\utils::is_feature_enabled()) {
+        return;
+    }
+
     // Only display if the user has the approveresponses capability.
     if (has_capability('local/forum_ai:approveresponses', $context, $USER)) {
         $pendingurl = new moodle_url('/local/forum_ai/pending.php', ['courseid' => $course->id]);
@@ -120,6 +128,10 @@ function local_forum_ai_extend_navigation_course($navigation, $course, $context)
 function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     global $DB, $USER;
 
+    if (!\local_forum_ai\utils::is_feature_enabled()) {
+        return;
+    }
+
     // Only for forum.
     if ($formwrapper->get_current()->modulename !== 'forum') {
         return;
@@ -134,17 +146,41 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
         return;
     }
 
+    $rawdefaultenabled = get_config('local_forum_ai', 'default_enabled');
+    $rawdefaultrequireapproval = get_config('local_forum_ai', 'default_require_approval');
+    $rawdefaultreplymessage = get_config('local_forum_ai', 'default_reply_message');
+    $rawdefaultinitconversation = get_config('local_forum_ai', 'default_enablediainitconversation');
+    $rawdefaultusedelay = get_config('local_forum_ai', 'default_usedelay');
+    $rawdefaultdelayminutes = get_config('local_forum_ai', 'default_delayminutes');
+
+    $defaultenabled = ($rawdefaultenabled === false || $rawdefaultenabled === '') ? 1 : (int)$rawdefaultenabled;
+    $defaultrequireapproval =
+        ($rawdefaultrequireapproval === false || $rawdefaultrequireapproval === '') ? 1 : (int)$rawdefaultrequireapproval;
+    $defaultreplymessage =
+        ($rawdefaultreplymessage === false || trim((string)$rawdefaultreplymessage) === '')
+            ? get_string('default_reply_message', 'local_forum_ai')
+            : (string)$rawdefaultreplymessage;
+    $defaultinitconversation =
+        ($rawdefaultinitconversation === false || $rawdefaultinitconversation === '') ? 0 : (int)$rawdefaultinitconversation;
+    $defaultusedelay = ($rawdefaultusedelay === false || $rawdefaultusedelay === '') ? 0 : (int)$rawdefaultusedelay;
+    $defaultdelayminutes = ($rawdefaultdelayminutes === false || $rawdefaultdelayminutes === '')
+        ? 60
+        : max(1, (int)$rawdefaultdelayminutes);
+    $defaultquestionturns = \local_forum_ai\utils::get_default_question_turns();
+    $globalenabled = \local_forum_ai\utils::is_global_ai_enabled();
+
     // Default values.
     $defaults = (object)[
-        'enabled' => 1,
-        'require_approval' => 1,
-        'reply_message' => get_string('default_reply_message', 'local_forum_ai'),
-        'enablediainitconversation' => 0,
+        'enabled' => $defaultenabled,
+        'require_approval' => $defaultrequireapproval,
+        'reply_message' => $defaultreplymessage,
+        'enablediainitconversation' => $defaultinitconversation,
         'allowedroles' => [],
         'allowedroles_saved' => false,
         'graderid' => null,
-        'usedelay' => 0,
-        'delayminutes' => 60,
+        'usedelay' => $defaultusedelay,
+        'delayminutes' => $defaultdelayminutes,
+        'questionturns' => $defaultquestionturns,
     ];
 
     // Load custom config if exists.
@@ -159,12 +195,19 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
         $defaults->allowedroles_saved = true;
         $defaults->usedelay = $record->usedelay ?? 0;
         $defaults->delayminutes = max(1, (int)($record->delayminutes ?? 60));
+        $defaults->questionturns = \local_forum_ai\utils::normalize_question_turns(
+            $record->questionturns ?? $defaultquestionturns
+        );
 
         if (empty($record->allowedroles)) {
             $defaults->allowedroles = [];
         } else {
             $defaults->allowedroles = explode(',', $record->allowedroles);
         }
+    }
+
+    if (!$globalenabled) {
+        $defaults->enabled = 0;
     }
 
     // Header.
@@ -187,6 +230,22 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->setType('enablediainitconversation', PARAM_INT);
     $mform->addHelpButton('enablediainitconversation', 'enablediainitconversation', 'local_forum_ai');
     $mform->setDefault('enablediainitconversation', $defaults->enablediainitconversation);
+
+    $questionturnoptions = [
+        0 => '0',
+        1 => '1',
+        2 => '2',
+        3 => '3',
+    ];
+    $mform->addElement(
+        'select',
+        'local_forum_ai_questionturns',
+        get_string('questionturns', 'local_forum_ai'),
+        $questionturnoptions
+    );
+    $mform->setType('local_forum_ai_questionturns', PARAM_INT);
+    $mform->addHelpButton('local_forum_ai_questionturns', 'questionturns', 'local_forum_ai');
+    $mform->setDefault('local_forum_ai_questionturns', $defaults->questionturns);
 
     // Roles allowed to trigger AI.
     $roles = $DB->get_records('role', null, 'sortorder ASC');
@@ -254,6 +313,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->hideIf('local_forum_ai_delayminutes', 'local_forum_ai_usedelay', 'neq', 1);
     $mform->hideIf('local_forum_ai_delayminutes', 'local_forum_ai_enabled', 'neq', 1);
     $mform->hideIf('local_forum_ai_delayminutes', 'local_forum_ai_require_approval', 'eq', 1);
+    $mform->hideIf('local_forum_ai_questionturns', 'local_forum_ai_enabled', 'neq', 1);
 
     // Users enrolled who can either rate or grade.
     $eligibleusers = [];
@@ -335,6 +395,10 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         return $data;
     }
 
+    if (!\local_forum_ai\utils::is_feature_enabled()) {
+        return $data;
+    }
+
     $record = $DB->get_record('local_forum_ai_config', ['forumid' => $data->instance]);
 
     $config = new stdClass();
@@ -346,6 +410,13 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
     $config->graderid = $data->local_forum_ai_grader ?? null;
     $config->usedelay = $data->local_forum_ai_usedelay ?? 0;
     $config->delayminutes = max(1, (int)($data->local_forum_ai_delayminutes ?? 60));
+    $config->questionturns = \local_forum_ai\utils::normalize_question_turns(
+        $data->local_forum_ai_questionturns ?? \local_forum_ai\utils::get_default_question_turns()
+    );
+
+    if (!\local_forum_ai\utils::is_global_ai_enabled()) {
+        $config->enabled = 0;
+    }
 
     // Save null if not selected roles.
     if (!empty($data->allowedroles) && is_array($data->allowedroles)) {

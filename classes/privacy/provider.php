@@ -52,6 +52,7 @@ class provider implements
                 'enabled'         => 'privacy:metadata:local_forum_ai_config:enabled',
                 'reply_message'   => 'privacy:metadata:local_forum_ai_config:reply_message',
                 'require_approval' => 'privacy:metadata:local_forum_ai_config:require_approval',
+                'questionturns'   => 'privacy:metadata:local_forum_ai_config:questionturns',
                 'timecreated'     => 'privacy:metadata:local_forum_ai_config:timecreated',
                 'timemodified'    => 'privacy:metadata:local_forum_ai_config:timemodified',
             ],

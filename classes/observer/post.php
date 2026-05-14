@@ -19,6 +19,7 @@ namespace local_forum_ai\observer;
 use mod_forum\event\post_created;
 use mod_forum\event\post_deleted;
 use local_forum_ai\task\process_ai_post;
+use local_forum_ai\utils;
 
 /**
  * Forum post event observer for AI integration.
@@ -36,6 +37,14 @@ class post {
      */
     public static function post_created(post_created $event): bool {
         global $DB;
+
+        if (!utils::is_feature_enabled()) {
+            return true;
+        }
+
+        if (!utils::is_global_ai_enabled()) {
+            return true;
+        }
 
         try {
             $data = $event->get_data();

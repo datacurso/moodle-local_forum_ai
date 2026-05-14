@@ -20,6 +20,7 @@ use core\task\adhoc_task;
 use local_forum_ai\ai_service;
 use local_forum_ai\approval;
 use local_forum_ai\role_checker;
+use local_forum_ai\utils;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -50,6 +51,14 @@ class process_ai_post extends adhoc_task {
     public function execute() {
         global $DB, $CFG;
 
+        if (!utils::is_feature_enabled()) {
+            return;
+        }
+
+        if (!utils::is_global_ai_enabled()) {
+            return;
+        }
+
         // Get custom data passed to the task.
         $data = $this->get_custom_data();
         $postid = $data->postid;
@@ -65,13 +74,19 @@ class process_ai_post extends adhoc_task {
                 return;
             }
 
-            $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]);
+            $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]) ?: new \stdClass();
             $enabled = $config->enabled ?? get_config('local_forum_ai', 'default_enabled');
             $replymessage = $config->reply_message ?? get_config('local_forum_ai', 'default_reply_message');
             $requireapproval = $config->require_approval ?? 1;
             $allowedroles = $config->allowedroles ?? '';
             $graderid = $config->graderid ?? null;
             $effectivegraderid = !$requireapproval ? $graderid : null;
+            $questionturnslimit = utils::get_effective_question_turns($config);
+            $allowfollowupquestion = utils::should_allow_followup_question(
+                (int)$discussion->id,
+                (int)$post->id,
+                $questionturnslimit
+            );
 
             if (!$requireapproval && !$effectivegraderid) {
                 debugging('Automatic approval requires a configured grader in forum ' . $forum->id, DEBUG_DEVELOPER);
@@ -107,6 +122,7 @@ class process_ai_post extends adhoc_task {
                 // Only consider configured auto-grader in automatic approval mode.
                 'userid' => (string)($effectivegraderid ?? 2),
                 'prompt' => $replymessage,
+                'allow_followup_question' => $allowfollowupquestion,
                 'grading_enabled' => $gradingenabled,
                 'scale' => $gradingenabled ? $forum->scale : null,
             ];

@@ -19,6 +19,7 @@ namespace local_forum_ai\observer;
 use mod_forum\event\discussion_created;
 use mod_forum\event\discussion_deleted;
 use local_forum_ai\task\process_ai_discussion;
+use local_forum_ai\utils;
 
 /**
  * Observer for discussion events.
@@ -38,6 +39,14 @@ class discussion {
      * @return bool True on success, false on error.
      */
     public static function discussion_created(discussion_created $event): bool {
+        if (!utils::is_feature_enabled()) {
+            return true;
+        }
+
+        if (!utils::is_global_ai_enabled()) {
+            return true;
+        }
+
         try {
             $data = $event->get_data();
             $discussionid = $data['objectid'];
@@ -69,6 +78,14 @@ class discussion {
      */
     public static function process_discussion(int $discussionid, int $forumid, int $courseid, \context $context): void {
         global $DB;
+
+        if (!utils::is_feature_enabled()) {
+            return;
+        }
+
+        if (!utils::is_global_ai_enabled()) {
+            return;
+        }
 
         try {
             // Get discussion, forum and course records.

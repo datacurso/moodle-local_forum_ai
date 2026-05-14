@@ -18,6 +18,7 @@ namespace local_forum_ai\task;
 
 use local_forum_ai\task\process_ai_post;
 use local_forum_ai\task\process_ai_discussion;
+use local_forum_ai\utils;
 
 /**
  * Scheduled task to process delayed AI queue.
@@ -41,6 +42,14 @@ class process_ai_queue extends \core\task\scheduled_task {
      */
     public function execute() {
         global $DB;
+
+        if (!utils::is_feature_enabled()) {
+            return;
+        }
+
+        if (!utils::is_global_ai_enabled()) {
+            return;
+        }
 
         $now = time();
 

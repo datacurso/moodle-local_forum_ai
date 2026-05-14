@@ -64,6 +64,200 @@ class utils {
     }
 
     /**
+     * Checks whether forum AI feature is globally enabled.
+     *
+     * @return bool
+     */
+    public static function is_feature_enabled(): bool {
+        $enabled = get_config('local_forum_ai', 'enableforumai');
+        if ($enabled === false || $enabled === '') {
+            return true;
+        }
+
+        return !empty($enabled);
+    }
+
+    /**
+     * Checks whether forum AI can be enabled globally per forum.
+     *
+     * @return bool
+     */
+    public static function is_global_ai_enabled(): bool {
+        $enabled = get_config('local_forum_ai', 'default_enabled');
+        if ($enabled === false || $enabled === '') {
+            return true;
+        }
+
+        return !empty($enabled);
+    }
+
+    /**
+     * Disables AI in all existing forum configurations.
+     *
+     * @return void
+     */
+    public static function disable_all_forums_ai(): void {
+        global $DB;
+
+        $records = $DB->get_records('local_forum_ai_config');
+        if (!$records) {
+            return;
+        }
+
+        $now = time();
+        foreach ($records as $record) {
+            $record->enabled = 0;
+            $record->timemodified = $now;
+            $DB->update_record('local_forum_ai_config', $record);
+        }
+    }
+
+    /**
+     * Normalize the configured question-turn limit to an integer in [0, 3].
+     *
+     * @param mixed $value Raw configured value.
+     * @return int
+     */
+    public static function normalize_question_turns($value): int {
+        $parsed = (int)($value ?? 0);
+        if ($parsed < 0) {
+            return 0;
+        }
+        if ($parsed > 3) {
+            return 3;
+        }
+        return $parsed;
+    }
+
+    /**
+     * Gets global default for "question turns with follow-up".
+     *
+     * @return int
+     */
+    public static function get_default_question_turns(): int {
+        $raw = get_config('local_forum_ai', 'default_question_turns');
+        if ($raw === false || $raw === '') {
+            return 1;
+        }
+
+        return self::normalize_question_turns($raw);
+    }
+
+    /**
+     * Gets effective question-turn limit using forum config or global fallback.
+     *
+     * @param \stdClass|null $config Forum config row.
+     * @return int
+     */
+    public static function get_effective_question_turns(?\stdClass $config): int {
+        if ($config && isset($config->questionturns)) {
+            return self::normalize_question_turns($config->questionturns);
+        }
+
+        return self::get_default_question_turns();
+    }
+
+    /**
+     * Returns ancestor post IDs for a post within the same discussion.
+     *
+     * The returned list is ordered from direct parent to root post.
+     *
+     * @param int $discussionid Discussion ID.
+     * @param int $postid Current post ID.
+     * @return array<int>
+     */
+    public static function get_thread_ancestor_post_ids(int $discussionid, int $postid): array {
+        global $DB;
+
+        $ancestors = [];
+        $visited = [];
+
+        $currentpost = $DB->get_record(
+            'forum_posts',
+            ['id' => $postid, 'discussion' => $discussionid],
+            'id,parent',
+            IGNORE_MISSING
+        );
+
+        if (!$currentpost) {
+            return [];
+        }
+
+        $parentid = (int)($currentpost->parent ?? 0);
+        while ($parentid > 0 && !isset($visited[$parentid])) {
+            $visited[$parentid] = true;
+            $parentpost = $DB->get_record(
+                'forum_posts',
+                ['id' => $parentid, 'discussion' => $discussionid],
+                'id,parent',
+                IGNORE_MISSING
+            );
+
+            if (!$parentpost) {
+                break;
+            }
+
+            $ancestors[] = (int)$parentpost->id;
+            $parentid = (int)($parentpost->parent ?? 0);
+        }
+
+        return $ancestors;
+    }
+
+    /**
+     * Counts previous AI responses in the same reply thread branch.
+     *
+     * Rejected responses are excluded from the count.
+     *
+     * @param int $discussionid Discussion ID.
+     * @param int $postid Current post ID.
+     * @return int
+     */
+    public static function count_prior_ai_turns_in_thread(int $discussionid, int $postid): int {
+        global $DB;
+
+        $ancestorids = self::get_thread_ancestor_post_ids($discussionid, $postid);
+        if (empty($ancestorids)) {
+            return 0;
+        }
+
+        [$insql, $inparams] = $DB->get_in_or_equal($ancestorids, SQL_PARAMS_NAMED);
+        $params = [
+            'discussionid' => $discussionid,
+            'rejected' => 'rejected',
+        ] + $inparams;
+
+        $sql = "SELECT COUNT(1)
+                  FROM {local_forum_ai_pending}
+                 WHERE discussionid = :discussionid
+                   AND parentpostid $insql
+                   AND status <> :rejected";
+
+        return (int)$DB->count_records_sql($sql, $params);
+    }
+
+    /**
+     * Determines whether AI can still end with a guiding question.
+     *
+     * @param int $discussionid Discussion ID.
+     * @param int $postid Current post ID.
+     * @param int $questionturnlimit Configured max turns with question.
+     * @return bool
+     */
+    public static function should_allow_followup_question(
+        int $discussionid,
+        int $postid,
+        int $questionturnlimit
+    ): bool {
+        if ($questionturnlimit <= 0) {
+            return false;
+        }
+
+        $usedturns = self::count_prior_ai_turns_in_thread($discussionid, $postid);
+        return $usedturns < $questionturnlimit;
+    }
+
+    /**
      * Builds the structured payload for the AI forum evaluation service.
      *
      * This method gathers all necessary data related to a user's participation

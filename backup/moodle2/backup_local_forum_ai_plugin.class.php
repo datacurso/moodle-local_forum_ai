@@ -39,7 +39,8 @@ class backup_local_forum_ai_plugin extends backup_local_plugin {
 
         $config = new backup_nested_element('forum_ai_config', ['id'], [
             'forumid', 'enabled', 'reply_message', 'require_approval',
-            'allowedroles', 'enablediainitconversation',
+            'allowedroles', 'enablediainitconversation', 'questionturns',
+            'graderid', 'usedelay', 'delayminutes',
             'timecreated', 'timemodified',
         ]);
         $configs->add_child($config);
