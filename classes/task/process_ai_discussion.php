@@ -103,9 +103,14 @@ class process_ai_discussion extends adhoc_task {
                 'forum' => $forum->name,
                 'discussion' => $discussion->name,
                 'discussion_id' => $discussionid,
+                'postid' => $post->id,
+                // Thread context sent inline — no MCP needed.
+                'thread_history' => utils::build_thread_context(
+                    (int)$discussionid,
+                    (int)$post->id,
+                ),
                 // Only consider configured auto-grader in automatic approval mode.
                 'userid' => (string)($effectivegraderid ?? 2),
-                'postid' => $post->id,
                 'prompt' => $replymessage,
                 'allow_followup_question' => $allowfollowupquestion,
                 'grading_enabled' => $gradingenabled,

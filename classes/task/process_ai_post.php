@@ -119,6 +119,11 @@ class process_ai_post extends adhoc_task {
                     'subject' => $post->subject,
                     'message' => $postmessage,
                 ],
+                // Thread context sent inline — no MCP needed.
+                'thread_history' => utils::build_thread_context(
+                    (int)$discussion->id,
+                    (int)$post->id,
+                ),
                 // Only consider configured auto-grader in automatic approval mode.
                 'userid' => (string)($effectivegraderid ?? 2),
                 'prompt' => $replymessage,
