@@ -258,6 +258,69 @@ class utils {
     }
 
     /**
+     * Builds the thread context for a given post within a discussion.
+     *
+     * Collects all ancestor posts (from root to direct parent), and
+     * returns them as a structured array so the Python service can
+     * decide how to format the prompt, without needing MCP.
+     *
+     * Each entry contains the post id, chronological order, author
+     * full name, and cleaned message text.
+     *
+     * @param int $discussionid Discussion ID.
+     * @param int $postid Current post ID.
+     * @return array List of thread entries with id, order, author, message.
+     */
+    public static function build_thread_context(
+        int $discussionid,
+        int $postid,
+    ): array {
+        global $DB;
+
+        // Ancestors are returned [parent, grandparent, …, root].
+        // Reverse to get chronological order [root, …, grandparent, parent].
+        $ancestorids = array_reverse(
+            self::get_thread_ancestor_post_ids($discussionid, $postid),
+        );
+
+        $threadentries = [];
+        $order = 1;
+        foreach ($ancestorids as $ancestorid) {
+            $ancestor = $DB->get_record(
+                'forum_posts',
+                ['id' => $ancestorid, 'discussion' => $discussionid],
+                'id,userid,message,messageformat',
+                IGNORE_MISSING,
+            );
+            if (!$ancestor) {
+                continue;
+            }
+            $author = $DB->get_record(
+                'user',
+                ['id' => $ancestor->userid],
+                'id,firstname,lastname',
+                IGNORE_MISSING,
+            );
+            $authorname = $author ? fullname($author) : (string)$ancestor->userid;
+
+            $cleaned = trim(strip_tags($ancestor->message));
+            if ($cleaned === '') {
+                continue;
+            }
+
+            $threadentries[] = [
+                'id' => (int)$ancestor->id,
+                'order' => $order,
+                'author' => $authorname,
+                'message' => $cleaned,
+            ];
+            $order++;
+        }
+
+        return $threadentries;
+    }
+
+    /**
      * Builds the structured payload for the AI forum evaluation service.
      *
      * This method gathers all necessary data related to a user's participation
