@@ -89,14 +89,33 @@ class process_ai_discussion extends adhoc_task {
             }
 
             if (!$enabled || empty($enablediainitconversation)) {
+                mtrace("local_forum_ai: skipping discussion {$discussionid} — AI disabled or initial replies " .
+                    "not enabled for forum {$forum->id}.");
+                return;
+            }
+
+            // Never reply to discussions authored by the configured AI grader (avoid self-replies).
+            if (!empty($config->graderid) && (int)$discussion->userid === (int)$config->graderid) {
+                mtrace("local_forum_ai: skipping discussion {$discussionid} — authored by the AI grader user.");
                 return;
             }
 
             if (!role_checker::user_has_allowed_role($forum->id, $discussion->userid, $allowedroles)) {
+                mtrace("local_forum_ai: skipping discussion {$discussionid} — author {$discussion->userid} has " .
+                    "no allowed role (forum {$forum->id}, allowedroles='{$allowedroles}').");
                 return;
             }
 
             $gradingenabled = ($forum->assessed != 0);
+
+            $postmessage = format_text($post->message, $post->messageformat, [
+                'context' => \context_module::instance($data->cmid),
+            ]);
+            $postmessage = strip_tags($postmessage);
+            $postmessage = trim($postmessage);
+
+            $postauthor = \core_user::get_user($discussion->userid);
+            $postauthorname = $postauthor ? fullname($postauthor) : '';
 
             $payload = [
                 'course' => $course->fullname,
@@ -104,13 +123,19 @@ class process_ai_discussion extends adhoc_task {
                 'discussion' => $discussion->name,
                 'discussion_id' => $discussionid,
                 'postid' => $post->id,
+                'post' => [
+                    'subject' => $post->subject,
+                    'message' => $postmessage,
+                    // Display name of the post author so the AI never greets by numeric id.
+                    'author' => $postauthorname,
+                ],
                 // Thread context sent inline — no MCP needed.
                 'thread_history' => utils::build_thread_context(
                     (int)$discussionid,
                     (int)$post->id,
                 ),
-                // Only consider configured auto-grader in automatic approval mode.
-                'userid' => (string)($effectivegraderid ?? 2),
+                // Attribute the request to the discussion author (rate limits are per user).
+                'userid' => (string)$discussion->userid,
                 'prompt' => $replymessage,
                 'allow_followup_question' => $allowfollowupquestion,
                 'grading_enabled' => $gradingenabled,

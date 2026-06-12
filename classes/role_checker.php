@@ -31,6 +31,7 @@ class role_checker {
      * @param int $forumid
      * @param int $userid
      * @param array|string $allowedroles Array of role ids (as integers) OR CSV string.
+     *        An empty value means no role restriction: every user is allowed.
      * @return bool True if user has at least one allowed role; false otherwise.
      */
     public static function user_has_allowed_role(int $forumid, int $userid, $allowedroles): bool {
@@ -40,8 +41,10 @@ class role_checker {
             $allowedroles = $allowedroles === '' ? [] : explode(',', $allowedroles);
         }
 
+        // No roles configured means no restriction. Previously this returned false,
+        // which silently disabled AI replies for every post in the forum.
         if (empty($allowedroles)) {
-            return false;
+            return true;
         }
 
         $forum = $DB->get_record('forum', ['id' => $forumid], '*', MUST_EXIST);

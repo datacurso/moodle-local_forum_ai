@@ -207,7 +207,9 @@ class approval {
      * @return bool True on success, false on failure.
      */
     public static function create_ai_reply($discussion, string $message, int $parentpostid, int $authoruserid): bool {
-        global $DB;
+        global $CFG, $DB;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
 
         try {
             $author = $DB->get_record('user', ['id' => $authoruserid]);
@@ -241,8 +243,21 @@ class approval {
             $post->subject = "Re: " . $discussion->name;
             $post->message = $message;
             $post->messageformat = FORMAT_HTML;
+            $post->messagetrust = 1;
+            $post->mailed = FORUM_MAILED_PENDING;
+            $post->attachment = '';
+            $post->totalscore = 0;
+            $post->mailnow = 0;
+
+            \mod_forum\local\entities\post::add_message_counts($post);
 
             $DB->insert_record('forum_posts', $post);
+
+            // Bump the discussion so the AI reply shows up in discussion listings,
+            // tracking and digests (a raw insert alone leaves it stale).
+            $DB->set_field('forum_discussions', 'timemodified', $post->modified, ['id' => $discussion->id]);
+            $DB->set_field('forum_discussions', 'usermodified', $post->userid, ['id' => $discussion->id]);
+
             return true;
         } catch (\Exception $e) {
             debugging('Error in create_ai_reply: ' . $e->getMessage(), DEBUG_DEVELOPER);

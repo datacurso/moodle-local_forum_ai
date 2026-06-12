@@ -260,58 +260,80 @@ class utils {
     /**
      * Builds the thread context for a given post within a discussion.
      *
-     * Collects all ancestor posts (from root to direct parent), and
-     * returns them as a structured array so the Python service can
-     * decide how to format the prompt, without needing MCP.
+     * Collects all posts of the discussion created before the given post,
+     * in chronological order, so the AI keeps the full conversation even
+     * when students reply at the discussion (root) level instead of on
+     * the branch that contains the previous AI replies.
+     *
+     * The list is capped to the root post (which defines the topic) plus
+     * the most recent posts, to keep the payload bounded in long threads.
      *
      * Each entry contains the post id, chronological order, author
      * full name, and cleaned message text.
      *
      * @param int $discussionid Discussion ID.
      * @param int $postid Current post ID.
+     * @param int $maxposts Maximum number of posts included in the context.
      * @return array List of thread entries with id, order, author, message.
      */
     public static function build_thread_context(
         int $discussionid,
         int $postid,
+        int $maxposts = 20,
     ): array {
         global $DB;
 
-        // Ancestors are returned [parent, grandparent, …, root].
-        // Reverse to get chronological order [root, …, grandparent, parent].
-        $ancestorids = array_reverse(
-            self::get_thread_ancestor_post_ids($discussionid, $postid),
+        $currentpost = $DB->get_record(
+            'forum_posts',
+            ['id' => $postid, 'discussion' => $discussionid],
+            'id,created',
+            IGNORE_MISSING,
         );
 
+        if (!$currentpost) {
+            return [];
+        }
+
+        $posts = $DB->get_records_select(
+            'forum_posts',
+            'discussion = :discussionid AND (created < :created OR (created = :created2 AND id < :postid))',
+            [
+                'discussionid' => $discussionid,
+                'created' => (int)$currentpost->created,
+                'created2' => (int)$currentpost->created,
+                'postid' => $postid,
+            ],
+            'created ASC, id ASC',
+            'id,userid,message,messageformat,created',
+        );
+        $posts = array_values($posts);
+
+        // Cap the context: always keep the root post (topic) plus the most recent posts.
+        if ($maxposts > 0 && count($posts) > $maxposts) {
+            $root = array_shift($posts);
+            $posts = array_merge([$root], array_slice($posts, -($maxposts - 1)));
+        }
+
+        $authornames = [];
         $threadentries = [];
         $order = 1;
-        foreach ($ancestorids as $ancestorid) {
-            $ancestor = $DB->get_record(
-                'forum_posts',
-                ['id' => $ancestorid, 'discussion' => $discussionid],
-                'id,userid,message,messageformat',
-                IGNORE_MISSING,
-            );
-            if (!$ancestor) {
-                continue;
-            }
-            $author = $DB->get_record(
-                'user',
-                ['id' => $ancestor->userid],
-                'id,firstname,lastname',
-                IGNORE_MISSING,
-            );
-            $authorname = $author ? fullname($author) : (string)$ancestor->userid;
-
-            $cleaned = trim(strip_tags($ancestor->message));
+        foreach ($posts as $post) {
+            $cleaned = trim(strip_tags($post->message));
             if ($cleaned === '') {
                 continue;
             }
 
+            $authorid = (int)$post->userid;
+            if (!array_key_exists($authorid, $authornames)) {
+                $author = \core_user::get_user($authorid);
+                // Never expose raw user ids to the AI; use a neutral label as fallback.
+                $authornames[$authorid] = $author ? fullname($author) : 'Participant';
+            }
+
             $threadentries[] = [
-                'id' => (int)$ancestor->id,
+                'id' => (int)$post->id,
                 'order' => $order,
-                'author' => $authorname,
+                'author' => $authornames[$authorid],
                 'message' => $cleaned,
             ];
             $order++;
