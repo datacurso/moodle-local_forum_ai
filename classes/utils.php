@@ -51,15 +51,32 @@ class utils {
     /**
      * Normalize the payload by iterating over all its values.
      *
+     * Top-level keys listed in $preservekeys are kept verbatim (accents and
+     * special characters intact), e.g. the teacher's free-text instructions.
+     *
      * @param array $payload Input array payload.
+     * @param array $preservekeys Top-level keys to exclude from normalization.
      * @return array Normalized array.
      */
-    public static function normalize_payload(array $payload) {
+    public static function normalize_payload(array $payload, array $preservekeys = []) {
+        $preserved = [];
+        foreach ($preservekeys as $key) {
+            if (array_key_exists($key, $payload)) {
+                $preserved[$key] = $payload[$key];
+                unset($payload[$key]);
+            }
+        }
+
         array_walk_recursive($payload, function (&$item) {
             if (is_string($item)) {
                 $item = self::remove_accents($item);
             }
         });
+
+        foreach ($preserved as $key => $value) {
+            $payload[$key] = $value;
+        }
+
         return $payload;
     }
 

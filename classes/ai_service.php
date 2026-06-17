@@ -36,7 +36,9 @@ class ai_service {
      * @throws \moodle_exception If the request fails.
      */
     public static function call_ai_service(array $payload): array {
-        $payload = utils::normalize_payload($payload);
+        // Preserve the teacher's free-text instructions verbatim (keep accents/ñ);
+        // stripping accents there weakens prohibitions like "no envíes 'excelente trabajo'".
+        $payload = utils::normalize_payload($payload, ['prompt']);
 
         $client = new ai_services_api();
         $response = $client->request('POST', '/forum/chat/v2', $payload);
