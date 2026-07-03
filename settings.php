@@ -119,7 +119,7 @@ if ($hassiteconfig) {
             get_string('reply_message', 'local_forum_ai'),
             '',
             get_string('default_reply_message', 'local_forum_ai'),
-            PARAM_TEXT,
+            PARAM_RAW,
             3,
             3
         ));

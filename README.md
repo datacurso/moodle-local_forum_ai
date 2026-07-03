@@ -76,6 +76,29 @@ Once installed, Forum AI integrates seamlessly into the standard forum creation 
 
    These settings allow teachers to fully control how AI interacts within each course discussion.
 
+## Structured feedback prompts
+
+The "extra directions" field (per forum, or the site-wide default under `Site Administration > Plugins > Local plugins > Forum AI`) is sent verbatim to the AI service and takes full control of the reply's tone, structure, and length. This means you can enforce a fixed feedback template. For example, the following prompt produces a reply with a greeting and fixed bold sections:
+
+```text
+Responde como docente con esta estructura EXACTA:
+1) Saludo cordial con el nombre del estudiante y emojis 👋😊, agradeciendo su participación en el foro.
+2) Luego una sección por párrafo, cada título en negrita seguido de dos puntos:
+   - Fortaleza destacada: el punto más fuerte de la aportación.
+   - Presentación de las aportaciones: si atendió los apartados de la consigna.
+   - Ortografía: valoración de la redacción.
+   - Calidad de la aportación: profundidad y articulación de las ideas.
+   - Referencias: uso de referencias en formato APA.
+   - Actitudes y valores: tono y respeto en la intervención.
+3) Cierra algunas secciones con un emoji apropiado (✨📚💡👍).
+Tono cálido y motivador. Entre 150 y 250 palabras.
+```
+
+Notes:
+
+- The AI service replies in simple HTML (`<p>`, `<strong>`, `<br>`), which is how forum posts are rendered, so bold titles and paragraphs display correctly.
+- If grading is enabled, the numeric grade never appears in the feedback text; it is returned separately and applied as a rating.
+
 ## Create forum discussions
 
 After configuring the forum, you can start using Forum AI in real learning interactions.
