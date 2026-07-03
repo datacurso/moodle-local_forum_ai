@@ -377,7 +377,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
         get_string('reply_message', 'local_forum_ai'),
         'wrap="virtual" rows="3" cols="50"'
     );
-    $mform->setType('local_forum_ai_reply_message', PARAM_TEXT);
+    $mform->setType('local_forum_ai_reply_message', PARAM_RAW);
     $mform->setDefault('local_forum_ai_reply_message', $defaults->reply_message);
 }
 
