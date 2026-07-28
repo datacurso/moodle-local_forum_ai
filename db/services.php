@@ -65,6 +65,7 @@ $functions = [
         'methodname'  => 'execute',
         'description' => 'Generates real JSON and sends it to the AI',
         'type'        => 'read',
+        'capabilities' => 'local/forum_ai:useaireview',
         'ajax'        => true,
     ],
 ];

@@ -67,6 +67,7 @@ $string['enablediainitconversation'] = 'Ativar resposta de IA ao tópico de disc
 $string['enablediainitconversation_help'] = 'Ativar esta opção permitirá que a IA responda à mensagem inicial que inicia a discussão. Também é recomendável selecionar o papel de Professor no campo a seguir.';
 $string['error_airequest'] = 'Erro ao comunicar-se com o serviço de IA: {$a}';
 $string['error_discussionlocked'] = 'Esta discussão está bloqueada, portanto a resposta da IA não pode ser publicada. Desbloqueie a discussão e tente novamente.';
+$string['error_usernotincourse'] = 'O usuário selecionado não está inscrito neste curso.';
 $string['evaluatingwithai'] = 'Avaliando com IA...';
 $string['forum'] = 'Fórum';
 $string['forum_ai:approveresponses'] = 'Aprovar ou rejeitar respostas do fórum geradas por IA';
