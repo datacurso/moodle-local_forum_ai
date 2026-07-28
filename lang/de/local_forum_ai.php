@@ -67,6 +67,7 @@ $string['enablediainitconversation'] = 'KI-Antworten auf das Diskussionsthema ak
 $string['enablediainitconversation_help'] = 'Wenn diese Option aktiviert ist, kann die KI auf die erste Nachricht antworten, die die Diskussion startet. Es wird außerdem empfohlen, im folgenden Feld die Rolle „Lehrer“ auszuwählen.';
 $string['error_airequest'] = 'Fehler bei der Kommunikation mit dem KI-Dienst: {$a}';
 $string['error_discussionlocked'] = 'Diese Diskussion ist gesperrt, daher kann die KI-Antwort nicht veröffentlicht werden. Entsperren Sie die Diskussion und versuchen Sie es erneut.';
+$string['error_responsenotpending'] = 'Diese Antwort wurde bereits genehmigt oder abgelehnt und kann nicht mehr bearbeitet werden.';
 $string['error_usernotincourse'] = 'Die ausgewählte Person ist nicht in diesem Kurs eingeschrieben.';
 $string['evaluatingwithai'] = 'Auswertung mit KI...';
 $string['forum'] = 'Forum';

@@ -82,7 +82,7 @@ class approve_response extends external_api {
 
         $context = \context_module::instance($cm->id);
         self::validate_context($context);
-        require_capability('mod/forum:viewdiscussion', $context);
+        require_capability('local/forum_ai:approveresponses', $context);
 
         $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]) ?: null;
 
