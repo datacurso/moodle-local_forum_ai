@@ -67,6 +67,7 @@ $string['enablediainitconversation'] = 'Activer la réponse de l’IA au sujet d
 $string['enablediainitconversation_help'] = 'En activant cette option, l’IA pourra répondre au message initial qui lance la discussion. Il est également recommandé de sélectionner le rôle Enseignant dans le champ suivant.';
 $string['error_airequest'] = 'Erreur de communication avec le service IA : {$a}';
 $string['error_discussionlocked'] = 'Cette discussion est verrouillée, la réponse de l’IA ne peut donc pas être publiée. Déverrouillez la discussion et réessayez.';
+$string['error_usernotincourse'] = 'L’utilisateur sélectionné n’est pas inscrit à ce cours.';
 $string['evaluatingwithai'] = 'Évaluation avec l’IA...';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Approuver ou rejeter les réponses générées par l’IA dans le forum';
