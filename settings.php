@@ -35,6 +35,7 @@ if ($hassiteconfig) {
         'default_usedelay' => 0,
         'default_delayminutes' => 60,
         'default_question_turns' => 1,
+        'default_replyinlocked' => 0,
     ];
 
     foreach ($defaults as $name => $value) {
@@ -100,6 +101,13 @@ if ($hassiteconfig) {
             PARAM_INT
         ));
 
+        $settings->add(new admin_setting_configcheckbox(
+            'local_forum_ai/default_replyinlocked',
+            get_string('default_replyinlocked', 'local_forum_ai'),
+            get_string('default_replyinlocked_desc', 'local_forum_ai'),
+            0
+        ));
+
         $questionturnoptions = [
             0 => '0',
             1 => '1',
@@ -130,6 +138,7 @@ if ($hassiteconfig) {
         $settings->hide_if('local_forum_ai/default_usedelay', 'local_forum_ai/enableforumai', 'eq', 0);
         $settings->hide_if('local_forum_ai/default_delayminutes', 'local_forum_ai/enableforumai', 'eq', 0);
         $settings->hide_if('local_forum_ai/default_question_turns', 'local_forum_ai/enableforumai', 'eq', 0);
+        $settings->hide_if('local_forum_ai/default_replyinlocked', 'local_forum_ai/enableforumai', 'eq', 0);
         $settings->hide_if('local_forum_ai/default_reply_message', 'local_forum_ai/enableforumai', 'eq', 0);
 
         $settings->hide_if('local_forum_ai/default_enablediainitconversation', 'local_forum_ai/default_enabled', 'eq', 0);
@@ -137,6 +146,7 @@ if ($hassiteconfig) {
         $settings->hide_if('local_forum_ai/default_usedelay', 'local_forum_ai/default_enabled', 'eq', 0);
         $settings->hide_if('local_forum_ai/default_delayminutes', 'local_forum_ai/default_enabled', 'eq', 0);
         $settings->hide_if('local_forum_ai/default_question_turns', 'local_forum_ai/default_enabled', 'eq', 0);
+        $settings->hide_if('local_forum_ai/default_replyinlocked', 'local_forum_ai/default_enabled', 'eq', 0);
         $settings->hide_if('local_forum_ai/default_reply_message', 'local_forum_ai/default_enabled', 'eq', 0);
 
         $settings->hide_if('local_forum_ai/default_usedelay', 'local_forum_ai/default_require_approval', 'eq', 1);

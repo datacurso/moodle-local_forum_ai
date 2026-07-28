@@ -152,6 +152,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $rawdefaultinitconversation = get_config('local_forum_ai', 'default_enablediainitconversation');
     $rawdefaultusedelay = get_config('local_forum_ai', 'default_usedelay');
     $rawdefaultdelayminutes = get_config('local_forum_ai', 'default_delayminutes');
+    $rawdefaultreplyinlocked = get_config('local_forum_ai', 'default_replyinlocked');
 
     $defaultenabled = ($rawdefaultenabled === false || $rawdefaultenabled === '') ? 1 : (int)$rawdefaultenabled;
     $defaultrequireapproval =
@@ -166,6 +167,8 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $defaultdelayminutes = ($rawdefaultdelayminutes === false || $rawdefaultdelayminutes === '')
         ? 60
         : max(1, (int)$rawdefaultdelayminutes);
+    $defaultreplyinlocked =
+        ($rawdefaultreplyinlocked === false || $rawdefaultreplyinlocked === '') ? 0 : (int)$rawdefaultreplyinlocked;
     $defaultquestionturns = \local_forum_ai\utils::get_default_question_turns();
     $globalenabled = \local_forum_ai\utils::is_global_ai_enabled();
 
@@ -180,6 +183,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
         'graderid' => null,
         'usedelay' => $defaultusedelay,
         'delayminutes' => $defaultdelayminutes,
+        'replyinlocked' => $defaultreplyinlocked,
         'questionturns' => $defaultquestionturns,
     ];
 
@@ -195,6 +199,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
         $defaults->allowedroles_saved = true;
         $defaults->usedelay = $record->usedelay ?? 0;
         $defaults->delayminutes = max(1, (int)($record->delayminutes ?? 60));
+        $defaults->replyinlocked = $record->replyinlocked ?? 0;
         $defaults->questionturns = \local_forum_ai\utils::normalize_question_turns(
             $record->questionturns ?? $defaultquestionturns
         );
@@ -306,6 +311,15 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->addHelpButton('local_forum_ai_delayminutes', 'delayminutes', 'local_forum_ai');
     $mform->setDefault('local_forum_ai_delayminutes', $defaults->delayminutes);
 
+    $mform->addElement(
+        'select',
+        'local_forum_ai_replyinlocked',
+        get_string('replyinlocked', 'local_forum_ai'),
+        [0 => get_string('no'), 1 => get_string('yes')]
+    );
+    $mform->addHelpButton('local_forum_ai_replyinlocked', 'replyinlocked', 'local_forum_ai');
+    $mform->setDefault('local_forum_ai_replyinlocked', $defaults->replyinlocked);
+
     // Hide unless delay enabled.
     $mform->hideIf('local_forum_ai_usedelay', 'local_forum_ai_enabled', 'neq', 1);
     $mform->hideIf('local_forum_ai_usedelay', 'local_forum_ai_require_approval', 'eq', 1);
@@ -313,6 +327,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->hideIf('local_forum_ai_delayminutes', 'local_forum_ai_usedelay', 'neq', 1);
     $mform->hideIf('local_forum_ai_delayminutes', 'local_forum_ai_enabled', 'neq', 1);
     $mform->hideIf('local_forum_ai_delayminutes', 'local_forum_ai_require_approval', 'eq', 1);
+    $mform->hideIf('local_forum_ai_replyinlocked', 'local_forum_ai_enabled', 'neq', 1);
     $mform->hideIf('local_forum_ai_questionturns', 'local_forum_ai_enabled', 'neq', 1);
 
     // Users enrolled who can either rate or grade.
@@ -410,6 +425,10 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
     $config->graderid = $data->local_forum_ai_grader ?? null;
     $config->usedelay = $data->local_forum_ai_usedelay ?? 0;
     $config->delayminutes = max(1, (int)($data->local_forum_ai_delayminutes ?? 60));
+    // The column may not exist yet when the code is deployed ahead of the DB upgrade.
+    if ($DB->get_manager()->field_exists('local_forum_ai_config', 'replyinlocked')) {
+        $config->replyinlocked = (int)($data->local_forum_ai_replyinlocked ?? 0);
+    }
     $config->questionturns = \local_forum_ai\utils::normalize_question_turns(
         $data->local_forum_ai_questionturns ?? \local_forum_ai\utils::get_default_question_turns()
     );

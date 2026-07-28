@@ -18,13 +18,14 @@ namespace local_forum_ai\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->libdir . '/externallib.php');
+global $CFG;
+
 require_once(__DIR__ . '/../../locallib.php');
 
-use external_api;
-use external_function_parameters;
-use external_value;
-use external_single_structure;
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_value;
+use core_external\external_single_structure;
 use moodle_exception;
 
 /**
@@ -83,8 +84,14 @@ class approve_response extends external_api {
         self::validate_context($context);
         require_capability('mod/forum:viewdiscussion', $context);
 
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]) ?: null;
+
         if ($params['action'] === 'approve') {
             require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+            if (!\local_forum_ai\utils::can_reply_in_discussion($forum, $discussion, $config)) {
+                throw new moodle_exception('error_discussionlocked', 'local_forum_ai');
+            }
 
             // Determine the correct parent post based on parentpostid.
             $parentid = $discussion->firstpost;
@@ -118,6 +125,8 @@ class approve_response extends external_api {
             $post->message       = $pending->message;
             $post->messageformat = FORMAT_HTML;
             $post->messagetrust  = 1;
+            // No draft file area is involved; forum_add_new_post() expects the property to exist.
+            $post->itemid        = 0;
 
             $newpostid = forum_add_new_post($post, null);
 

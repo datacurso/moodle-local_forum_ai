@@ -92,6 +92,7 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->graderid = $config->graderid ?? null;
             $record->usedelay = $config->usedelay ?? 0;
             $record->delayminutes = isset($config->delayminutes) ? max(1, (int)$config->delayminutes) : 0;
+            $record->replyinlocked = $config->replyinlocked ?? 0;
             $record->timecreated = $config->timecreated;
             $record->timemodified = $config->timemodified;
 

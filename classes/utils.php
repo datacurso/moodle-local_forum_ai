@@ -175,6 +175,59 @@ class utils {
     }
 
     /**
+     * Gets global default for "reply in locked discussions".
+     *
+     * @return bool
+     */
+    public static function get_default_reply_in_locked(): bool {
+        $raw = get_config('local_forum_ai', 'default_replyinlocked');
+        if ($raw === false || $raw === '') {
+            return false;
+        }
+
+        return !empty($raw);
+    }
+
+    /**
+     * Gets effective "reply in locked discussions" value using forum config or global fallback.
+     *
+     * @param \stdClass|null $config Forum config row.
+     * @return bool
+     */
+    public static function get_effective_reply_in_locked(?\stdClass $config): bool {
+        if ($config && isset($config->replyinlocked)) {
+            return !empty($config->replyinlocked);
+        }
+
+        return self::get_default_reply_in_locked();
+    }
+
+    /**
+     * Determines whether the AI may reply in the given discussion.
+     *
+     * Unlocked discussions always allow replies. Locked discussions
+     * (either manually locked or locked by the forum inactivity rule)
+     * only allow replies when the effective "reply in locked
+     * discussions" option is enabled.
+     *
+     * @param \stdClass $forum Forum record.
+     * @param \stdClass $discussion Discussion record.
+     * @param \stdClass|null $config Forum config row.
+     * @return bool
+     */
+    public static function can_reply_in_discussion(\stdClass $forum, \stdClass $discussion, ?\stdClass $config): bool {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        if (!forum_discussion_is_locked($forum, $discussion)) {
+            return true;
+        }
+
+        return self::get_effective_reply_in_locked($config);
+    }
+
+    /**
      * Returns ancestor post IDs for a post within the same discussion.
      *
      * The returned list is ordered from direct parent to root post.
