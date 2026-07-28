@@ -67,6 +67,7 @@ $string['enablediainitconversation'] = 'Enable AI response to the discussion top
 $string['enablediainitconversation_help'] = 'Enabling this option will allow the AI ​​to respond to the initial message that starts the discussion. It is also recommended to select the Teacher role in the following field.';
 $string['error_airequest'] = 'Error communicating with AI service: {$a}';
 $string['error_discussionlocked'] = 'This discussion is locked, so the AI response cannot be published. Unlock the discussion and try again.';
+$string['error_responsenotpending'] = 'This response has already been approved or rejected and can no longer be edited.';
 $string['error_usernotincourse'] = 'The selected user is not enrolled in this course.';
 $string['evaluatingwithai'] = 'Evaluating with AI...';
 $string['forum'] = 'Forum';

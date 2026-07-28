@@ -67,6 +67,7 @@ $string['enablediainitconversation'] = 'Aktifkan respons AI terhadap topik disku
 $string['enablediainitconversation_help'] = 'Mengaktifkan opsi ini akan memungkinkan AI merespons pesan awal yang memulai diskusi. Disarankan juga untuk memilih peran Guru pada kolom berikutnya.';
 $string['error_airequest'] = 'Kesalahan komunikasi dengan layanan AI: {$a}';
 $string['error_discussionlocked'] = 'Diskusi ini terkunci, sehingga respon AI tidak dapat dipublikasikan. Buka kunci diskusi lalu coba lagi.';
+$string['error_responsenotpending'] = 'Respon ini sudah disetujui atau ditolak dan tidak dapat diedit lagi.';
 $string['error_usernotincourse'] = 'Pengguna yang dipilih tidak terdaftar di kursus ini.';
 $string['evaluatingwithai'] = 'Sedang mengevaluasi dengan AI...';
 $string['forum'] = 'Forum';

@@ -32,6 +32,7 @@ $functions = [
         'classpath'   => '',
         'description' => 'Get details of the debate and AI response',
         'type'        => 'read',
+        'capabilities' => 'local/forum_ai:approveresponses',
         'ajax'        => true,
     ],
 
@@ -41,6 +42,7 @@ $functions = [
         'classpath'   => '',
         'description' => 'Approve or reject AI response',
         'type'        => 'write',
+        'capabilities' => 'local/forum_ai:approveresponses',
         'ajax'        => true,
     ],
     'local_forum_ai_update_response' => [
@@ -49,6 +51,7 @@ $functions = [
         'classpath'   => '',
         'description' => 'Update the AI-generated message to a pending status.',
         'type'        => 'write',
+        'capabilities' => 'local/forum_ai:approveresponses',
         'ajax'        => true,
     ],
     'local_forum_ai_get_discussion_data' => [
@@ -57,7 +60,7 @@ $functions = [
         'classpath'   => '',
         'description' => 'Returns discussion, posts and AI response data for a given approval token.',
         'type'        => 'read',
-        'capabilities' => 'mod/forum:viewdiscussion',
+        'capabilities' => 'local/forum_ai:approveresponses',
         'ajax'        => true,
     ],
     'local_forum_ai_process_review' => [

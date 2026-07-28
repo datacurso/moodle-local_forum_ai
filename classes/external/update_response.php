@@ -18,12 +18,12 @@ namespace local_forum_ai\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->libdir . '/externallib.php');
-
-use external_api;
-use external_function_parameters;
-use external_value;
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_value;
+use core_external\external_single_structure;
 use context_module;
+use moodle_exception;
 
 /**
  * External service to update a pending AI response in a forum.
@@ -55,6 +55,8 @@ class update_response extends external_api {
      * @param string $token Approval token
      * @param string $message New AI message
      * @return array Result with status and updated message
+     * @throws \required_capability_exception If the caller does not hold local/forum_ai:approveresponses.
+     * @throws \moodle_exception If the response is no longer pending.
      */
     public static function execute($token, $message) {
         global $DB;
@@ -74,7 +76,12 @@ class update_response extends external_api {
 
         $context = context_module::instance($cm->id);
         self::validate_context($context);
-        require_capability('mod/forum:replypost', $context);
+        require_capability('local/forum_ai:approveresponses', $context);
+
+        // Only pending responses may be edited; approved or rejected history records are immutable.
+        if ($pending->status !== 'pending') {
+            throw new moodle_exception('error_responsenotpending', 'local_forum_ai');
+        }
 
         $pending->message = $params['message'];
         $pending->timemodified = time();
@@ -89,10 +96,10 @@ class update_response extends external_api {
     /**
      * Defines the return structure of the webservice function.
      *
-     * @return \external_single_structure
+     * @return external_single_structure
      */
     public static function execute_returns() {
-        return new \external_single_structure([
+        return new external_single_structure([
             'status'  => new external_value(PARAM_TEXT, 'Operation status'),
             'message' => new external_value(PARAM_RAW, 'Updated message'),
         ]);
