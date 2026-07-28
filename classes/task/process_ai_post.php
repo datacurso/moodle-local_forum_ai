@@ -98,6 +98,11 @@ class process_ai_post extends adhoc_task {
                 return;
             }
 
+            if (!utils::can_reply_in_discussion($forum, $discussion, $config)) {
+                mtrace("local_forum_ai: skipping post {$post->id} — discussion {$discussion->id} is locked.");
+                return;
+            }
+
             // Never reply to posts authored by the configured AI grader (avoid self-replies).
             if (!empty($config->graderid) && (int)$post->userid === (int)$config->graderid) {
                 mtrace("local_forum_ai: skipping post {$post->id} — authored by the AI grader user.");

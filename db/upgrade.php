@@ -252,5 +252,23 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026050702, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026072800) {
+        // Define field replyinlocked to be added to local_forum_ai_config.
+        $table = new xmldb_table('local_forum_ai_config');
+        $field = new xmldb_field('replyinlocked', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'delayminutes');
+
+        // Conditionally launch add field replyinlocked.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        if (get_config('local_forum_ai', 'default_replyinlocked') === false) {
+            set_config('default_replyinlocked', 0, 'local_forum_ai');
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026072800, 'local', 'forum_ai');
+    }
+
     return true;
 }

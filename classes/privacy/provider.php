@@ -53,6 +53,7 @@ class provider implements
                 'reply_message'   => 'privacy:metadata:local_forum_ai_config:reply_message',
                 'require_approval' => 'privacy:metadata:local_forum_ai_config:require_approval',
                 'questionturns'   => 'privacy:metadata:local_forum_ai_config:questionturns',
+                'replyinlocked'   => 'privacy:metadata:local_forum_ai_config:replyinlocked',
                 'timecreated'     => 'privacy:metadata:local_forum_ai_config:timecreated',
                 'timemodified'    => 'privacy:metadata:local_forum_ai_config:timemodified',
             ],
