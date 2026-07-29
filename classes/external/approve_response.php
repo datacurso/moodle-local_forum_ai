@@ -89,6 +89,10 @@ class approve_response extends external_api {
         if ($params['action'] === 'approve') {
             require_once($CFG->dirroot . '/mod/forum/lib.php');
 
+            if (\local_forum_ai\utils::is_forum_cutoff_reached($forum)) {
+                throw new moodle_exception('error_forumclosed', 'local_forum_ai');
+            }
+
             if (!\local_forum_ai\utils::can_reply_in_discussion($forum, $discussion, $config)) {
                 throw new moodle_exception('error_discussionlocked', 'local_forum_ai');
             }

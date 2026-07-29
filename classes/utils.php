@@ -203,6 +203,25 @@ class utils {
     }
 
     /**
+     * Checks whether the forum cut-off date has passed.
+     *
+     * Deliberately a date check, NOT a capability check: graders and admins
+     * hold mod/forum:canoverridecutoff, so a capability gate would never
+     * fire for the users who publish AI responses. Only cutoffdate gates;
+     * duedate is advisory in core and does not block posting.
+     *
+     * @param \stdClass $forum Forum record.
+     * @return bool
+     */
+    public static function is_forum_cutoff_reached(\stdClass $forum): bool {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        return forum_is_cutoff_date_reached($forum);
+    }
+
+    /**
      * Determines whether the AI may reply in the given discussion.
      *
      * Unlocked discussions always allow replies. Locked discussions
