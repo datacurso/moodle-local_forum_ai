@@ -68,6 +68,7 @@ $string['enablediainitconversation_help'] = 'Al habilitar esta opción, la IA po
 $string['error_airequest'] = 'Error al comunicarse con el servicio de IA: {$a}';
 $string['error_discussionlocked'] = 'Este debate está bloqueado, por lo que la respuesta de la IA no se puede publicar. Desbloquea el debate e inténtalo de nuevo.';
 $string['error_forumclosed'] = 'La fecha límite de este foro ya pasó, por lo que la respuesta de la IA no se puede publicar.';
+$string['error_privatereply'] = 'La publicación a la que se responde es una respuesta privada, por lo que no se puede publicar una respuesta de la IA.';
 $string['error_responsenotpending'] = 'Esta respuesta ya fue aprobada o rechazada y ya no se puede editar.';
 $string['error_usernotincourse'] = 'El usuario seleccionado no está inscrito en este curso.';
 $string['evaluatingwithai'] = 'Evaluando con IA...';

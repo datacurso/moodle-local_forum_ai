@@ -203,6 +203,20 @@ class utils {
     }
 
     /**
+     * Checks whether a forum post is a private reply.
+     *
+     * Policy: the AI never replies to private replies. Core treats them as
+     * leaves (replying to them is forbidden in capability checks, in
+     * forum_add_new_post and in the UI), so the plugin skips them entirely.
+     *
+     * @param \stdClass $post Forum post record.
+     * @return bool
+     */
+    public static function is_private_reply(\stdClass $post): bool {
+        return !empty($post->privatereplyto);
+    }
+
+    /**
      * Checks whether the forum cut-off date has passed.
      *
      * Deliberately a date check, NOT a capability check: graders and admins
@@ -383,9 +397,11 @@ class utils {
             return [];
         }
 
+        // Private replies are excluded: private content must never travel to the external AI service.
         $posts = $DB->get_records_select(
             'forum_posts',
-            'discussion = :discussionid AND (created < :created OR (created = :created2 AND id < :postid))',
+            'discussion = :discussionid AND privatereplyto = 0
+                AND (created < :created OR (created = :created2 AND id < :postid))',
             [
                 'discussionid' => $discussionid,
                 'created' => (int)$currentpost->created,
@@ -469,12 +485,14 @@ class utils {
             $guidedata = guide::get($cmid);
         }
 
+        // Private replies are excluded: private content must never travel to the external AI service.
         $posts = $DB->get_records_sql("
             SELECT d.id, d.name, p.message
             FROM {forum_discussions} d
             JOIN {forum_posts} p ON p.discussion = d.id
             WHERE p.userid = ?
             AND d.forum = ?
+            AND p.privatereplyto = 0
         ", [$userid, $forum->id]);
 
         $discussions = [];

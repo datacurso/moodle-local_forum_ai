@@ -108,6 +108,11 @@ class process_ai_post extends adhoc_task {
                 return;
             }
 
+            if (utils::is_private_reply($post)) {
+                mtrace("local_forum_ai: skipping post {$post->id} — it is a private reply.");
+                return;
+            }
+
             // Never reply to posts authored by the configured AI grader (avoid self-replies).
             if (!empty($config->graderid) && (int)$post->userid === (int)$config->graderid) {
                 mtrace("local_forum_ai: skipping post {$post->id} — authored by the AI grader user.");

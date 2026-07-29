@@ -68,6 +68,7 @@ $string['enablediainitconversation_help'] = 'Wenn diese Option aktiviert ist, ka
 $string['error_airequest'] = 'Fehler bei der Kommunikation mit dem KI-Dienst: {$a}';
 $string['error_discussionlocked'] = 'Diese Diskussion ist gesperrt, daher kann die KI-Antwort nicht veröffentlicht werden. Entsperren Sie die Diskussion und versuchen Sie es erneut.';
 $string['error_forumclosed'] = 'Der Stichtag dieses Forums ist abgelaufen, daher kann die KI-Antwort nicht veröffentlicht werden.';
+$string['error_privatereply'] = 'Der Beitrag, auf den geantwortet wird, ist eine private Antwort, daher kann keine KI-Antwort veröffentlicht werden.';
 $string['error_responsenotpending'] = 'Diese Antwort wurde bereits genehmigt oder abgelehnt und kann nicht mehr bearbeitet werden.';
 $string['error_usernotincourse'] = 'Die ausgewählte Person ist nicht in diesem Kurs eingeschrieben.';
 $string['evaluatingwithai'] = 'Auswertung mit KI...';
