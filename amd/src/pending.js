@@ -137,6 +137,7 @@ async function renderDiscussion(data, editMode = false, strings) {
         token: data.token,
         editmode: editMode,
         airesponse: data.airesponse,
+        airesponseraw: data.airesponseraw,
         savelabel: strings.saveLabel,
         saveapprovelabel: strings.saveApproveLabel,
         rejectlabel: strings.rejectLabel,

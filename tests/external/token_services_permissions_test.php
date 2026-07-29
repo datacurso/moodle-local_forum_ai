@@ -29,6 +29,7 @@ defined('MOODLE_INTERNAL') || die();
 
 use core_external\external_api;
 use externallib_advanced_testcase;
+use local_forum_ai\xss_payload_fixture;
 use moodle_exception;
 use required_capability_exception;
 use stdClass;
@@ -36,6 +37,7 @@ use stdClass;
 global $CFG;
 
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
+require_once(__DIR__ . '/../fixtures/xss_payload_fixture.php');
 
 /**
  * Tests that approve_response, get_details and update_response require the approval capability.
@@ -164,6 +166,10 @@ final class token_services_permissions_test extends externallib_advanced_testcas
 
         $this->assertSame('pending', $result['status']);
         $this->assertSame($pending->approval_token, $result['token']);
+
+        // The editor field carries the stored source; airesponse stays the rendered variant.
+        $this->assertSame($pending->message, $result['airesponseraw']);
+        $this->assertSame(format_text($pending->message, FORMAT_HTML), $result['airesponse']);
     }
 
     /**
@@ -182,6 +188,44 @@ final class token_services_permissions_test extends externallib_advanced_testcas
         $result = external_api::clean_returnvalue(get_details::execute_returns(), $result);
 
         $this->assertSame('approved', $result['status']);
+        $this->assertSame($pending->message, $result['airesponseraw']);
+    }
+
+    /**
+     * A get_details/update_response round-trip must not mutate an already-clean message.
+     *
+     * This pins the no-op-save contract of the pending modal: the edit textarea
+     * is filled from airesponseraw, so saving without editing keeps the stored
+     * message byte-identical (no filter-rendered markup is ever written back).
+     */
+    public function test_noop_edit_roundtrip_preserves_stored_message(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$pending, $student, $teacher] = $this->create_pending_response();
+
+        // Seed an already-clean stored message (a fixed point of the purifier).
+        $clean = clean_text('<p>Hola <strong>mundo</strong></p><ul><li>a</li></ul>', FORMAT_HTML);
+        $DB->set_field('local_forum_ai_pending', 'message', $clean, ['id' => $pending->id]);
+
+        $this->setUser($teacher);
+
+        $details = get_details::execute($pending->approval_token);
+        // Same pre-existing missing-name-fields debugging notices as in the other get_details cases.
+        $this->assertDebuggingCalledCount(2);
+        $details = external_api::clean_returnvalue(get_details::execute_returns(), $details);
+        $this->assertSame($clean, $details['airesponseraw']);
+
+        // Saving the editor content unchanged keeps the stored message byte-identical.
+        $result = update_response::execute($pending->approval_token, $details['airesponseraw']);
+        $result = external_api::clean_returnvalue(update_response::execute_returns(), $result);
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame(
+            $clean,
+            $DB->get_field('local_forum_ai_pending', 'message', ['id' => $pending->id], MUST_EXIST)
+        );
     }
 
     /**
@@ -275,6 +319,59 @@ final class token_services_permissions_test extends externallib_advanced_testcas
             'approved',
             $DB->get_field('local_forum_ai_pending', 'status', ['id' => $pending->id], MUST_EXIST)
         );
+    }
+
+    /**
+     * Approving a legacy dirty pending row must publish a cleaned, untrusted post.
+     */
+    public function test_approve_publishes_sanitized_legacy_message(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$pending, $student, $teacher] = $this->create_pending_response();
+
+        // Simulate a legacy row stored before sanitization existed.
+        $DB->set_field('local_forum_ai_pending', 'message', xss_payload_fixture::PAYLOAD, ['id' => $pending->id]);
+
+        $this->setUser($teacher);
+
+        $result = approve_response::execute($pending->approval_token, 'approve');
+        $result = external_api::clean_returnvalue(approve_response::execute_returns(), $result);
+        $this->assertTrue($result['success']);
+
+        // The publication succeeds and the new post is neutralized, not rejected.
+        $post = $DB->get_record('forum_posts', ['userid' => $teacher->id], '*', MUST_EXIST);
+        $this->assertStringNotContainsString('<script', $post->message);
+        $this->assertStringNotContainsString('onerror', $post->message);
+        $this->assertStringContainsString('<p>', $post->message);
+        $this->assertStringContainsString('<strong>', $post->message);
+        $this->assertEquals(0, $post->messagetrust);
+    }
+
+    /**
+     * The edit service must store and return purified HTML.
+     */
+    public function test_update_response_sanitizes_message(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$pending, $student, $teacher] = $this->create_pending_response();
+
+        $this->setUser($teacher);
+
+        $result = update_response::execute($pending->approval_token, xss_payload_fixture::PAYLOAD);
+        $result = external_api::clean_returnvalue(update_response::execute_returns(), $result);
+
+        $this->assertSame('ok', $result['status']);
+
+        $stored = $DB->get_field('local_forum_ai_pending', 'message', ['id' => $pending->id], MUST_EXIST);
+        $this->assertStringNotContainsString('<script', $stored);
+        $this->assertStringNotContainsString('onerror', $stored);
+        $this->assertStringContainsString('<p>', $stored);
+        $this->assertStringContainsString('<strong>', $stored);
+        $this->assertSame($stored, $result['message']);
     }
 
     /**

@@ -60,7 +60,8 @@ class approval {
             $pending->forumid = $forum->id;
             $pending->creator_userid = $creatoruserid ?? $discussion->userid;
             $pending->subject = "Re: " . $discussion->name;
-            $pending->message = $message;
+            // The AI response is external, untrusted content: purify it before storing.
+            $pending->message = clean_text($message, FORMAT_HTML);
             $pending->status = $status;
             $pending->approval_token = $approvaltoken;
             $pending->parentpostid = $parentpostid;
@@ -241,9 +242,10 @@ class approval {
             $post->created = time();
             $post->modified = time();
             $post->subject = "Re: " . $discussion->name;
-            $post->message = $message;
+            // The AI response is external, untrusted content: purify it and never mark it as trusted.
+            $post->message = clean_text($message, FORMAT_HTML);
             $post->messageformat = FORMAT_HTML;
-            $post->messagetrust = 1;
+            $post->messagetrust = 0;
             $post->mailed = FORUM_MAILED_PENDING;
             $post->attachment = '';
             $post->totalscore = 0;
