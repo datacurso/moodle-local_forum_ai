@@ -270,5 +270,13 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026072800, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026072803) {
+        // Queue rows are now deleted after dispatch; purge legacy dispatched rows.
+        $DB->delete_records('local_forum_ai_queue', ['processed' => 1]);
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026072803, 'local', 'forum_ai');
+    }
+
     return true;
 }
