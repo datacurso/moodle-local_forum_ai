@@ -122,9 +122,10 @@ class approve_response extends external_api {
             $post->created       = time();
             $post->modified      = time();
             $post->subject       = $pending->subject ?: ("Re: " . $discussion->name);
-            $post->message       = $pending->message;
+            // Clean at the publication boundary too: covers legacy pending rows stored before sanitization.
+            $post->message       = clean_text($pending->message, FORMAT_HTML);
             $post->messageformat = FORMAT_HTML;
-            $post->messagetrust  = 1;
+            $post->messagetrust  = 0;
             // No draft file area is involved; forum_add_new_post() expects the property to exist.
             $post->itemid        = 0;
 

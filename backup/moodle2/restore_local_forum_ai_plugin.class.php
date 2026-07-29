@@ -116,7 +116,8 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->discussionid = $newdiscussionid;
             $record->creator_userid = $newuserid ?? $pending->creator_userid;
             $record->subject = $pending->subject;
-            $record->message = $pending->message;
+            // Restored AI messages may come from pre-sanitization backups: purify on re-insertion.
+            $record->message = clean_text($pending->message ?? '', FORMAT_HTML);
             $record->status = 'pending';
             $record->approval_token = md5(uniqid('restored_', true));
             $record->timecreated = $pending->timecreated;

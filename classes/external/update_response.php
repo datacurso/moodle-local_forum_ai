@@ -45,6 +45,8 @@ class update_response extends external_api {
     public static function execute_parameters() {
         return new external_function_parameters([
             'token'   => new external_value(PARAM_ALPHANUMEXT, 'Approval token'),
+            // PARAM_RAW on purpose: external_api::validate_parameters() rejects (not cleans)
+            // values that change under PARAM_CLEANHTML; dirty input must be neutralized instead.
             'message' => new external_value(PARAM_RAW, 'New AI message'),
         ]);
     }
@@ -83,7 +85,8 @@ class update_response extends external_api {
             throw new moodle_exception('error_responsenotpending', 'local_forum_ai');
         }
 
-        $pending->message = $params['message'];
+        // Edited AI responses remain external, untrusted content: purify before storing.
+        $pending->message = clean_text($params['message'], FORMAT_HTML);
         $pending->timemodified = time();
         $DB->update_record('local_forum_ai_pending', $pending);
 
