@@ -94,6 +94,11 @@ class process_ai_discussion extends adhoc_task {
                 return;
             }
 
+            if (utils::is_forum_cutoff_reached($forum)) {
+                mtrace("local_forum_ai: skipping discussion {$discussionid} — forum {$forum->id} cut-off date has passed.");
+                return;
+            }
+
             if (!utils::can_reply_in_discussion($forum, $discussion, $config)) {
                 mtrace("local_forum_ai: skipping discussion {$discussionid} — discussion is locked.");
                 return;
