@@ -254,11 +254,17 @@ final class utils_private_reply_test extends \advanced_testcase {
             'cmid' => $cm->id,
         ]);
 
+        // Capture mtrace output with a local buffer: TestCase::getActualOutput() was
+        // removed in PHPUnit 10+, so this must not rely on it to stay compatible
+        // with Moodle 5.0/5.1 CI runs.
+        ob_start();
         $thrown = null;
         try {
             $task->execute();
         } catch (\Throwable $e) {
             $thrown = $e;
+        } finally {
+            $taskoutput = ob_get_clean();
         }
 
         // Swallow the provider's internal debugging without pinning its count.
@@ -267,7 +273,7 @@ final class utils_private_reply_test extends \advanced_testcase {
         // The task rethrows the AI client failure, proving every gate let the post through:
         // the gates bail out with mtrace + return and never reach the AI client.
         $this->assertNotNull($thrown, 'The AI client was expected to fail without a configured license key.');
-        $this->assertDoesNotMatchRegularExpression('/private reply/', $this->getActualOutput());
+        $this->assertStringNotContainsString('private reply', $taskoutput);
         $this->assertSame(0, $DB->count_records('local_forum_ai_pending'));
     }
 
