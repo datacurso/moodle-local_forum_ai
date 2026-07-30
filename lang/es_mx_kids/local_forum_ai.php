@@ -140,6 +140,7 @@ $string['privacy:metadata:local_forum_ai_pending:forumid'] = 'ID del foro en el 
 $string['privacy:metadata:local_forum_ai_pending:grade'] = 'La calificación que la IA propone para la publicación.';
 $string['privacy:metadata:local_forum_ai_pending:message'] = 'Mensaje generado por la inteligencia artificial.';
 $string['privacy:metadata:local_forum_ai_pending:parentpostid'] = 'El número de la publicación a la que responde la IA.';
+$string['privacy:metadata:local_forum_ai_pending:postid'] = 'El número del mensaje del foro que se creó con esta respuesta de la IA.';
 $string['privacy:metadata:local_forum_ai_pending:status'] = 'Estado de la publicación (aprobada, pendiente o rechazada).';
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Asunto o tema del mensaje.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Fecha en que se creó el registro.';

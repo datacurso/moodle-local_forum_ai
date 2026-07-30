@@ -52,6 +52,20 @@ class post {
 
             $post = $DB->get_record('forum_posts', ['id' => $postid], '*', MUST_EXIST);
 
+            // Posts published by this plugin must never re-trigger generation. The marker
+            // is persistent because this observer is 'internal' => false (dispatch can be
+            // deferred past transaction commit), so static flags would not survive.
+            try {
+                if ($DB->record_exists('local_forum_ai_pending', ['postid' => $post->id])) {
+                    return true;
+                }
+            } catch (\dml_exception $e) {
+                // The postid column may not exist yet when code is deployed ahead of the
+                // DB upgrade: fall through to normal processing instead of erroring on
+                // every forum post site-wide.
+                debugging('local_forum_ai: postid marker lookup failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            }
+
             // The AI never replies to private replies: skip before queueing anything.
             if (utils::is_private_reply($post)) {
                 return true;

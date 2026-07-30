@@ -140,6 +140,7 @@ $string['privacy:metadata:local_forum_ai_pending:forumid'] = 'ID форума, �
 $string['privacy:metadata:local_forum_ai_pending:grade'] = 'Оценка, предложенная ИИ для оцениваемого сообщения.';
 $string['privacy:metadata:local_forum_ai_pending:message'] = 'Сообщение, созданное искусственным интеллектом.';
 $string['privacy:metadata:local_forum_ai_pending:parentpostid'] = 'ID сообщения форума, на которое отвечает ответ ИИ.';
+$string['privacy:metadata:local_forum_ai_pending:postid'] = 'ID сообщения форума, опубликованного из этого ответа ИИ.';
 $string['privacy:metadata:local_forum_ai_pending:status'] = 'Статус публикации (одобрена, ожидает, отклонена).';
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Тема сообщения.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Дата создания записи.';

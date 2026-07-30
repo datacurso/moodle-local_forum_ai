@@ -140,6 +140,7 @@ $string['privacy:metadata:local_forum_ai_pending:forumid'] = 'ID des Forums, in 
 $string['privacy:metadata:local_forum_ai_pending:grade'] = 'Von der KI vorgeschlagene Bewertung für den bewerteten Beitrag.';
 $string['privacy:metadata:local_forum_ai_pending:message'] = 'Von der KI generierte Nachricht.';
 $string['privacy:metadata:local_forum_ai_pending:parentpostid'] = 'ID des Forenbeitrags, auf den die KI-Antwort antwortet.';
+$string['privacy:metadata:local_forum_ai_pending:postid'] = 'ID des Forenbeitrags, der aus dieser KI-Antwort veröffentlicht wurde.';
 $string['privacy:metadata:local_forum_ai_pending:status'] = 'Status des Beitrags (genehmigt, ausstehend oder abgelehnt).';
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Betreff oder Thema der Nachricht.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Datum, an dem der Datensatz erstellt wurde.';

@@ -140,6 +140,7 @@ $string['privacy:metadata:local_forum_ai_pending:forumid'] = 'ID forum tempat re
 $string['privacy:metadata:local_forum_ai_pending:grade'] = 'Nilai yang diusulkan AI untuk posting yang dievaluasi.';
 $string['privacy:metadata:local_forum_ai_pending:message'] = 'Pesan yang dihasilkan oleh kecerdasan buatan.';
 $string['privacy:metadata:local_forum_ai_pending:parentpostid'] = 'ID posting forum yang dibalas oleh respon AI.';
+$string['privacy:metadata:local_forum_ai_pending:postid'] = 'ID posting forum yang dipublikasikan dari respon AI ini.';
 $string['privacy:metadata:local_forum_ai_pending:status'] = 'Status posting (disetujui, menunggu, atau ditolak).';
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Subjek pesan.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Tanggal pembuatan catatan.';

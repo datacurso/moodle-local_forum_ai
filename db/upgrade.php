@@ -278,5 +278,25 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026072803, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026073000) {
+        // Define field postid to be added to local_forum_ai_pending.
+        $table = new xmldb_table('local_forum_ai_pending');
+        $field = new xmldb_field('postid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'parentpostid');
+
+        // Conditionally launch add field postid.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // The observer marker lookup runs on every forum post site-wide: index it.
+        $index = new xmldb_index('postid', XMLDB_INDEX_NOTUNIQUE, ['postid']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026073000, 'local', 'forum_ai');
+    }
+
     return true;
 }

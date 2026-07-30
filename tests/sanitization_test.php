@@ -63,27 +63,40 @@ final class sanitization_test extends \advanced_testcase {
     /**
      * Auto-published replies must be cleaned and never flagged as trusted content.
      */
-    public function test_create_ai_reply_sanitizes_message(): void {
+    public function test_publish_ai_post_sanitizes_message(): void {
         global $DB;
 
         $this->resetAfterTest();
+        $this->setAdminUser();
 
         [$forum, $discussion, $student] = $this->create_forum_and_discussion();
 
-        $result = approval::create_ai_reply(
+        $pendingid = approval::create_approval_request(
             $discussion,
+            $forum,
             xss_payload_fixture::PAYLOAD,
+            'approved',
+            (int)$discussion->firstpost,
+            null,
+            (int)$student->id
+        );
+        $pending = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
+
+        $cm = get_coursemodule_from_instance('forum', $forum->id, $forum->course, false, MUST_EXIST);
+        $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
+
+        $postid = approval::publish_ai_post(
+            $discussion,
+            $forum,
+            $cm,
+            $course,
+            $pending,
             (int)$discussion->firstpost,
             (int)$student->id
         );
-        $this->assertTrue($result);
+        $this->assertNotFalse($postid);
 
-        $post = $DB->get_record(
-            'forum_posts',
-            ['discussion' => $discussion->id, 'parent' => $discussion->firstpost],
-            '*',
-            MUST_EXIST
-        );
+        $post = $DB->get_record('forum_posts', ['id' => $postid], '*', MUST_EXIST);
 
         $this->assertStringNotContainsString('<script', $post->message);
         $this->assertStringNotContainsString('onerror', $post->message);
@@ -91,6 +104,52 @@ final class sanitization_test extends \advanced_testcase {
         $this->assertStringContainsString('<strong>', $post->message);
         $this->assertStringContainsString('<li>', $post->message);
         $this->assertEquals(0, $post->messagetrust);
+    }
+
+    /**
+     * The publisher itself must clean legacy dirty rows that bypassed early sanitization.
+     */
+    public function test_publish_ai_post_sanitizes_legacy_dirty_row(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        [$forum, $discussion, $student] = $this->create_forum_and_discussion();
+
+        // Raw insert simulating a pre-sanitization legacy row.
+        $pending = new \stdClass();
+        $pending->discussionid = $discussion->id;
+        $pending->forumid = $forum->id;
+        $pending->parentpostid = $discussion->firstpost;
+        $pending->creator_userid = $student->id;
+        $pending->subject = 'Re: ' . $discussion->name;
+        $pending->message = xss_payload_fixture::PAYLOAD;
+        $pending->status = 'approved';
+        $pending->approval_token = md5(uniqid('dirty_', true));
+        $pending->timecreated = time();
+        $pending->timemodified = time();
+        $pending->id = $DB->insert_record('local_forum_ai_pending', $pending);
+
+        $cm = get_coursemodule_from_instance('forum', $forum->id, $forum->course, false, MUST_EXIST);
+        $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
+
+        $postid = approval::publish_ai_post(
+            $discussion,
+            $forum,
+            $cm,
+            $course,
+            $pending,
+            (int)$discussion->firstpost,
+            (int)$student->id
+        );
+        $this->assertNotFalse($postid);
+
+        $post = $DB->get_record('forum_posts', ['id' => $postid], '*', MUST_EXIST);
+        $this->assertStringNotContainsString('<script', $post->message);
+        $this->assertStringNotContainsString('onerror', $post->message);
+        $this->assertStringContainsString('<p>', $post->message);
+        $this->assertStringContainsString('<strong>', $post->message);
     }
 
     /**
