@@ -25,8 +25,6 @@
 
 namespace local_forum_ai;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Canonical malicious payload shared by every sanitization test.
  *

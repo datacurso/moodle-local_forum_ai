@@ -213,7 +213,16 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
     if ($oldversion < 2026050701) {
         // Define field questionturns to be added to local_forum_ai_config.
         $table = new xmldb_table('local_forum_ai_config');
-        $field = new xmldb_field('questionturns', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1', 'enablediainitconversation');
+        $field = new xmldb_field(
+            'questionturns',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '1',
+            'enablediainitconversation'
+        );
 
         // Conditionally launch add field questionturns.
         if (!$dbman->field_exists($table, $field)) {

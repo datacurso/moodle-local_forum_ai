@@ -267,8 +267,13 @@ final class publish_ai_post_test extends \advanced_testcase {
         // Nonexistent author.
         $pending = $this->create_approved_pending($fixture);
         $result = approval::publish_ai_post(
-            $fixture->discussion, $fixture->forum, $fixture->cm, $fixture->course,
-            $pending, (int) $fixture->discussion->firstpost, 999999
+            $fixture->discussion,
+            $fixture->forum,
+            $fixture->cm,
+            $fixture->course,
+            $pending,
+            (int) $fixture->discussion->firstpost,
+            999999
         );
         $this->assertDebuggingCalled();
         $this->assertFalse($result);
@@ -277,8 +282,13 @@ final class publish_ai_post_test extends \advanced_testcase {
         $DB->set_field('user', 'suspended', 1, ['id' => $fixture->grader->id]);
         $pending = $this->create_approved_pending($fixture);
         $result = approval::publish_ai_post(
-            $fixture->discussion, $fixture->forum, $fixture->cm, $fixture->course,
-            $pending, (int) $fixture->discussion->firstpost, (int) $fixture->grader->id
+            $fixture->discussion,
+            $fixture->forum,
+            $fixture->cm,
+            $fixture->course,
+            $pending,
+            (int) $fixture->discussion->firstpost,
+            (int) $fixture->grader->id
         );
         $this->assertDebuggingCalled();
         $this->assertFalse($result);
@@ -288,8 +298,13 @@ final class publish_ai_post_test extends \advanced_testcase {
         $DB->set_field('user', 'deleted', 1, ['id' => $fixture->grader->id]);
         $pending = $this->create_approved_pending($fixture);
         $result = approval::publish_ai_post(
-            $fixture->discussion, $fixture->forum, $fixture->cm, $fixture->course,
-            $pending, (int) $fixture->discussion->firstpost, (int) $fixture->grader->id
+            $fixture->discussion,
+            $fixture->forum,
+            $fixture->cm,
+            $fixture->course,
+            $pending,
+            (int) $fixture->discussion->firstpost,
+            (int) $fixture->grader->id
         );
         $this->assertDebuggingCalled();
         $this->assertFalse($result);

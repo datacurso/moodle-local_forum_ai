@@ -16,8 +16,6 @@
 
 namespace local_forum_ai\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
