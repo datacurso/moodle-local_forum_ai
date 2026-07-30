@@ -68,6 +68,7 @@ $string['enablediainitconversation_help'] = 'Mengaktifkan opsi ini akan memungki
 $string['error_airequest'] = 'Kesalahan komunikasi dengan layanan AI: {$a}';
 $string['error_discussionlocked'] = 'Diskusi ini terkunci, sehingga respon AI tidak dapat dipublikasikan. Buka kunci diskusi lalu coba lagi.';
 $string['error_forumclosed'] = 'Tanggal batas akhir forum ini sudah lewat, sehingga respon AI tidak dapat dipublikasikan.';
+$string['error_privatereply'] = 'Posting yang dibalas adalah balasan pribadi, sehingga respon AI tidak dapat dipublikasikan.';
 $string['error_responsenotpending'] = 'Respon ini sudah disetujui atau ditolak dan tidak dapat diedit lagi.';
 $string['error_usernotincourse'] = 'Pengguna yang dipilih tidak terdaftar di kursus ini.';
 $string['evaluatingwithai'] = 'Sedang mengevaluasi dengan AI...';

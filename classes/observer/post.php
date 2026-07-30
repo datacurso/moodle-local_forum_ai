@@ -51,6 +51,12 @@ class post {
             $postid = $data['objectid'];
 
             $post = $DB->get_record('forum_posts', ['id' => $postid], '*', MUST_EXIST);
+
+            // The AI never replies to private replies: skip before queueing anything.
+            if (utils::is_private_reply($post)) {
+                return true;
+            }
+
             $discussion = $DB->get_record('forum_discussions', ['id' => $post->discussion], '*', MUST_EXIST);
             $forum = $DB->get_record('forum', ['id' => $discussion->forum], '*', MUST_EXIST);
             $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);

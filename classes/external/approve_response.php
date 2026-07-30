@@ -109,6 +109,13 @@ class approve_response extends external_api {
 
                 if ($parentpost) {
                     $parentid = $pending->parentpostid;
+
+                    // Core forbids replying to private replies (forum_add_new_post would throw
+                    // a coding_exception): surface a clean, localized error instead. The
+                    // firstpost fallback needs no check because a first post is never private.
+                    if (\local_forum_ai\utils::is_private_reply($parentpost)) {
+                        throw new moodle_exception('error_privatereply', 'local_forum_ai');
+                    }
                 } else {
                     // If the parent post does not exist, log the error and use firstpost instead.
                     debugging(
