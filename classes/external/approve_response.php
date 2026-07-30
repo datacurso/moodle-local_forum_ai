@@ -86,6 +86,12 @@ class approve_response extends external_api {
 
         $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]) ?: null;
 
+        // Restored or legacy rows may hold a published post while still marked pending:
+        // an already-published response must never be re-published.
+        if (!empty($pending->postid)) {
+            throw new moodle_exception('error_responsenotpending', 'local_forum_ai');
+        }
+
         if ($params['action'] === 'approve') {
             require_once($CFG->dirroot . '/mod/forum/lib.php');
 
@@ -125,22 +131,22 @@ class approve_response extends external_api {
                 }
             }
 
-            $post = new \stdClass();
-            $post->discussion    = $discussion->id;
-            $post->parent        = $parentid;
-            // In manual mode, attribute the AI response to the user who approved it.
-            $post->userid        = $USER->id;
-            $post->created       = time();
-            $post->modified      = time();
-            $post->subject       = $pending->subject ?: ("Re: " . $discussion->name);
-            // Clean at the publication boundary too: covers legacy pending rows stored before sanitization.
-            $post->message       = clean_text($pending->message, FORMAT_HTML);
-            $post->messageformat = FORMAT_HTML;
-            $post->messagetrust  = 0;
-            // No draft file area is involved; forum_add_new_post() expects the property to exist.
-            $post->itemid        = 0;
-
-            $newpostid = forum_add_new_post($post, null);
+            // In manual mode the AI response is attributed to the user who approved it,
+            // so the shared publisher never needs to switch users on this path.
+            $newpostid = \local_forum_ai\approval::publish_ai_post(
+                $discussion,
+                $forum,
+                $cm,
+                $course,
+                $pending,
+                (int) $parentid,
+                (int) $USER->id
+            );
+            if (!$newpostid) {
+                // Defense in depth: false only happens for pre-insert failures (the gates
+                // above should have caught them already), so no post was published.
+                throw new moodle_exception('error_privatereply', 'local_forum_ai');
+            }
 
             $gradingenabled = ($forum->assessed != 0);
 

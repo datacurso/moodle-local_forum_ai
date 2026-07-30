@@ -82,6 +82,7 @@ class provider implements
                 'discussionid'   => 'privacy:metadata:local_forum_ai_pending:discussionid',
                 'forumid'        => 'privacy:metadata:local_forum_ai_pending:forumid',
                 'parentpostid'   => 'privacy:metadata:local_forum_ai_pending:parentpostid',
+                'postid'         => 'privacy:metadata:local_forum_ai_pending:postid',
                 'message'        => 'privacy:metadata:local_forum_ai_pending:message',
                 'subject'        => 'privacy:metadata:local_forum_ai_pending:subject',
                 'grade'          => 'privacy:metadata:local_forum_ai_pending:grade',

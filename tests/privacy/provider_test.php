@@ -108,7 +108,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
         );
         $this->assertEqualsCanonicalizing(
             [
-                'creator_userid', 'discussionid', 'forumid', 'parentpostid', 'message', 'subject',
+                'creator_userid', 'discussionid', 'forumid', 'parentpostid', 'postid', 'message', 'subject',
                 'grade', 'status', 'approved_at', 'approval_token', 'timecreated', 'timemodified',
             ],
             $fieldsbytable['local_forum_ai_pending']

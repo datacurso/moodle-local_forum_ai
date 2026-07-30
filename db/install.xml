@@ -40,6 +40,7 @@
                 <FIELD NAME="discussionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" />
                 <FIELD NAME="forumid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" />
                 <FIELD NAME="parentpostid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" />
+                <FIELD NAME="postid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" />
                 <FIELD NAME="creator_userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" />
                 <FIELD NAME="subject" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" />
                 <FIELD NAME="message" TYPE="text" NOTNULL="true" SEQUENCE="false" />
@@ -57,6 +58,9 @@
                     REFTABLE="forum_discussions" REFFIELDS="id" />
                 <KEY NAME="approval_token_unique" TYPE="unique" FIELDS="approval_token" />
             </KEYS>
+            <INDEXES>
+                <INDEX NAME="postid" UNIQUE="false" FIELDS="postid" />
+            </INDEXES>
         </TABLE>
 
         <TABLE NAME="local_forum_ai_queue" COMMENT="Queue for AI forum tasks">

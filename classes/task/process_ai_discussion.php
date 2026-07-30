@@ -185,7 +185,7 @@ class process_ai_discussion extends adhoc_task {
                 debugging('Grading enabled but no grader configured for forum ' . $forum->id, DEBUG_DEVELOPER);
             }
 
-            approval::create_approval_request(
+            $pendingid = approval::create_approval_request(
                 $discussion,
                 $forum,
                 $replytext,
@@ -195,8 +195,24 @@ class process_ai_discussion extends adhoc_task {
                 (!$requireapproval && $effectivegraderid) ? $effectivegraderid : $discussion->userid
             );
 
-            if (!$requireapproval) {
-                approval::create_ai_reply($discussion, $replytext, $discussion->firstpost, $effectivegraderid);
+            if (!$requireapproval && $pendingid) {
+                $pendingrow = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
+                $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
+                $published = approval::publish_ai_post(
+                    $discussion,
+                    $forum,
+                    $cm,
+                    $course,
+                    $pendingrow,
+                    (int) $discussion->firstpost,
+                    (int) $effectivegraderid
+                );
+                if (!$published) {
+                    // A false return is final (inactive author or private parent): do not rethrow,
+                    // an adhoc retry would only re-call the paid AI service for the same outcome.
+                    mtrace("local_forum_ai: could not publish AI reply for pending {$pendingid}.");
+                    return;
+                }
             }
         } catch (\Throwable $e) {
             debugging('Error in process_ai_discussion task: ' . $e->getMessage(), DEBUG_DEVELOPER);
