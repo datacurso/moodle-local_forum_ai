@@ -192,15 +192,21 @@ function local_forum_ai_add_rating(
     }
 
     if ($userrating != RATING_UNSET_RATING) {
-        $scale = $DB->get_record('scale', ['id' => $scaleid]);
-        if ($scale) {
-            $scalearray = explode(',', $scale->scale);
-            $scalemax = count($scalearray);
-            if ($userrating < 0 || $userrating > $scalemax) {
+        if ($scaleid < 0) {
+            // Named scale: Moodle stores the negative id of the scale record.
+            // The rating is the 1-based index of the selected option.
+            $scale = $DB->get_record('scale', ['id' => -$scaleid]);
+            if (!$scale) {
+                $result->error = 'ratinginvalid';
+                return $result;
+            }
+            $scalemax = count(explode(',', $scale->scale));
+            if ($userrating < 1 || $userrating > $scalemax) {
                 $result->error = 'ratinginvalid';
                 return $result;
             }
         } else {
+            // Point grading: the scale id is the numeric maximum.
             if ($userrating < 0 || $userrating > $scaleid) {
                 $result->error = 'ratinginvalid';
                 return $result;

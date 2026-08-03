@@ -81,6 +81,36 @@ class utils {
     }
 
     /**
+     * Build the scale value to send to the AI service for post grading.
+     *
+     * Point grading (positive scale) keeps the numeric maximum. Named scales
+     * are stored by Moodle as the negative id of the scale record; in that
+     * case the ordered list of option names is returned so the AI can pick a
+     * valid option. The AI is expected to return the 1-based index of the
+     * chosen option as the grade.
+     *
+     * @param int $scale Forum 'scale' field (max grade, or negative scale id).
+     * @return int|string[]|null Numeric maximum, list of scale options, or null
+     *                           when the scale is unset or cannot be resolved.
+     */
+    public static function get_scale_payload(int $scale) {
+        global $DB;
+
+        if ($scale > 0) {
+            return $scale;
+        }
+
+        if ($scale < 0) {
+            $scalerecord = $DB->get_record('scale', ['id' => -$scale]);
+            if ($scalerecord) {
+                return array_map('trim', explode(',', $scalerecord->scale));
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Checks whether forum AI feature is globally enabled.
      *
      * @return bool

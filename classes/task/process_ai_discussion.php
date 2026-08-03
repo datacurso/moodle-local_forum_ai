@@ -149,7 +149,7 @@ class process_ai_discussion extends adhoc_task {
                 'prompt' => $replymessage,
                 'allow_followup_question' => $allowfollowupquestion,
                 'grading_enabled' => $gradingenabled,
-                'scale' => $gradingenabled ? $forum->scale : null,
+                'scale' => $gradingenabled ? utils::get_scale_payload((int)$forum->scale) : null,
             ];
 
             $airesponse = ai_service::call_ai_service($payload);
