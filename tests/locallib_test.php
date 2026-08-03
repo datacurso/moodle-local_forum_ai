@@ -194,4 +194,110 @@ final class locallib_test extends \advanced_testcase {
 
         $this->assertSame('norate', $result->error);
     }
+
+    /**
+     * Inserts a pending AI response row for the fixture discussion.
+     *
+     * @param array $data Fixture returned by setup_rated_forum().
+     * @param string $status Row status (pending, approved or rejected).
+     * @return int Inserted record id.
+     */
+    private function insert_pending(array $data, string $status = 'pending'): int {
+        global $DB;
+
+        return $DB->insert_record('local_forum_ai_pending', (object)[
+            'discussionid' => $data['post']->discussion,
+            'forumid' => $data['forum']->id,
+            'parentpostid' => $data['post']->id,
+            'creator_userid' => $data['student']->id,
+            'subject' => 'Re: subject',
+            'message' => 'AI reply',
+            'status' => $status,
+            'approval_token' => sha1('token' . $status),
+            'timecreated' => time(),
+        ]);
+    }
+
+    /**
+     * Pending rows must carry every user name field so fullname() can be
+     * called on them without triggering missing-field debugging notices.
+     */
+    public function test_get_pending_includes_all_name_fields(): void {
+        $this->resetAfterTest();
+
+        $data = $this->setup_rated_forum();
+        $this->insert_pending($data);
+
+        $records = local_forum_ai_get_pending($data['course']->id);
+
+        $this->assertCount(1, $records);
+        $record = reset($records);
+        foreach (\core_user\fields::get_name_fields() as $namefield) {
+            $this->assertTrue(
+                property_exists($record, $namefield),
+                "Missing user name field '{$namefield}' in pending record."
+            );
+        }
+    }
+
+    /**
+     * The exact page logic — building the user with
+     * username_load_fields_from_object() and calling fullname() on it — must
+     * work on pending rows without missing-name-field debugging notices.
+     */
+    public function test_pending_rows_support_fullname(): void {
+        $this->resetAfterTest();
+
+        $data = $this->setup_rated_forum();
+        $this->insert_pending($data);
+
+        $records = local_forum_ai_get_pending($data['course']->id);
+        $record = reset($records);
+
+        $user = username_load_fields_from_object((object)['id' => $record->creator_userid], $record);
+        $name = fullname($user);
+
+        $this->assertDebuggingNotCalled();
+        $this->assertSame(fullname($data['student']), $name);
+    }
+
+    /**
+     * Same page logic must work on history rows.
+     */
+    public function test_history_rows_support_fullname(): void {
+        $this->resetAfterTest();
+
+        $data = $this->setup_rated_forum();
+        $this->insert_pending($data, 'approved');
+
+        $records = local_forum_ai_get_history($data['course']->id);
+        $record = reset($records);
+
+        $user = username_load_fields_from_object((object)['id' => $record->creator_userid], $record);
+        $name = fullname($user);
+
+        $this->assertDebuggingNotCalled();
+        $this->assertSame(fullname($data['student']), $name);
+    }
+
+    /**
+     * History rows must carry every user name field for the same reason.
+     */
+    public function test_get_history_includes_all_name_fields(): void {
+        $this->resetAfterTest();
+
+        $data = $this->setup_rated_forum();
+        $this->insert_pending($data, 'approved');
+
+        $records = local_forum_ai_get_history($data['course']->id);
+
+        $this->assertCount(1, $records);
+        $record = reset($records);
+        foreach (\core_user\fields::get_name_fields() as $namefield) {
+            $this->assertTrue(
+                property_exists($record, $namefield),
+                "Missing user name field '{$namefield}' in history record."
+            );
+        }
+    }
 }

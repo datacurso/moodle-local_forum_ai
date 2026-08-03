@@ -37,8 +37,11 @@ require_once($CFG->dirroot . '/rating/lib.php');
 function local_forum_ai_get_pending(int $courseid, int $forumid = 0) {
     global $DB;
 
+    // All user name fields so fullname() can be used on the returned rows.
+    $usernamefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
+
     $sql = "SELECT p.*, d.name AS discussionname, f.name AS forumname,
-                   c.fullname AS coursename, u.firstname, u.lastname,
+                   c.fullname AS coursename, {$usernamefields},
                    fp.subject AS discussionsubject, fp.message AS discussionmessage, fp.messageformat
               FROM {local_forum_ai_pending} p
               JOIN {forum_discussions} d ON d.id = p.discussionid
@@ -80,8 +83,11 @@ function local_forum_ai_get_pending(int $courseid, int $forumid = 0) {
 function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
     global $DB;
 
+    // All user name fields so fullname() can be used on the returned rows.
+    $usernamefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
+
     $sql = "SELECT p.*, d.name AS discussionname, f.name AS forumname, c.fullname AS coursename,
-                   u.firstname, u.lastname
+                   {$usernamefields}
               FROM {local_forum_ai_pending} p
               JOIN {forum_discussions} d ON d.id = p.discussionid
               JOIN {forum} f ON f.id = p.forumid
