@@ -540,7 +540,9 @@ class utils {
             'participation' => [
                 'forum_id' => (string)$forum->id,
                 'forum' => $forum->name,
-                'scale' => (string)$forum->scale,
+                // Whole forum grading setting (not the per-post ratings scale):
+                // numeric maximum, or the option list for named scales.
+                'scale' => self::get_scale_payload((int)$forum->grade_forum) ?? 0,
                 'rubric' => $rubricdata,
                 'assessment_guide' => $guidedata,
                 'discussions' => $discussions,

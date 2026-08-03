@@ -113,7 +113,8 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
              */
             const injectButtonIntoGrader = function () {
 
-                const simpleInput = document.querySelector('input[name="grade"]');
+                // Point grading renders a text input; named scales render a select.
+                const simpleInput = document.querySelector('input[name="grade"], select[name="grade"]');
                 const rubricForm = document.querySelector('form[id^="gradingform_rubric"]');
                 const guideForm = document.querySelector('form[id^="gradingform_guide"]');
 
@@ -330,10 +331,21 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
         /**
          * Applies a simple direct grade.
          *
+         * Point grading uses a text input; named scales use a select whose
+         * option values are the 1-based indexes the AI returns. The form is
+         * only filled in — saving stays with the teacher.
+         *
          * @param {Object} data
          */
         function applySimpleGrade(data) {
-            $('input[name="grade"]').val(data.grade);
+            const gradeField = document.querySelector('input[name="grade"], select[name="grade"]');
+
+            if (!gradeField) {
+                return;
+            }
+
+            gradeField.value = data.grade;
+            gradeField.dispatchEvent(new Event('change', {bubbles: true}));
         }
 
         /**
