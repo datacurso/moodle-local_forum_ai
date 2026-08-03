@@ -22,6 +22,9 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+// Kept for consistency with every sibling lib file, although the sniff deems
+// it unneeded for a functions-only file.
+defined('MOODLE_INTERNAL') || die(); // phpcs:ignore moodle.Files.MoodleInternal.MoodleInternalNotNeeded
 
 /**
  * Gets the list of pending responses.

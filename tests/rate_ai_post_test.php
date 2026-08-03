@@ -119,6 +119,7 @@ final class rate_ai_post_test extends \advanced_testcase {
         ]);
         $context = context_module::instance($fixture->cm->id);
 
+        $reason = null;
         $result = approval::rate_ai_post(
             $fixture->cm,
             $context,
@@ -126,11 +127,90 @@ final class rate_ai_post_test extends \advanced_testcase {
             (int) $fixture->discussion->firstpost,
             (int) $fixture->student->id,
             85,
-            (int) $fixture->grader->id
+            (int) $fixture->grader->id,
+            $reason
         );
         $this->assertDebuggingCalled();
 
         $this->assertFalse($result);
+        $this->assertSame('notavailable', $reason);
+        $this->assertSame(0, $DB->count_records('rating'));
+    }
+
+    /**
+     * A window that has not opened yet also rejects the rating.
+     */
+    public function test_rating_before_assess_window_opens_fails(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        // The window opens tomorrow; the post is created now, before it.
+        // The ratingtime flag is required or forum_add_instance() zeroes the dates.
+        $fixture = $this->create_fixture([
+            'assessed' => RATING_AGGREGATE_AVERAGE,
+            'scale' => 100,
+            'ratingtime' => 1,
+            'assesstimestart' => time() + DAYSECS,
+            'assesstimefinish' => time() + (2 * DAYSECS),
+        ]);
+        $context = context_module::instance($fixture->cm->id);
+
+        $reason = null;
+        $result = approval::rate_ai_post(
+            $fixture->cm,
+            $context,
+            $fixture->forum,
+            (int) $fixture->discussion->firstpost,
+            (int) $fixture->student->id,
+            85,
+            (int) $fixture->grader->id,
+            $reason
+        );
+        $this->assertDebuggingCalled();
+
+        $this->assertFalse($result);
+        $this->assertNotEmpty($reason);
+        $this->assertSame(0, $DB->count_records('rating'));
+    }
+
+    /**
+     * A grader without moodle/rating:rate is rejected with a specific reason.
+     */
+    public function test_rating_without_capability_fails(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $fixture = $this->create_fixture(['assessed' => RATING_AGGREGATE_AVERAGE, 'scale' => 100]);
+        $context = context_module::instance($fixture->cm->id);
+
+        $roleid = $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
+        assign_capability(
+            'moodle/rating:rate',
+            CAP_PROHIBIT,
+            $roleid,
+            \context_course::instance($fixture->course->id)->id,
+            true
+        );
+
+        $reason = null;
+        $result = approval::rate_ai_post(
+            $fixture->cm,
+            $context,
+            $fixture->forum,
+            (int) $fixture->discussion->firstpost,
+            (int) $fixture->student->id,
+            85,
+            (int) $fixture->grader->id,
+            $reason
+        );
+        $this->assertDebuggingCalled();
+
+        $this->assertFalse($result);
+        $this->assertStringContainsString('moodle/rating:rate', (string) $reason);
         $this->assertSame(0, $DB->count_records('rating'));
     }
 
@@ -290,6 +370,7 @@ final class rate_ai_post_test extends \advanced_testcase {
 
         $DB->set_field('user', 'suspended', 1, ['id' => $fixture->grader->id]);
 
+        $reason = null;
         $result = approval::rate_ai_post(
             $fixture->cm,
             $context,
@@ -297,11 +378,13 @@ final class rate_ai_post_test extends \advanced_testcase {
             (int) $fixture->discussion->firstpost,
             (int) $fixture->student->id,
             85,
-            (int) $fixture->grader->id
+            (int) $fixture->grader->id,
+            $reason
         );
         $this->assertDebuggingCalled();
 
         $this->assertFalse($result);
+        $this->assertSame('rater missing or inactive', $reason);
         $this->assertSame(0, $DB->count_records('rating'));
     }
 

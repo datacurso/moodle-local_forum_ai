@@ -200,6 +200,7 @@ class process_ai_post extends adhoc_task {
 
                 // Rating is best effort and accompanies the published response.
                 if ($gradingenabled && $grade !== null && $effectivegraderid) {
+                    $failurereason = null;
                     $rated = approval::rate_ai_post(
                         $cm,
                         \context_module::instance($data->cmid),
@@ -207,11 +208,11 @@ class process_ai_post extends adhoc_task {
                         (int) $post->id,
                         (int) $post->userid,
                         (int) $grade,
-                        (int) $effectivegraderid
+                        (int) $effectivegraderid,
+                        $failurereason
                     );
                     if (!$rated) {
-                        mtrace("local_forum_ai: rating skipped for post {$post->id} " .
-                            "(window, groups, scale or permissions).");
+                        mtrace("local_forum_ai: rating skipped for post {$post->id} — {$failurereason}.");
                     }
                 }
             }

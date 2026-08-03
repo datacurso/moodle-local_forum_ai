@@ -360,6 +360,9 @@ class approval {
      * @param int $rateduserid Author of the rated post.
      * @param int $grade Rating value.
      * @param int $rateruserid User the rating is attributed to.
+     * @param string|null $failurereason Set to a short specific reason on every
+     *                                   false return, so callers can surface it
+     *                                   (debugging() alone is silent in production).
      * @return bool True when the rating was stored, false otherwise.
      */
     public static function rate_ai_post(
@@ -369,7 +372,8 @@ class approval {
         int $postid,
         int $rateduserid,
         int $grade,
-        int $rateruserid
+        int $rateruserid,
+        ?string &$failurereason = null
     ): bool {
         global $CFG, $USER;
 
@@ -380,6 +384,7 @@ class approval {
         if ((int) $USER->id !== $rateruserid) {
             $rater = \core_user::get_user($rateruserid);
             if (!$rater || !empty($rater->deleted) || !empty($rater->suspended)) {
+                $failurereason = 'rater missing or inactive';
                 debugging(
                     'Cannot rate AI post: rater user ' . $rateruserid . ' is missing or inactive',
                     DEBUG_DEVELOPER
@@ -394,6 +399,7 @@ class approval {
             // Parity with core's rating callers; mod/forum:rate is checked inside
             // add_rating() through the forum permissions callback.
             if (!has_capability('moodle/rating:rate', $context)) {
+                $failurereason = 'rater lacks moodle/rating:rate';
                 debugging(
                     'Cannot rate AI post: rater user ' . $rateruserid . ' lacks moodle/rating:rate',
                     DEBUG_DEVELOPER
@@ -415,6 +421,7 @@ class approval {
             );
 
             if (!empty($result->error)) {
+                $failurereason = (string) $result->error;
                 debugging('Cannot rate AI post: ' . $result->error, DEBUG_DEVELOPER);
                 return false;
             }
@@ -423,6 +430,7 @@ class approval {
         } catch (\Throwable $e) {
             // The forum validation callback throws rating_exception on window,
             // group, visibility or scale failures.
+            $failurereason = ($e instanceof \moodle_exception) ? (string) $e->errorcode : $e->getMessage();
             debugging('Cannot rate AI post: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return false;
         } finally {
