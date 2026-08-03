@@ -48,7 +48,8 @@ export const init = () => {
                     noPosts,
                     aiResponse,
                     aiResponseApproved,
-                    aiResponseRejected
+                    aiResponseRejected,
+                    aiResponseExpired
                 ] = await Promise.all([
                     getString('modal_title', 'local_forum_ai'),
                     getString('discussion_label', 'local_forum_ai', data.discussion),
@@ -56,6 +57,7 @@ export const init = () => {
                     getString('ai_response', 'local_forum_ai'),
                     getString('ai_response_approved', 'local_forum_ai'),
                     getString('ai_response_rejected', 'local_forum_ai'),
+                    getString('ai_response_expired', 'local_forum_ai'),
                 ]);
 
                 const body = await renderDiscussion(data, {
@@ -63,7 +65,8 @@ export const init = () => {
                     noPosts,
                     aiResponse,
                     aiResponseApproved,
-                    aiResponseRejected
+                    aiResponseRejected,
+                    aiResponseExpired
                 });
 
                 ModalFactory.create({
@@ -104,6 +107,10 @@ async function renderDiscussion(data, strings) {
         statusClass = 'bg-danger text-white';
         statusIcon = 'fa fa-times';
         statusLabel = strings.aiResponseRejected;
+    } else if (data.status === 'expired') {
+        statusClass = 'bg-warning text-dark';
+        statusIcon = 'fa fa-hourglass-end';
+        statusLabel = strings.aiResponseExpired;
     }
 
     return Templates.render('local_forum_ai/history_modal', {

@@ -123,9 +123,16 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
                 ? ($this->get_mappingid('forum_post', $pending->postid) ?: null)
                 : null;
             $record->postid = $mappedpostid;
-            // When the published post survived the restore, keep the original status:
-            // re-moderating the row would publish a duplicate of an existing post.
-            $record->status = $mappedpostid ? $pending->status : 'pending';
+            // Terminal statuses survive the restore: expired and rejected rows were
+            // never published and must not become approvable again. Only approved
+            // rows without a mapped post and pending rows re-enter moderation.
+            if ($pending->status === 'expired' || $pending->status === 'rejected') {
+                $record->status = $pending->status;
+            } else if ($mappedpostid) {
+                $record->status = $pending->status;
+            } else {
+                $record->status = 'pending';
+            }
             $record->approval_token = md5(uniqid('restored_', true));
             $record->timecreated = $pending->timecreated;
             $record->timemodified = time();
