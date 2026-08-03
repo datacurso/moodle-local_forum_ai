@@ -338,4 +338,105 @@ class approval {
             }
         }
     }
+
+    /**
+     * Rates a forum post on behalf of a user through Moodle's standard rating API.
+     *
+     * Rating is best effort: this method never throws and a false return must
+     * NEVER block or undo the publication of the AI response.
+     *
+     * rating_manager::add_rating() runs core's full validation chain
+     * (forum_rating_validate: assessment window, groups, scale, self-rating,
+     * post visibility) and pushes the grade to the gradebook. The rating
+     * subsystem hardcodes the rater to $USER, and the gradebook push logs
+     * \core\event\user_graded against the current user, so the helper switches
+     * to the rater when needed and restores the original user in the finally
+     * block (task/queue paths only; the web approval path already matches).
+     *
+     * @param \stdClass $cm Course module record.
+     * @param \context_module $context Module context.
+     * @param \stdClass $forum Forum record.
+     * @param int $postid ID of the post being rated.
+     * @param int $rateduserid Author of the rated post.
+     * @param int $grade Rating value.
+     * @param int $rateruserid User the rating is attributed to.
+     * @param string|null $failurereason Set to a short specific reason on every
+     *                                   false return, so callers can surface it
+     *                                   (debugging() alone is silent in production).
+     * @return bool True when the rating was stored, false otherwise.
+     */
+    public static function rate_ai_post(
+        \stdClass $cm,
+        \context_module $context,
+        \stdClass $forum,
+        int $postid,
+        int $rateduserid,
+        int $grade,
+        int $rateruserid,
+        ?string &$failurereason = null
+    ): bool {
+        global $CFG, $USER;
+
+        require_once($CFG->dirroot . '/rating/lib.php');
+
+        // Switch to the rater when the current user differs (task/queue paths only).
+        $originaluser = null;
+        if ((int) $USER->id !== $rateruserid) {
+            $rater = \core_user::get_user($rateruserid);
+            if (!$rater || !empty($rater->deleted) || !empty($rater->suspended)) {
+                $failurereason = 'rater missing or inactive';
+                debugging(
+                    'Cannot rate AI post: rater user ' . $rateruserid . ' is missing or inactive',
+                    DEBUG_DEVELOPER
+                );
+                return false;
+            }
+            $originaluser = $USER;
+            \core\cron::setup_user($rater);
+        }
+
+        try {
+            // Parity with core's rating callers; mod/forum:rate is checked inside
+            // add_rating() through the forum permissions callback.
+            if (!has_capability('moodle/rating:rate', $context)) {
+                $failurereason = 'rater lacks moodle/rating:rate';
+                debugging(
+                    'Cannot rate AI post: rater user ' . $rateruserid . ' lacks moodle/rating:rate',
+                    DEBUG_DEVELOPER
+                );
+                return false;
+            }
+
+            $rm = new \rating_manager();
+            $result = $rm->add_rating(
+                $cm,
+                $context,
+                'mod_forum',
+                'post',
+                $postid,
+                (int) $forum->scale,
+                $grade,
+                $rateduserid,
+                (int) $forum->assessed
+            );
+
+            if (!empty($result->error)) {
+                $failurereason = (string) $result->error;
+                debugging('Cannot rate AI post: ' . $result->error, DEBUG_DEVELOPER);
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable $e) {
+            // The forum validation callback throws rating_exception on window,
+            // group, visibility or scale failures.
+            $failurereason = ($e instanceof \moodle_exception) ? (string) $e->errorcode : $e->getMessage();
+            debugging('Cannot rate AI post: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return false;
+        } finally {
+            if ($originaluser !== null) {
+                \core\cron::setup_user($originaluser);
+            }
+        }
+    }
 }

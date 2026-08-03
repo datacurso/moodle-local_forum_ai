@@ -156,32 +156,7 @@ class process_ai_discussion extends adhoc_task {
             $replytext = $airesponse['reply'] ?? '';
             $grade = $gradingenabled ? ($airesponse['grade'] ?? null) : null;
 
-            if (!$requireapproval && $gradingenabled && $grade !== null && $effectivegraderid) {
-                $context = \context_module::instance($data->cmid);
-                $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-
-                try {
-                    // Use custom function to add rating without modifying global $USER.
-                    $result = local_forum_ai_add_rating(
-                        $cm,
-                        $context,
-                        'mod_forum',
-                        'post',
-                        $discussion->firstpost,
-                        $forum->scale,
-                        $grade,
-                        $discussion->userid,
-                        $forum->assessed,
-                        $effectivegraderid
-                    );
-
-                    if (!empty($result->error)) {
-                        debugging('Error adding AI rating: ' . $result->error, DEBUG_DEVELOPER);
-                    }
-                } catch (\Exception $e) {
-                    debugging('Exception adding AI rating: ' . $e->getMessage(), DEBUG_DEVELOPER);
-                }
-            } else if (!$requireapproval && $gradingenabled && $grade !== null && !$effectivegraderid) {
+            if (!$requireapproval && $gradingenabled && $grade !== null && !$effectivegraderid) {
                 debugging('Grading enabled but no grader configured for forum ' . $forum->id, DEBUG_DEVELOPER);
             }
 
@@ -212,6 +187,24 @@ class process_ai_discussion extends adhoc_task {
                     // an adhoc retry would only re-call the paid AI service for the same outcome.
                     mtrace("local_forum_ai: could not publish AI reply for pending {$pendingid}.");
                     return;
+                }
+
+                // Rating is best effort and accompanies the published response.
+                if ($gradingenabled && $grade !== null && $effectivegraderid) {
+                    $failurereason = null;
+                    $rated = approval::rate_ai_post(
+                        $cm,
+                        \context_module::instance($data->cmid),
+                        $forum,
+                        (int) $discussion->firstpost,
+                        (int) $discussion->userid,
+                        (int) $grade,
+                        (int) $effectivegraderid,
+                        $failurereason
+                    );
+                    if (!$rated) {
+                        mtrace("local_forum_ai: rating skipped for post {$discussion->firstpost} — {$failurereason}.");
+                    }
                 }
             }
         } catch (\Throwable $e) {

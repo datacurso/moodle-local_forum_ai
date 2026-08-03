@@ -150,35 +150,27 @@ class approve_response extends external_api {
 
             $gradingenabled = ($forum->assessed != 0);
 
-            if ($gradingenabled && !empty($pending->grade) && !empty($pending->parentpostid)) {
-                try {
-                    // In manual mode, attribute grading to the user who approved it.
-                    $graderid = $USER->id;
+            // Rating is best effort: a grade of zero is valid and must not be dropped.
+            if ($gradingenabled && $pending->grade !== null && !empty($pending->parentpostid)) {
+                $originalpost = $DB->get_record('forum_posts', ['id' => $pending->parentpostid]);
 
-                    // Get the original post that was graded.
-                    $originalpost = $DB->get_record('forum_posts', ['id' => $pending->parentpostid]);
-
-                    if ($originalpost) {
-                        // Use custom function to add rating without modifying global $USER.
-                        $result = local_forum_ai_add_rating(
-                            $cm,
-                            $context,
-                            'mod_forum',
-                            'post',
-                            $pending->parentpostid,
-                            $forum->scale,
-                            $pending->grade,
-                            $originalpost->userid,
-                            $forum->assessed,
-                            $graderid
+                if ($originalpost) {
+                    // In manual mode, attribute the rating to the user who approved it.
+                    $rated = \local_forum_ai\approval::rate_ai_post(
+                        $cm,
+                        $context,
+                        $forum,
+                        (int) $pending->parentpostid,
+                        (int) $originalpost->userid,
+                        (int) $pending->grade,
+                        (int) $USER->id
+                    );
+                    if (!$rated) {
+                        debugging(
+                            'AI rating skipped on manual approval for post ' . $pending->parentpostid,
+                            DEBUG_DEVELOPER
                         );
-
-                        if (!empty($result->error)) {
-                            debugging('Error adding AI rating on manual approval: ' . $result->error, DEBUG_DEVELOPER);
-                        }
                     }
-                } catch (\Exception $e) {
-                    debugging('Exception adding rating on manual approval: ' . $e->getMessage(), DEBUG_DEVELOPER);
                 }
             }
 
