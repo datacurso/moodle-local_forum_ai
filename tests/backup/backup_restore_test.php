@@ -84,6 +84,13 @@ final class backup_restore_test extends \advanced_testcase {
         ]);
         $reply = $DB->get_record('forum_posts', ['id' => $reply->id], '*', MUST_EXIST);
 
+        $otherreply = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $student->id,
+        ]);
+        $otherreply = $DB->get_record('forum_posts', ['id' => $otherreply->id], '*', MUST_EXIST);
+
         $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]) ?: new \stdClass();
         $config->forumid = $forum->id;
         $config->enabled = 1;
@@ -102,17 +109,55 @@ final class backup_restore_test extends \advanced_testcase {
         $pending = (object) [
             'discussionid' => $discussion->id,
             'forumid' => $forum->id,
-            'parentpostid' => $reply->id,
+            'parentpostid' => $otherreply->id,
             'creator_userid' => $student->id,
             'subject' => 'Re: ' . $discussion->name,
             'message' => '<p>AI response to restore</p>',
             'grade' => 73,
             'status' => 'pending',
-            'approval_token' => md5(uniqid('backup_', true)),
+            'approval_token' => md5(uniqid('backup_pending_', true)),
             'timecreated' => time(),
             'timemodified' => time(),
         ];
         $pending->id = $DB->insert_record('local_forum_ai_pending', $pending);
+
+        $approved = (object) [
+            'discussionid' => $discussion->id,
+            'forumid' => $forum->id,
+            'parentpostid' => $otherreply->id,
+            'creator_userid' => $student->id,
+            'subject' => 'Re: ' . $discussion->name,
+            'message' => '<p>AI response to approve</p>',
+            'grade' => 61,
+            'status' => 'pending',
+            'approval_token' => md5(uniqid('backup_approved_', true)),
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ];
+        $approved->id = $DB->insert_record('local_forum_ai_pending', $approved);
+
+        $rejected = (object) [
+            'discussionid' => $discussion->id,
+            'forumid' => $forum->id,
+            'parentpostid' => $otherreply->id,
+            'creator_userid' => $student->id,
+            'subject' => 'Re: ' . $discussion->name,
+            'message' => '<p>AI response to reject</p>',
+            'grade' => 0,
+            'status' => 'pending',
+            'approval_token' => md5(uniqid('backup_rejected_', true)),
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ];
+        $rejected->id = $DB->insert_record('local_forum_ai_pending', $rejected);
+
+        $approvedresult = approve_response::execute($approved->approval_token, 'approve');
+        $this->assertTrue($approvedresult['success']);
+        $approved = $DB->get_record('local_forum_ai_pending', ['id' => $approved->id], '*', MUST_EXIST);
+
+        $rejectedresult = approve_response::execute($rejected->approval_token, 'reject');
+        $this->assertTrue($rejectedresult['success']);
+        $rejected = $DB->get_record('local_forum_ai_pending', ['id' => $rejected->id], '*', MUST_EXIST);
 
         $backupcontroller = new \backup_controller(
             \backup::TYPE_1COURSE,
@@ -150,29 +195,48 @@ final class backup_restore_test extends \advanced_testcase {
             MUST_EXIST
         );
         $restoreddiscussion = $DB->get_record('forum_discussions', ['forum' => $restoredforum->id], '*', MUST_EXIST);
-        $restoredreply = $DB->get_record(
-            'forum_posts',
-            [
-                'discussion' => $restoreddiscussion->id,
-                'parent' => $restoreddiscussion->firstpost,
-            ],
-            '*',
-            MUST_EXIST
-        );
 
         $restoredpending = $DB->get_record(
             'local_forum_ai_pending',
-            ['forumid' => $restoredforum->id],
+            ['approval_token' => $pending->approval_token],
+            '*',
+            MUST_EXIST
+        );
+        $restoredapproved = $DB->get_record(
+            'local_forum_ai_pending',
+            ['approval_token' => $approved->approval_token],
+            '*',
+            MUST_EXIST
+        );
+        $restoredrejected = $DB->get_record(
+            'local_forum_ai_pending',
+            ['approval_token' => $rejected->approval_token],
             '*',
             MUST_EXIST
         );
 
         $this->assertSame(73, (int) $restoredpending->grade);
-        $this->assertSame((int) $restoredreply->id, (int) $restoredpending->parentpostid);
+        $this->assertSame('pending', $restoredpending->status);
 
-        $postcount = $DB->count_records('forum_posts', ['discussion' => $restoreddiscussion->id]);
-        $result = approve_response::execute($restoredpending->approval_token, 'approve');
-        $this->assertTrue($result['success']);
+        $this->assertSame('approved', $restoredapproved->status);
+        $this->assertSame((int) $approved->approved_at, (int) $restoredapproved->approved_at);
+
+        $restoredpendingreply = $DB->get_record('forum_posts', ['id' => $restoredpending->parentpostid], '*', MUST_EXIST);
+        $restoredotherreply = $DB->get_record('forum_posts', ['id' => $restoredapproved->parentpostid], '*', MUST_EXIST);
+
+        $this->assertSame((int) $restoredpendingreply->id, (int) $restoredpending->parentpostid);
+        $this->assertSame((int) $restoredotherreply->id, (int) $restoredapproved->parentpostid);
+
+        $this->assertSame('rejected', $restoredrejected->status);
+        $this->assertNull($restoredrejected->approved_at);
+        $this->assertSame((int) $restoredotherreply->id, (int) $restoredrejected->parentpostid);
+
+        $this->assertSame(1, $DB->count_records('local_forum_ai_pending', ['forumid' => $restoredforum->id, 'status' => 'pending']));
+        $this->assertSame(1, $DB->count_records('local_forum_ai_pending', ['forumid' => $restoredforum->id, 'status' => 'approved']));
+        $this->assertSame(1, $DB->count_records('local_forum_ai_pending', ['forumid' => $restoredforum->id, 'status' => 'rejected']));
+
+        $pendingresult = approve_response::execute($restoredpending->approval_token, 'approve');
+        $this->assertTrue($pendingresult['success']);
 
         $newpostid = (int) $DB->get_field(
             'local_forum_ai_pending',
@@ -182,10 +246,20 @@ final class backup_restore_test extends \advanced_testcase {
         );
         $newpost = $DB->get_record('forum_posts', ['id' => $newpostid], '*', MUST_EXIST);
 
-        $this->assertSame($postcount + 1, $DB->count_records('forum_posts', ['discussion' => $restoreddiscussion->id]));
-        $this->assertSame((int) $restoredreply->id, (int) $newpost->parent);
+        $managedpostcount = $DB->count_records('forum_posts', ['discussion' => $restoreddiscussion->id]);
 
-        $rating = $DB->get_record('rating', ['itemid' => $restoredreply->id], '*', MUST_EXIST);
+        $this->assertSame((int) $restoredpendingreply->id, (int) $newpost->parent);
+
+        foreach ([$restoredapproved, $restoredrejected] as $managedrecord) {
+            try {
+                approve_response::execute($managedrecord->approval_token, 'approve');
+                $this->fail('Managed restored responses must not be re-approved.');
+            } catch (\dml_missing_record_exception $e) {
+                $this->assertSame($managedpostcount, $DB->count_records('forum_posts', ['discussion' => $restoreddiscussion->id]));
+            }
+        }
+
+        $rating = $DB->get_record('rating', ['itemid' => $restoredpendingreply->id], '*', MUST_EXIST);
         $this->assertSame(73, (int) $rating->rating);
     }
 
