@@ -129,20 +129,13 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
                 ? ($this->get_mappingid('forum_post', $pending->postid) ?: null)
                 : null;
             $record->postid = $mappedpostid;
-            // Terminal statuses survive the restore: expired and rejected rows were
-            // never published and must not become approvable again. Only approved
-            // rows without a mapped post and pending rows re-enter moderation.
-            if ($pending->status === 'expired' || $pending->status === 'rejected') {
-                $record->status = $pending->status;
-            } else if ($mappedpostid) {
-                $record->status = $pending->status;
-            } else {
-                $record->status = 'pending';
-            }
+            $record->status = in_array($pending->status ?? null, ['pending', 'approved', 'rejected', 'expired'], true)
+                ? $pending->status
+                : 'pending';
             $record->approval_token = md5(uniqid('restored_', true));
             $record->timecreated = $pending->timecreated;
             $record->timemodified = time();
-            $record->approved_at = null;
+            $record->approved_at = property_exists($pending, 'approved_at') ? $pending->approved_at : null;
 
             $DB->insert_record('local_forum_ai_pending', $record);
             mtrace("   + Pending restored for forum={$newforumid}, discussion={$newdiscussionid}");
