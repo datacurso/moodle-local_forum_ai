@@ -197,7 +197,7 @@ class get_details extends external_api {
         'airesponse' => new external_value(PARAM_RAW, 'Proposed AI response'),
         'airesponseraw' => new external_value(PARAM_RAW, 'Purified stored source of the AI response, for editing'),
         'token' => new external_value(PARAM_ALPHANUMEXT, 'Approval token'),
-        'status' => new external_value(PARAM_ALPHA, 'Message status (pending, approved, rejected)'),
+        'status' => new external_value(PARAM_ALPHA, 'Message status (pending, approved, rejected, expired)'),
         ]);
     }
 }

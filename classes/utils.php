@@ -287,7 +287,7 @@ class utils {
     /**
      * Counts previous AI responses in the same reply thread branch.
      *
-     * Rejected responses are excluded from the count.
+     * Rejected and expired responses are excluded from the count.
      *
      * @param int $discussionid Discussion ID.
      * @param int $postid Current post ID.
@@ -302,16 +302,19 @@ class utils {
         }
 
         [$insql, $inparams] = $DB->get_in_or_equal($ancestorids, SQL_PARAMS_NAMED);
+        // Expired rows are excluded like rejected ones: they were never published
+        // (before the traceable 'expired' status they were deleted and never counted).
         $params = [
             'discussionid' => $discussionid,
             'rejected' => 'rejected',
+            'expired' => 'expired',
         ] + $inparams;
 
         $sql = "SELECT COUNT(1)
                   FROM {local_forum_ai_pending}
                  WHERE discussionid = :discussionid
                    AND parentpostid $insql
-                   AND status <> :rejected";
+                   AND status NOT IN (:rejected, :expired)";
 
         return (int)$DB->count_records_sql($sql, $params);
     }

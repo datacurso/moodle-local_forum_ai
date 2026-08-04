@@ -227,6 +227,24 @@ class process_ai_post extends adhoc_task {
                     mtrace("local_forum_ai: could not publish AI reply for pending {$pendingid}.");
                     return;
                 }
+
+                // Rating is best effort and accompanies the published response.
+                if ($gradingenabled && $grade !== null && $effectivegraderid) {
+                    $failurereason = null;
+                    $rated = approval::rate_ai_post(
+                        $cm,
+                        \context_module::instance($data->cmid),
+                        $forum,
+                        (int) $post->id,
+                        (int) $post->userid,
+                        (int) $grade,
+                        (int) $effectivegraderid,
+                        $failurereason
+                    );
+                    if (!$rated) {
+                        mtrace("local_forum_ai: rating skipped for post {$post->id} — {$failurereason}.");
+                    }
+                }
             }
         } catch (\Throwable $e) {
             debugging('Error in process_ai_post task: ' . $e->getMessage(), DEBUG_DEVELOPER);

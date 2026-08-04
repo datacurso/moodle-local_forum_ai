@@ -59,6 +59,7 @@ $statusmap = [
     'approved' => get_string('statusapproved', 'local_forum_ai'),
     'rejected' => get_string('statusrejected', 'local_forum_ai'),
     'pending'  => get_string('statuspending', 'local_forum_ai'),
+    'expired'  => get_string('statusexpired', 'local_forum_ai'),
 ];
 
 $renderer = $PAGE->get_renderer('core');
