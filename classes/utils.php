@@ -28,59 +28,6 @@ use local_forum_ai\helper\guide;
  */
 class utils {
     /**
-     * Mapping of accented and special characters to plain UTF-8 equivalents.
-     *
-     * @var array
-     */
-    private static $unwanted = [
-        'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U',
-        'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
-        'ñ' => 'n', 'Ñ' => 'N',
-    ];
-
-    /**
-     * Remove accents and special characters while keeping UTF-8.
-     *
-     * @param string $text Input text.
-     * @return string Cleaned text.
-     */
-    public static function remove_accents($text) {
-        return strtr($text, self::$unwanted);
-    }
-
-    /**
-     * Normalize the payload by iterating over all its values.
-     *
-     * Top-level keys listed in $preservekeys are kept verbatim (accents and
-     * special characters intact), e.g. the teacher's free-text instructions.
-     *
-     * @param array $payload Input array payload.
-     * @param array $preservekeys Top-level keys to exclude from normalization.
-     * @return array Normalized array.
-     */
-    public static function normalize_payload(array $payload, array $preservekeys = []) {
-        $preserved = [];
-        foreach ($preservekeys as $key) {
-            if (array_key_exists($key, $payload)) {
-                $preserved[$key] = $payload[$key];
-                unset($payload[$key]);
-            }
-        }
-
-        array_walk_recursive($payload, function (&$item) {
-            if (is_string($item)) {
-                $item = self::remove_accents($item);
-            }
-        });
-
-        foreach ($preserved as $key => $value) {
-            $payload[$key] = $value;
-        }
-
-        return $payload;
-    }
-
-    /**
      * Build the scale value to send to the AI service for post grading.
      *
      * Point grading (positive scale) keeps the numeric maximum. Named scales

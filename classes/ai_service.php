@@ -17,7 +17,6 @@
 namespace local_forum_ai;
 
 use aiprovider_datacurso\httpclient\ai_services_api;
-use local_forum_ai\utils;
 
 /**
  * Class for AI service communication.
@@ -36,10 +35,8 @@ class ai_service {
      * @throws \moodle_exception If the request fails.
      */
     public static function call_ai_service(array $payload): array {
-        // Preserve the teacher's free-text instructions verbatim (keep accents/ñ);
-        // stripping accents there weakens prohibitions like "no envíes 'excelente trabajo'".
-        $payload = utils::normalize_payload($payload, ['prompt']);
-
+        // The payload travels verbatim: the HTTP client sends UTF-8 JSON, so
+        // accents and special characters must reach the AI service intact.
         $client = new ai_services_api();
         $response = $client->request('POST', '/forum/chat/v2', $payload);
 
@@ -57,8 +54,8 @@ class ai_service {
      * @throws \moodle_exception If the request fails.
      */
     public static function call_ai_service_global(array $payload): array {
-        $payload = utils::normalize_payload($payload);
-
+        // The payload travels verbatim: rubric and guide criteria must keep
+        // their accents so the AI echoes them exactly as the form shows them.
         $client = new ai_services_api();
         $response = $client->request('POST', '/forum/grade', $payload);
 

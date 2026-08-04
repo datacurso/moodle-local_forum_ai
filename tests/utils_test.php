@@ -177,4 +177,71 @@ final class utils_test extends \advanced_testcase {
 
         $this->assertSame(0, $participation['scale']);
     }
+
+    /**
+     * The participation payload must keep accents and special characters
+     * verbatim in every field (forum, discussion names and student answers).
+     */
+    public function test_build_forum_ai_payload_preserves_accents(): void {
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+
+        $forum = $generator->create_module('forum', [
+            'course' => $course->id,
+            'name' => 'Fórum de discusión',
+        ]);
+        $generator->get_plugin_generator('mod_forum')->create_discussion([
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'userid' => $student->id,
+            'name' => 'Évaluation complète',
+            'message' => '<p>Opinión: ñandú, café, ação</p>',
+        ]);
+        $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
+
+        $payload = utils::build_forum_ai_payload($cm->id, (int)$student->id);
+        $participation = $payload['forum_participations'][0]['participation'];
+
+        $this->assertSame('Fórum de discusión', $participation['forum']);
+        $this->assertSame('Évaluation complète', $participation['discussions'][0]['discussion']);
+        $this->assertStringContainsString('Opinión: ñandú, café, ação', $participation['discussions'][0]['answer']);
+    }
+
+    /**
+     * The thread context must keep accents verbatim in author names and
+     * message bodies.
+     */
+    public function test_build_thread_context_preserves_accents(): void {
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $student = $generator->create_user(['firstname' => 'José', 'lastname' => 'Peñarol']);
+        $generator->enrol_user($student->id, $course->id, 'student');
+
+        $forum = $generator->create_module('forum', ['course' => $course->id]);
+        $forumgenerator = $generator->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'userid' => $student->id,
+            'message' => '<p>Opinión inicial: café añejo</p>',
+        ]);
+        $reply = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $student->id,
+        ]);
+
+        $entries = utils::build_thread_context((int)$discussion->id, (int)$reply->id);
+
+        $this->assertNotEmpty($entries);
+        $this->assertSame(fullname($student), $entries[0]['author']);
+        $this->assertStringContainsString('José', $entries[0]['author']);
+        $this->assertStringContainsString('Opinión inicial: café añejo', $entries[0]['message']);
+    }
 }
