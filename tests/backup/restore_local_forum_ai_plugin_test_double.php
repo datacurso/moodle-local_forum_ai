@@ -16,8 +16,6 @@
 
 namespace local_forum_ai\backup;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Restore test double for seeding forum AI restore mappings.
  *

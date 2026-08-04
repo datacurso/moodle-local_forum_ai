@@ -84,7 +84,7 @@ $templatecontext = [
 
 
 foreach ($pendings as $p) {
-    $user = (object)['id' => $p->creator_userid, 'firstname' => $p->firstname, 'lastname' => $p->lastname];
+    $user = username_load_fields_from_object((object)['id' => $p->creator_userid], $p);
 
     $templatecontext['pendings'][] = [
         'coursename' => format_string($p->coursename),

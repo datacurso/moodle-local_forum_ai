@@ -28,56 +28,33 @@ use local_forum_ai\helper\guide;
  */
 class utils {
     /**
-     * Mapping of accented and special characters to plain UTF-8 equivalents.
+     * Build the scale value to send to the AI service for post grading.
      *
-     * @var array
+     * Point grading (positive scale) keeps the numeric maximum. Named scales
+     * are stored by Moodle as the negative id of the scale record; in that
+     * case the ordered list of option names is returned so the AI can pick a
+     * valid option. The AI is expected to return the 1-based index of the
+     * chosen option as the grade.
+     *
+     * @param int $scale Forum 'scale' field (max grade, or negative scale id).
+     * @return int|string[]|null Numeric maximum, list of scale options, or null
+     *                           when the scale is unset or cannot be resolved.
      */
-    private static $unwanted = [
-        'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U',
-        'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
-        'ñ' => 'n', 'Ñ' => 'N',
-    ];
+    public static function get_scale_payload(int $scale) {
+        global $DB;
 
-    /**
-     * Remove accents and special characters while keeping UTF-8.
-     *
-     * @param string $text Input text.
-     * @return string Cleaned text.
-     */
-    public static function remove_accents($text) {
-        return strtr($text, self::$unwanted);
-    }
+        if ($scale > 0) {
+            return $scale;
+        }
 
-    /**
-     * Normalize the payload by iterating over all its values.
-     *
-     * Top-level keys listed in $preservekeys are kept verbatim (accents and
-     * special characters intact), e.g. the teacher's free-text instructions.
-     *
-     * @param array $payload Input array payload.
-     * @param array $preservekeys Top-level keys to exclude from normalization.
-     * @return array Normalized array.
-     */
-    public static function normalize_payload(array $payload, array $preservekeys = []) {
-        $preserved = [];
-        foreach ($preservekeys as $key) {
-            if (array_key_exists($key, $payload)) {
-                $preserved[$key] = $payload[$key];
-                unset($payload[$key]);
+        if ($scale < 0) {
+            $scalerecord = $DB->get_record('scale', ['id' => -$scale]);
+            if ($scalerecord) {
+                return array_map('trim', explode(',', $scalerecord->scale));
             }
         }
 
-        array_walk_recursive($payload, function (&$item) {
-            if (is_string($item)) {
-                $item = self::remove_accents($item);
-            }
-        });
-
-        foreach ($preserved as $key => $value) {
-            $payload[$key] = $value;
-        }
-
-        return $payload;
+        return null;
     }
 
     /**
@@ -400,10 +377,11 @@ class utils {
             return [];
         }
 
-        // Private replies are excluded: private content must never travel to the external AI service.
+        // Deleted posts and private replies are excluded: the context must only
+        // contain what a normal participant can see.
         $posts = $DB->get_records_select(
             'forum_posts',
-            'discussion = :discussionid AND privatereplyto = 0
+            'discussion = :discussionid AND privatereplyto = 0 AND deleted = 0
                 AND (created < :created OR (created = :created2 AND id < :postid))',
             [
                 'discussionid' => $discussionid,
@@ -488,7 +466,8 @@ class utils {
             $guidedata = guide::get($cmid);
         }
 
-        // Private replies are excluded: private content must never travel to the external AI service.
+        // Deleted posts and private replies are excluded: the payload must only
+        // contain what a normal participant can see.
         $posts = $DB->get_records_sql("
             SELECT d.id, d.name, p.message
             FROM {forum_discussions} d
@@ -496,6 +475,7 @@ class utils {
             WHERE p.userid = ?
             AND d.forum = ?
             AND p.privatereplyto = 0
+            AND p.deleted = 0
         ", [$userid, $forum->id]);
 
         $discussions = [];
@@ -513,7 +493,9 @@ class utils {
             'participation' => [
                 'forum_id' => (string)$forum->id,
                 'forum' => $forum->name,
-                'scale' => (string)$forum->scale,
+                // Whole forum grading setting (not the per-post ratings scale):
+                // numeric maximum, or the option list for named scales.
+                'scale' => self::get_scale_payload((int)$forum->grade_forum) ?? 0,
                 'rubric' => $rubricdata,
                 'assessment_guide' => $guidedata,
                 'discussions' => $discussions,
