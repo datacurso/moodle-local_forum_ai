@@ -374,10 +374,11 @@ class utils {
             return [];
         }
 
-        // Private replies are excluded: private content must never travel to the external AI service.
+        // Deleted posts and private replies are excluded: the context must only
+        // contain what a normal participant can see.
         $posts = $DB->get_records_select(
             'forum_posts',
-            'discussion = :discussionid AND privatereplyto = 0
+            'discussion = :discussionid AND privatereplyto = 0 AND deleted = 0
                 AND (created < :created OR (created = :created2 AND id < :postid))',
             [
                 'discussionid' => $discussionid,
@@ -462,7 +463,8 @@ class utils {
             $guidedata = guide::get($cmid);
         }
 
-        // Private replies are excluded: private content must never travel to the external AI service.
+        // Deleted posts and private replies are excluded: the payload must only
+        // contain what a normal participant can see.
         $posts = $DB->get_records_sql("
             SELECT d.id, d.name, p.message
             FROM {forum_discussions} d
@@ -470,6 +472,7 @@ class utils {
             WHERE p.userid = ?
             AND d.forum = ?
             AND p.privatereplyto = 0
+            AND p.deleted = 0
         ", [$userid, $forum->id]);
 
         $discussions = [];

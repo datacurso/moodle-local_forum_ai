@@ -244,4 +244,42 @@ final class utils_test extends \advanced_testcase {
         $this->assertStringContainsString('José', $entries[0]['author']);
         $this->assertStringContainsString('Opinión inicial: café añejo', $entries[0]['message']);
     }
+
+    /**
+     * When the context is capped, the root post (the topic) must always be
+     * kept along with the most recent posts.
+     */
+    public function test_build_thread_context_cap_keeps_root_post(): void {
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $student = $generator->create_and_enrol($course, 'student');
+
+        $forum = $generator->create_module('forum', ['course' => $course->id]);
+        $forumgenerator = $generator->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'userid' => $student->id,
+            'message' => 'Root topic message',
+        ]);
+
+        $lastreply = null;
+        for ($i = 1; $i <= 5; $i++) {
+            $lastreply = $forumgenerator->create_post([
+                'discussion' => $discussion->id,
+                'parent' => $discussion->firstpost,
+                'userid' => $student->id,
+                'message' => "Reply number {$i}",
+            ]);
+        }
+
+        $entries = utils::build_thread_context((int)$discussion->id, (int)$lastreply->id, 3);
+
+        $this->assertCount(3, $entries);
+        $this->assertStringContainsString('Root topic message', $entries[0]['message']);
+        $this->assertStringContainsString('Reply number 3', $entries[1]['message']);
+        $this->assertStringContainsString('Reply number 4', $entries[2]['message']);
+    }
 }
