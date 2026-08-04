@@ -237,9 +237,12 @@ final class backup_restore_test extends \advanced_testcase {
         $this->assertNull($restoredrejected->approved_at);
         $this->assertSame((int) $restoredotherreply->id, (int) $restoredrejected->parentpostid);
 
-        $this->assertSame(1, $DB->count_records('local_forum_ai_pending', ['forumid' => $restoredforum->id, 'status' => 'pending']));
-        $this->assertSame(1, $DB->count_records('local_forum_ai_pending', ['forumid' => $restoredforum->id, 'status' => 'approved']));
-        $this->assertSame(1, $DB->count_records('local_forum_ai_pending', ['forumid' => $restoredforum->id, 'status' => 'rejected']));
+        foreach (['pending', 'approved', 'rejected'] as $status) {
+            $this->assertSame(1, $DB->count_records('local_forum_ai_pending', [
+                'forumid' => $restoredforum->id,
+                'status' => $status,
+            ]));
+        }
 
         $pendingresult = approve_response::execute($restoredpending->approval_token, 'approve');
         $this->assertTrue($pendingresult['success']);
