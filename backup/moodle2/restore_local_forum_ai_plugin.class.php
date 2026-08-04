@@ -81,6 +81,13 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
                 continue;
             }
 
+            // Keep any existing restored/manual config row intact. Restore only seeds
+            // config when the forum does not already have one.
+            if ($DB->record_exists('local_forum_ai_config', ['forumid' => $newforumid])) {
+                mtrace("   - Existing config kept for forum={$newforumid}");
+                continue;
+            }
+
             $record = new stdClass();
             $record->forumid = $newforumid;
             $record->enabled = $config->enabled;

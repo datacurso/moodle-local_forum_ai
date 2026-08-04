@@ -194,6 +194,7 @@ final class backup_restore_test extends \advanced_testcase {
             '*',
             MUST_EXIST
         );
+        $restoredconfig = $DB->get_record('local_forum_ai_config', ['forumid' => $restoredforum->id], '*', MUST_EXIST);
         $restoreddiscussion = $DB->get_record('forum_discussions', ['forum' => $restoredforum->id], '*', MUST_EXIST);
 
         $restoredpending = $DB->get_record(
@@ -217,6 +218,11 @@ final class backup_restore_test extends \advanced_testcase {
 
         $this->assertSame(73, (int) $restoredpending->grade);
         $this->assertSame('pending', $restoredpending->status);
+
+        $this->assertSame(1, (int) $restoredconfig->enabled);
+        $this->assertSame(1, (int) $restoredconfig->require_approval);
+        $this->assertSame((int) $grader->id, (int) $restoredconfig->graderid);
+        $this->assertSame('AI prompt', $restoredconfig->reply_message);
 
         $this->assertSame('approved', $restoredapproved->status);
         $this->assertSame((int) $approved->approved_at, (int) $restoredapproved->approved_at);
@@ -310,5 +316,95 @@ final class backup_restore_test extends \advanced_testcase {
 
         $this->assertSame(4001, (int) $mappedconfig->graderid);
         $this->assertNull($unmappedconfig->graderid);
+    }
+
+    /**
+     * Existing forum AI config rows are kept intact during restore.
+     */
+    public function test_restore_keeps_existing_config_row_intact(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $restore = new restore_local_forum_ai_plugin_test_double();
+
+        $restore->seed_mappings([
+            'forum' => [1001 => 2001],
+            'user' => [3001 => 4001],
+        ]);
+        $restore->seed_tempconfigs([
+            (object) [
+                'forumid' => 1001,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'graderid' => 3001,
+                'reply_message' => 'Restored config',
+                'timecreated' => 1710000000,
+                'timemodified' => 1710000000,
+            ],
+        ]);
+
+        $existing = (object) [
+            'forumid' => 2001,
+            'enabled' => 0,
+            'enablediainitconversation' => 0,
+            'questionturns' => 3,
+            'allowedroles' => 'manual,config',
+            'reply_message' => 'Manual config',
+            'require_approval' => 0,
+            'graderid' => 9999,
+            'usedelay' => 1,
+            'delayminutes' => 15,
+            'replyinlocked' => 1,
+            'timecreated' => 1700000000,
+            'timemodified' => 1700000001,
+        ];
+        $DB->insert_record('local_forum_ai_config', $existing);
+
+        $this->expectOutputRegex('/.*/s');
+        $restore->after_restore_course();
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => 2001], '*', MUST_EXIST);
+
+        $this->assertSame(0, (int) $config->enabled);
+        $this->assertSame('Manual config', $config->reply_message);
+        $this->assertSame(0, (int) $config->require_approval);
+        $this->assertSame(9999, (int) $config->graderid);
+        $this->assertSame(1, $DB->count_records('local_forum_ai_config', ['forumid' => 2001]));
+    }
+
+    /**
+     * Running restore twice keeps the first restored config and does not crash.
+     */
+    public function test_restore_can_run_twice_for_same_forum_without_duplicate_config(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $restore = new restore_local_forum_ai_plugin_test_double();
+
+        $restore->seed_mappings([
+            'forum' => [1001 => 2001],
+            'user' => [3001 => 4001],
+        ]);
+        $restore->seed_tempconfigs([
+            (object) [
+                'forumid' => 1001,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'graderid' => 3001,
+                'reply_message' => 'Restored config',
+                'timecreated' => 1710000000,
+                'timemodified' => 1710000000,
+            ],
+        ]);
+
+        $this->expectOutputRegex('/.*/s');
+        $restore->after_restore_course();
+        $restore->after_restore_course();
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => 2001], '*', MUST_EXIST);
+
+        $this->assertSame(1, (int) $config->enabled);
+        $this->assertSame('Restored config', $config->reply_message);
+        $this->assertSame(1, $DB->count_records('local_forum_ai_config', ['forumid' => 2001]));
     }
 }
