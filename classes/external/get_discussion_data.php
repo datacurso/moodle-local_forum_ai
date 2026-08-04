@@ -16,11 +16,11 @@
 
 namespace local_forum_ai\external;
 
-use external_api;
-use external_function_parameters;
-use external_value;
-use external_single_structure;
-use external_multiple_structure;
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_value;
+use core_external\external_single_structure;
+use core_external\external_multiple_structure;
 
 /**
  * External service to approve or reject AI-generated responses in forums.
@@ -67,7 +67,7 @@ class get_discussion_data extends external_api {
 
         $context = \context_module::instance($cm->id);
         self::validate_context($context);
-        require_capability('mod/forum:viewdiscussion', $context);
+        require_capability('local/forum_ai:approveresponses', $context);
 
         // Retrieve posts.
         $posts = $DB->get_records('forum_posts', ['discussion' => $discussion->id], 'created ASC');

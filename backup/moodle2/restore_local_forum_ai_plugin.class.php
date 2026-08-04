@@ -92,6 +92,7 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->graderid = $config->graderid ?? null;
             $record->usedelay = $config->usedelay ?? 0;
             $record->delayminutes = isset($config->delayminutes) ? max(1, (int)$config->delayminutes) : 0;
+            $record->replyinlocked = $config->replyinlocked ?? 0;
             $record->timecreated = $config->timecreated;
             $record->timemodified = $config->timemodified;
 
@@ -115,8 +116,16 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->discussionid = $newdiscussionid;
             $record->creator_userid = $newuserid ?? $pending->creator_userid;
             $record->subject = $pending->subject;
-            $record->message = $pending->message;
-            $record->status = 'pending';
+            // Restored AI messages may come from pre-sanitization backups: purify on re-insertion.
+            $record->message = clean_text($pending->message ?? '', FORMAT_HTML);
+            // Map the published post to its restored id; null when it did not survive.
+            $mappedpostid = !empty($pending->postid)
+                ? ($this->get_mappingid('forum_post', $pending->postid) ?: null)
+                : null;
+            $record->postid = $mappedpostid;
+            // When the published post survived the restore, keep the original status:
+            // re-moderating the row would publish a duplicate of an existing post.
+            $record->status = $mappedpostid ? $pending->status : 'pending';
             $record->approval_token = md5(uniqid('restored_', true));
             $record->timecreated = $pending->timecreated;
             $record->timemodified = time();

@@ -37,8 +37,11 @@ require_once($CFG->dirroot . '/rating/lib.php');
 function local_forum_ai_get_pending(int $courseid, int $forumid = 0) {
     global $DB;
 
+    // All user name fields so fullname() can be used on the returned rows.
+    $usernamefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
+
     $sql = "SELECT p.*, d.name AS discussionname, f.name AS forumname,
-                   c.fullname AS coursename, u.firstname, u.lastname,
+                   c.fullname AS coursename, {$usernamefields},
                    fp.subject AS discussionsubject, fp.message AS discussionmessage, fp.messageformat
               FROM {local_forum_ai_pending} p
               JOIN {forum_discussions} d ON d.id = p.discussionid
@@ -80,8 +83,11 @@ function local_forum_ai_get_pending(int $courseid, int $forumid = 0) {
 function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
     global $DB;
 
+    // All user name fields so fullname() can be used on the returned rows.
+    $usernamefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
+
     $sql = "SELECT p.*, d.name AS discussionname, f.name AS forumname, c.fullname AS coursename,
-                   u.firstname, u.lastname
+                   {$usernamefields}
               FROM {local_forum_ai_pending} p
               JOIN {forum_discussions} d ON d.id = p.discussionid
               JOIN {forum} f ON f.id = p.forumid
@@ -192,15 +198,21 @@ function local_forum_ai_add_rating(
     }
 
     if ($userrating != RATING_UNSET_RATING) {
-        $scale = $DB->get_record('scale', ['id' => $scaleid]);
-        if ($scale) {
-            $scalearray = explode(',', $scale->scale);
-            $scalemax = count($scalearray);
-            if ($userrating < 0 || $userrating > $scalemax) {
+        if ($scaleid < 0) {
+            // Named scale: Moodle stores the negative id of the scale record.
+            // The rating is the 1-based index of the selected option.
+            $scale = $DB->get_record('scale', ['id' => -$scaleid]);
+            if (!$scale) {
+                $result->error = 'ratinginvalid';
+                return $result;
+            }
+            $scalemax = count(explode(',', $scale->scale));
+            if ($userrating < 1 || $userrating > $scalemax) {
                 $result->error = 'ratinginvalid';
                 return $result;
             }
         } else {
+            // Point grading: the scale id is the numeric maximum.
             if ($userrating < 0 || $userrating > $scaleid) {
                 $result->error = 'ratinginvalid';
                 return $result;

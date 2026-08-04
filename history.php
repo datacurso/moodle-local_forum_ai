@@ -82,7 +82,7 @@ $templatecontext = [
 
 
 foreach ($records as $r) {
-    $user = (object)['id' => $r->creator_userid, 'firstname' => $r->firstname, 'lastname' => $r->lastname];
+    $user = username_load_fields_from_object((object)['id' => $r->creator_userid], $r);
 
     $templatecontext['responses'][] = [
         'coursename' => format_string($r->coursename),

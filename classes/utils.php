@@ -28,56 +28,33 @@ use local_forum_ai\helper\guide;
  */
 class utils {
     /**
-     * Mapping of accented and special characters to plain UTF-8 equivalents.
+     * Build the scale value to send to the AI service for post grading.
      *
-     * @var array
+     * Point grading (positive scale) keeps the numeric maximum. Named scales
+     * are stored by Moodle as the negative id of the scale record; in that
+     * case the ordered list of option names is returned so the AI can pick a
+     * valid option. The AI is expected to return the 1-based index of the
+     * chosen option as the grade.
+     *
+     * @param int $scale Forum 'scale' field (max grade, or negative scale id).
+     * @return int|string[]|null Numeric maximum, list of scale options, or null
+     *                           when the scale is unset or cannot be resolved.
      */
-    private static $unwanted = [
-        'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U',
-        'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
-        'ñ' => 'n', 'Ñ' => 'N',
-    ];
+    public static function get_scale_payload(int $scale) {
+        global $DB;
 
-    /**
-     * Remove accents and special characters while keeping UTF-8.
-     *
-     * @param string $text Input text.
-     * @return string Cleaned text.
-     */
-    public static function remove_accents($text) {
-        return strtr($text, self::$unwanted);
-    }
+        if ($scale > 0) {
+            return $scale;
+        }
 
-    /**
-     * Normalize the payload by iterating over all its values.
-     *
-     * Top-level keys listed in $preservekeys are kept verbatim (accents and
-     * special characters intact), e.g. the teacher's free-text instructions.
-     *
-     * @param array $payload Input array payload.
-     * @param array $preservekeys Top-level keys to exclude from normalization.
-     * @return array Normalized array.
-     */
-    public static function normalize_payload(array $payload, array $preservekeys = []) {
-        $preserved = [];
-        foreach ($preservekeys as $key) {
-            if (array_key_exists($key, $payload)) {
-                $preserved[$key] = $payload[$key];
-                unset($payload[$key]);
+        if ($scale < 0) {
+            $scalerecord = $DB->get_record('scale', ['id' => -$scale]);
+            if ($scalerecord) {
+                return array_map('trim', explode(',', $scalerecord->scale));
             }
         }
 
-        array_walk_recursive($payload, function (&$item) {
-            if (is_string($item)) {
-                $item = self::remove_accents($item);
-            }
-        });
-
-        foreach ($preserved as $key => $value) {
-            $payload[$key] = $value;
-        }
-
-        return $payload;
+        return null;
     }
 
     /**
@@ -172,6 +149,92 @@ class utils {
         }
 
         return self::get_default_question_turns();
+    }
+
+    /**
+     * Gets global default for "reply in locked discussions".
+     *
+     * @return bool
+     */
+    public static function get_default_reply_in_locked(): bool {
+        $raw = get_config('local_forum_ai', 'default_replyinlocked');
+        if ($raw === false || $raw === '') {
+            return false;
+        }
+
+        return !empty($raw);
+    }
+
+    /**
+     * Gets effective "reply in locked discussions" value using forum config or global fallback.
+     *
+     * @param \stdClass|null $config Forum config row.
+     * @return bool
+     */
+    public static function get_effective_reply_in_locked(?\stdClass $config): bool {
+        if ($config && isset($config->replyinlocked)) {
+            return !empty($config->replyinlocked);
+        }
+
+        return self::get_default_reply_in_locked();
+    }
+
+    /**
+     * Checks whether a forum post is a private reply.
+     *
+     * Policy: the AI never replies to private replies. Core treats them as
+     * leaves (replying to them is forbidden in capability checks, in
+     * forum_add_new_post and in the UI), so the plugin skips them entirely.
+     *
+     * @param \stdClass $post Forum post record.
+     * @return bool
+     */
+    public static function is_private_reply(\stdClass $post): bool {
+        return !empty($post->privatereplyto);
+    }
+
+    /**
+     * Checks whether the forum cut-off date has passed.
+     *
+     * Deliberately a date check, NOT a capability check: graders and admins
+     * hold mod/forum:canoverridecutoff, so a capability gate would never
+     * fire for the users who publish AI responses. Only cutoffdate gates;
+     * duedate is advisory in core and does not block posting.
+     *
+     * @param \stdClass $forum Forum record.
+     * @return bool
+     */
+    public static function is_forum_cutoff_reached(\stdClass $forum): bool {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        return forum_is_cutoff_date_reached($forum);
+    }
+
+    /**
+     * Determines whether the AI may reply in the given discussion.
+     *
+     * Unlocked discussions always allow replies. Locked discussions
+     * (either manually locked or locked by the forum inactivity rule)
+     * only allow replies when the effective "reply in locked
+     * discussions" option is enabled.
+     *
+     * @param \stdClass $forum Forum record.
+     * @param \stdClass $discussion Discussion record.
+     * @param \stdClass|null $config Forum config row.
+     * @return bool
+     */
+    public static function can_reply_in_discussion(\stdClass $forum, \stdClass $discussion, ?\stdClass $config): bool {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        if (!forum_discussion_is_locked($forum, $discussion)) {
+            return true;
+        }
+
+        return self::get_effective_reply_in_locked($config);
     }
 
     /**
@@ -311,9 +374,12 @@ class utils {
             return [];
         }
 
+        // Deleted posts and private replies are excluded: the context must only
+        // contain what a normal participant can see.
         $posts = $DB->get_records_select(
             'forum_posts',
-            'discussion = :discussionid AND (created < :created OR (created = :created2 AND id < :postid))',
+            'discussion = :discussionid AND privatereplyto = 0 AND deleted = 0
+                AND (created < :created OR (created = :created2 AND id < :postid))',
             [
                 'discussionid' => $discussionid,
                 'created' => (int)$currentpost->created,
@@ -397,12 +463,16 @@ class utils {
             $guidedata = guide::get($cmid);
         }
 
+        // Deleted posts and private replies are excluded: the payload must only
+        // contain what a normal participant can see.
         $posts = $DB->get_records_sql("
             SELECT d.id, d.name, p.message
             FROM {forum_discussions} d
             JOIN {forum_posts} p ON p.discussion = d.id
             WHERE p.userid = ?
             AND d.forum = ?
+            AND p.privatereplyto = 0
+            AND p.deleted = 0
         ", [$userid, $forum->id]);
 
         $discussions = [];
@@ -420,7 +490,9 @@ class utils {
             'participation' => [
                 'forum_id' => (string)$forum->id,
                 'forum' => $forum->name,
-                'scale' => (string)$forum->scale,
+                // Whole forum grading setting (not the per-post ratings scale):
+                // numeric maximum, or the option list for named scales.
+                'scale' => self::get_scale_payload((int)$forum->grade_forum) ?? 0,
                 'rubric' => $rubricdata,
                 'assessment_guide' => $guidedata,
                 'discussions' => $discussions,
