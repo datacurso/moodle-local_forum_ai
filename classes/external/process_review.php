@@ -16,13 +16,16 @@
 
 namespace local_forum_ai\external;
 
-use core_external\external_api;
-use core_external\external_function_parameters;
-use core_external\external_value;
-use core_external\external_single_structure;
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->libdir . '/externallib.php');
+
+use external_api;
+use external_function_parameters;
+use external_value;
+use external_single_structure;
 use local_forum_ai\ai_service;
 use local_forum_ai\utils;
-use moodle_exception;
 
 /**
  * External function to process AI-based review of forum activity.
@@ -63,25 +66,13 @@ class process_review extends external_api {
      * @param int $cmid   Course module ID.
      * @param int $userid User ID to be evaluated.
      * @return array Structured result containing evaluation type and serialized data.
-     * @throws \required_capability_exception If the caller does not hold local/forum_ai:useaireview.
-     * @throws \moodle_exception If the target user is not enrolled in the course
-     *                           or the AI response format is not recognized.
+     * @throws \moodle_exception If the AI response format is not recognized.
      */
     public static function execute($cmid, $userid) {
 
-        $params = self::validate_parameters(self::execute_parameters(), compact('cmid', 'userid'));
+        self::validate_parameters(self::execute_parameters(), compact('cmid', 'userid'));
 
-        $context = \context_module::instance($params['cmid']);
-        self::validate_context($context);
-        require_capability('local/forum_ai:useaireview', $context);
-
-        // The target user must belong to the forum's course.
-        $targetuser = \core_user::get_user($params['userid'], '*', MUST_EXIST);
-        if (!is_enrolled($context, $targetuser)) {
-            throw new moodle_exception('error_usernotincourse', 'local_forum_ai');
-        }
-
-        $payload = utils::build_forum_ai_payload($params['cmid'], $params['userid']);
+        $payload = utils::build_forum_ai_payload($cmid, $userid);
 
         $response = ai_service::call_ai_service_global($payload);
 
