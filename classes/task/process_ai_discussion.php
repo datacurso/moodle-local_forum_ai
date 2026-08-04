@@ -94,16 +94,6 @@ class process_ai_discussion extends adhoc_task {
                 return;
             }
 
-            if (utils::is_forum_cutoff_reached($forum)) {
-                mtrace("local_forum_ai: skipping discussion {$discussionid} — forum {$forum->id} cut-off date has passed.");
-                return;
-            }
-
-            if (!utils::can_reply_in_discussion($forum, $discussion, $config)) {
-                mtrace("local_forum_ai: skipping discussion {$discussionid} — discussion is locked.");
-                return;
-            }
-
             // Never reply to discussions authored by the configured AI grader (avoid self-replies).
             if (!empty($config->graderid) && (int)$discussion->userid === (int)$config->graderid) {
                 mtrace("local_forum_ai: skipping discussion {$discussionid} — authored by the AI grader user.");
@@ -149,17 +139,12 @@ class process_ai_discussion extends adhoc_task {
                 'prompt' => $replymessage,
                 'allow_followup_question' => $allowfollowupquestion,
                 'grading_enabled' => $gradingenabled,
-                'scale' => $gradingenabled ? utils::get_scale_payload((int)$forum->scale) : null,
+                'scale' => $gradingenabled ? $forum->scale : null,
             ];
 
             $airesponse = ai_service::call_ai_service($payload);
             $replytext = $airesponse['reply'] ?? '';
             $grade = $gradingenabled ? ($airesponse['grade'] ?? null) : null;
-
-            if ($gradingenabled && $grade === null) {
-                mtrace("local_forum_ai: AI response for discussion {$discussionid} contained no grade; " .
-                    'no rating will be applied.');
-            }
 
             if (!$requireapproval && $gradingenabled && $grade !== null && $effectivegraderid) {
                 $context = \context_module::instance($data->cmid);
@@ -190,7 +175,7 @@ class process_ai_discussion extends adhoc_task {
                 debugging('Grading enabled but no grader configured for forum ' . $forum->id, DEBUG_DEVELOPER);
             }
 
-            $pendingid = approval::create_approval_request(
+            approval::create_approval_request(
                 $discussion,
                 $forum,
                 $replytext,
@@ -200,24 +185,8 @@ class process_ai_discussion extends adhoc_task {
                 (!$requireapproval && $effectivegraderid) ? $effectivegraderid : $discussion->userid
             );
 
-            if (!$requireapproval && $pendingid) {
-                $pendingrow = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
-                $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-                $published = approval::publish_ai_post(
-                    $discussion,
-                    $forum,
-                    $cm,
-                    $course,
-                    $pendingrow,
-                    (int) $discussion->firstpost,
-                    (int) $effectivegraderid
-                );
-                if (!$published) {
-                    // A false return is final (inactive author or private parent): do not rethrow,
-                    // an adhoc retry would only re-call the paid AI service for the same outcome.
-                    mtrace("local_forum_ai: could not publish AI reply for pending {$pendingid}.");
-                    return;
-                }
+            if (!$requireapproval) {
+                approval::create_ai_reply($discussion, $replytext, $discussion->firstpost, $effectivegraderid);
             }
         } catch (\Throwable $e) {
             debugging('Error in process_ai_discussion task: ' . $e->getMessage(), DEBUG_DEVELOPER);

@@ -39,7 +39,7 @@ class approval {
      * @param int|null $parentpostid The ID of the parent post to reply to, or null if top-level.
      * @param int|null $grade AI-generated grade, if applicable.
      * @param int|null $creatoruserid User ID to attribute as creator in pending/history.
-     * @return int The new pending row id, or 0 on failure.
+     * @return void
      */
     public static function create_approval_request(
         $discussion,
@@ -49,7 +49,7 @@ class approval {
         ?int $parentpostid = null,
         ?int $grade = null,
         ?int $creatoruserid = null
-    ): int {
+    ): void {
         global $DB;
 
         try {
@@ -60,8 +60,7 @@ class approval {
             $pending->forumid = $forum->id;
             $pending->creator_userid = $creatoruserid ?? $discussion->userid;
             $pending->subject = "Re: " . $discussion->name;
-            // The AI response is external, untrusted content: purify it before storing.
-            $pending->message = clean_text($message, FORMAT_HTML);
+            $pending->message = $message;
             $pending->status = $status;
             $pending->approval_token = $approvaltoken;
             $pending->parentpostid = $parentpostid;
@@ -76,11 +75,8 @@ class approval {
             if ($status === 'pending') {
                 self::send_moodle_notification($discussion, $forum, $pendingid, $approvaltoken);
             }
-
-            return (int) $pendingid;
         } catch (\Exception $e) {
             debugging('Error in create_approval_request: ' . $e->getMessage(), DEBUG_DEVELOPER);
-            return 0;
         }
     }
 
@@ -202,140 +198,70 @@ class approval {
     }
 
     /**
-     * Publishes an AI response as a forum post through the standard forum flow.
+     * Creates an AI reply in the forum discussion.
      *
-     * Single publisher for both the automatic and the manual approval modes,
-     * mirroring core's canonical non-HTTP caller (the forum inbound reply
-     * handler): forum_add_new_post() followed by the post_created event and
-     * the completion state update, which core leaves to the caller.
-     *
-     * forum_add_new_post() attributes the post to $USER, so when the caller
-     * runs as another user (task/queue paths run as admin or the student) the
-     * publisher switches to the author and restores the original user after.
-     * The web approval path never switches ($USER is already the author);
-     * \core\cron::setup_user() is CLI-only.
-     *
-     * @param \stdClass $discussion Discussion record.
-     * @param \stdClass $forum Forum record.
-     * @param \stdClass $cm Course module record.
-     * @param \stdClass $course Course record.
-     * @param \stdClass $pending Pending AI response row.
-     * @param int $parentpostid ID of the post being replied to.
-     * @param int $authorid User the published post is attributed to.
-     * @return int|false The new post id, or false when publication is not possible.
-     *                   False is only returned BEFORE any post is created (private
-     *                   parent, or missing/suspended/deleted author). Once
-     *                   forum_add_new_post() succeeds this method always returns the
-     *                   new post id and no exception escapes: follow-up failures
-     *                   (linking, event, completion) are logged and swallowed so
-     *                   retries can never publish duplicate posts.
+     * @param object $discussion The discussion object.
+     * @param string $message The AI-generated message content.
+     * @param int $parentpostid The ID of the parent post to reply to.
+     * @param int $authoruserid User ID to use as reply author.
+     * @return bool True on success, false on failure.
      */
-    public static function publish_ai_post(
-        \stdClass $discussion,
-        \stdClass $forum,
-        \stdClass $cm,
-        \stdClass $course,
-        \stdClass $pending,
-        int $parentpostid,
-        int $authorid
-    ) {
-        global $CFG, $DB, $USER;
+    public static function create_ai_reply($discussion, string $message, int $parentpostid, int $authoruserid): bool {
+        global $CFG, $DB;
 
         require_once($CFG->dirroot . '/mod/forum/lib.php');
 
-        // Resolve the effective parent; fall back to the first post when missing.
-        $parentpost = $DB->get_record('forum_posts', [
-            'id' => $parentpostid,
-            'discussion' => $discussion->id,
-        ]);
-        if (!$parentpost) {
-            debugging(
-                'Parent post ID ' . $parentpostid . ' not found, using firstpost instead',
-                DEBUG_DEVELOPER
-            );
-            // The first post of a discussion is never a private reply.
-            $parentpostid = (int) $discussion->firstpost;
-        } else if (utils::is_private_reply($parentpost)) {
-            // Core forbids replying to private replies (forum_add_new_post would throw).
-            debugging(
-                'Cannot publish AI reply: parent post ' . $parentpostid . ' is a private reply',
-                DEBUG_DEVELOPER
-            );
-            return false;
-        }
+        try {
+            $author = $DB->get_record('user', ['id' => $authoruserid]);
 
-        // The author userid is deliberately omitted: forum_add_new_post() hard-overrides
-        // it with $USER->id, which is why the publisher switches users below instead.
-        $post = new \stdClass();
-        $post->discussion = $discussion->id;
-        $post->parent = $parentpostid;
-        $post->subject = $pending->subject ?: ('Re: ' . $discussion->name);
-        // The AI response is external, untrusted content: purify it and never mark it as trusted.
-        $post->message = clean_text($pending->message, FORMAT_HTML);
-        $post->messageformat = FORMAT_HTML;
-        $post->messagetrust = 0;
-        // No draft file area is involved: skip the draft file merge entirely.
-        $post->itemid = IGNORE_FILE_MERGE;
-        $post->mailnow = 0;
-        $post->deleted = 0;
-
-        // Switch to the author when the current user differs (task/queue paths only).
-        $originaluser = null;
-        if ((int) $USER->id !== $authorid) {
-            $author = \core_user::get_user($authorid);
-            if (!$author || !empty($author->deleted) || !empty($author->suspended)) {
-                // Mirrors core's require_active_user() intent: a suspended or deleted
-                // grader must not keep publishing, and a missing one must not cause
-                // unbounded adhoc retries that re-call the paid AI service.
-                debugging(
-                    'Cannot publish AI reply: author user ' . $authorid . ' is missing or inactive',
-                    DEBUG_DEVELOPER
-                );
+            if (!$author) {
+                debugging('Configured author user not found for AI reply: ' . $authoruserid, DEBUG_DEVELOPER);
                 return false;
             }
-            $originaluser = $USER;
-            \core\cron::setup_user($author);
-        }
 
-        try {
-            $postid = (int) forum_add_new_post($post, null);
+            // Verify that the parentpostid exists and belongs to this discussion.
+            $parentpost = $DB->get_record('forum_posts', [
+                'id' => $parentpostid,
+                'discussion' => $discussion->id,
+            ]);
 
-            try {
-                // Follow-ups must never abort the publication: the post already exists,
-                // so a rethrow here would let retries create duplicate posts.
-
-                // Link the pending row before the event fires so observers already see the marker.
-                $DB->set_field('local_forum_ai_pending', 'postid', $postid, ['id' => $pending->id]);
-                $pending->postid = $postid;
-
-                $postrecord = $DB->get_record('forum_posts', ['id' => $postid], '*', MUST_EXIST);
-                $event = \mod_forum\event\post_created::create([
-                    'context' => \context_module::instance($cm->id),
-                    'objectid' => $postid,
-                    'other' => [
-                        'discussionid' => $discussion->id,
-                        'forumid' => $forum->id,
-                        'forumtype' => $forum->type,
-                    ],
-                ]);
-                $event->add_record_snapshot('forum_posts', $postrecord);
-                $event->add_record_snapshot('forum_discussions', $discussion);
-                $event->trigger();
-
-                // Update the completion state for the author (still the current user here).
-                $completion = new \completion_info($course);
-                if ($completion->is_enabled($cm) && ($forum->completionreplies || $forum->completionposts)) {
-                    $completion->update_state($cm, COMPLETION_COMPLETE);
-                }
-            } catch (\Throwable $e) {
-                debugging('Error in AI post publication follow-ups: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            if (!$parentpost) {
+                debugging(
+                    'Parent post ID ' . $parentpostid . ' not found or does not belong to discussion ' . $discussion->id,
+                    DEBUG_DEVELOPER
+                );
+                // Use firstpost as fallback.
+                $parentpostid = $discussion->firstpost;
             }
 
-            return $postid;
-        } finally {
-            if ($originaluser !== null) {
-                \core\cron::setup_user($originaluser);
-            }
+            $post = new \stdClass();
+            $post->discussion = $discussion->id;
+            $post->parent = $parentpostid;
+            $post->userid = $author->id;
+            $post->created = time();
+            $post->modified = time();
+            $post->subject = "Re: " . $discussion->name;
+            $post->message = $message;
+            $post->messageformat = FORMAT_HTML;
+            $post->messagetrust = 1;
+            $post->mailed = FORUM_MAILED_PENDING;
+            $post->attachment = '';
+            $post->totalscore = 0;
+            $post->mailnow = 0;
+
+            \mod_forum\local\entities\post::add_message_counts($post);
+
+            $DB->insert_record('forum_posts', $post);
+
+            // Bump the discussion so the AI reply shows up in discussion listings,
+            // tracking and digests (a raw insert alone leaves it stale).
+            $DB->set_field('forum_discussions', 'timemodified', $post->modified, ['id' => $discussion->id]);
+            $DB->set_field('forum_discussions', 'usermodified', $post->userid, ['id' => $discussion->id]);
+
+            return true;
+        } catch (\Exception $e) {
+            debugging('Error in create_ai_reply: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return false;
         }
     }
 }

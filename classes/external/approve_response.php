@@ -18,14 +18,13 @@ namespace local_forum_ai\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-global $CFG;
-
+require_once($CFG->libdir . '/externallib.php');
 require_once(__DIR__ . '/../../locallib.php');
 
-use core_external\external_api;
-use core_external\external_function_parameters;
-use core_external\external_value;
-use core_external\external_single_structure;
+use external_api;
+use external_function_parameters;
+use external_value;
+use external_single_structure;
 use moodle_exception;
 
 /**
@@ -82,26 +81,10 @@ class approve_response extends external_api {
 
         $context = \context_module::instance($cm->id);
         self::validate_context($context);
-        require_capability('local/forum_ai:approveresponses', $context);
-
-        $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]) ?: null;
-
-        // Restored or legacy rows may hold a published post while still marked pending:
-        // an already-published response must never be re-published.
-        if (!empty($pending->postid)) {
-            throw new moodle_exception('error_responsenotpending', 'local_forum_ai');
-        }
+        require_capability('mod/forum:viewdiscussion', $context);
 
         if ($params['action'] === 'approve') {
             require_once($CFG->dirroot . '/mod/forum/lib.php');
-
-            if (\local_forum_ai\utils::is_forum_cutoff_reached($forum)) {
-                throw new moodle_exception('error_forumclosed', 'local_forum_ai');
-            }
-
-            if (!\local_forum_ai\utils::can_reply_in_discussion($forum, $discussion, $config)) {
-                throw new moodle_exception('error_discussionlocked', 'local_forum_ai');
-            }
 
             // Determine the correct parent post based on parentpostid.
             $parentid = $discussion->firstpost;
@@ -115,13 +98,6 @@ class approve_response extends external_api {
 
                 if ($parentpost) {
                     $parentid = $pending->parentpostid;
-
-                    // Core forbids replying to private replies (forum_add_new_post would throw
-                    // a coding_exception): surface a clean, localized error instead. The
-                    // firstpost fallback needs no check because a first post is never private.
-                    if (\local_forum_ai\utils::is_private_reply($parentpost)) {
-                        throw new moodle_exception('error_privatereply', 'local_forum_ai');
-                    }
                 } else {
                     // If the parent post does not exist, log the error and use firstpost instead.
                     debugging(
@@ -131,22 +107,19 @@ class approve_response extends external_api {
                 }
             }
 
-            // In manual mode the AI response is attributed to the user who approved it,
-            // so the shared publisher never needs to switch users on this path.
-            $newpostid = \local_forum_ai\approval::publish_ai_post(
-                $discussion,
-                $forum,
-                $cm,
-                $course,
-                $pending,
-                (int) $parentid,
-                (int) $USER->id
-            );
-            if (!$newpostid) {
-                // Defense in depth: false only happens for pre-insert failures (the gates
-                // above should have caught them already), so no post was published.
-                throw new moodle_exception('error_privatereply', 'local_forum_ai');
-            }
+            $post = new \stdClass();
+            $post->discussion    = $discussion->id;
+            $post->parent        = $parentid;
+            // In manual mode, attribute the AI response to the user who approved it.
+            $post->userid        = $USER->id;
+            $post->created       = time();
+            $post->modified      = time();
+            $post->subject       = $pending->subject ?: ("Re: " . $discussion->name);
+            $post->message       = $pending->message;
+            $post->messageformat = FORMAT_HTML;
+            $post->messagetrust  = 1;
+
+            $newpostid = forum_add_new_post($post, null);
 
             $gradingenabled = ($forum->assessed != 0);
 

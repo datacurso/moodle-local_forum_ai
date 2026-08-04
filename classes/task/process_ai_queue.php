@@ -78,9 +78,8 @@ class process_ai_queue extends \core\task\scheduled_task {
                     \core\task\manager::queue_adhoc_task($task);
                 }
 
-                // Remove the row once its adhoc task is queued: nothing reads
-                // dispatched rows, and keeping them grows the table unbounded.
-                $DB->delete_records('local_forum_ai_queue', ['id' => $item->id]);
+                $item->processed = 1;
+                $DB->update_record('local_forum_ai_queue', $item);
             } catch (\Throwable $e) {
                 debugging('Error processing Forum AI queue: ' . $e->getMessage(), DEBUG_DEVELOPER);
             }
