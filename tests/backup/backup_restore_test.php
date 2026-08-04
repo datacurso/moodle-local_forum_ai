@@ -31,59 +31,9 @@ global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 require_once($CFG->dirroot . '/local/forum_ai/backup/moodle2/restore_local_forum_ai_plugin.class.php');
+require_once(__DIR__ . '/restore_local_forum_ai_plugin_test_double.php');
 
 use local_forum_ai\external\approve_response;
-
-/**
- * Restore test double for seeding forum AI restore mappings.
- *
- * @package   local_forum_ai
- * @category  test
- * @copyright 2026 Datacurso
- * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-final class restore_local_forum_ai_plugin_test_double extends \restore_local_forum_ai_plugin {
-    /** @var array<int, array<int, int|null>> */
-    private array $mappings = [];
-
-    /**
-     * Build a test double without running the parent restore constructor.
-     */
-    public function __construct() {
-    }
-
-    /**
-     * Seed the mapping table used by the restore test double.
-     *
-     * @param array $mappings Mapping values by item name and source id.
-     * @return void
-     */
-    public function seed_mappings(array $mappings): void {
-        $this->mappings = $mappings;
-    }
-
-    /**
-     * Seed the temporary config rows used by the restore test double.
-     *
-     * @param array $configs Config rows captured from backup.
-     * @return void
-     */
-    public function seed_tempconfigs(array $configs): void {
-        $this->tempconfigs = $configs;
-    }
-
-    /**
-     * Return the seeded mapping value for the requested item and source id.
-     *
-     * @param string $itemname Mapping group name.
-     * @param int $oldid Original identifier.
-     * @param bool|int $ifnotfound Fallback when no mapping exists.
-     * @return int|false|null
-     */
-    protected function get_mappingid($itemname, $oldid, $ifnotfound = false) {
-        return $this->mappings[$itemname][$oldid] ?? $ifnotfound;
-    }
-}
 
 /**
  * Full-cycle backup/restore regression test for restored AI pending rows.
