@@ -115,7 +115,11 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->forumid = $newforumid;
             $record->discussionid = $newdiscussionid;
             $record->creator_userid = $newuserid ?? $pending->creator_userid;
+            $record->parentpostid = !empty($pending->parentpostid)
+                ? ($this->get_mappingid('forum_post', $pending->parentpostid) ?: null)
+                : null;
             $record->subject = $pending->subject;
+            $record->grade = isset($pending->grade) ? (int) $pending->grade : null;
             // Restored AI messages may come from pre-sanitization backups: purify on re-insertion.
             $record->message = clean_text($pending->message ?? '', FORMAT_HTML);
             // Map the published post to its restored id; null when it did not survive.
