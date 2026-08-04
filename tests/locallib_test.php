@@ -183,6 +183,26 @@ final class locallib_test extends \advanced_testcase {
     }
 
     /**
+     * An explicit zero is a legitimate rating on numeric point grading.
+     */
+    public function test_add_rating_numeric_scale_accepts_explicit_zero(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        $data = $this->setup_rated_forum(10);
+
+        $result = $this->add_rating($data, 0);
+
+        $this->assertFalse(property_exists($result, 'error'));
+        $this->assertTrue($result->success);
+        $record = $DB->get_record('rating', [
+            'itemid' => $data['post']->id,
+            'userid' => $data['teacher']->id,
+        ], '*', MUST_EXIST);
+        $this->assertEquals(0, $record->rating);
+    }
+
+    /**
      * A user must not be able to rate their own post.
      */
     public function test_add_rating_self_rating_is_rejected(): void {

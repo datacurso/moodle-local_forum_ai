@@ -156,6 +156,11 @@ class process_ai_discussion extends adhoc_task {
             $replytext = $airesponse['reply'] ?? '';
             $grade = $gradingenabled ? ($airesponse['grade'] ?? null) : null;
 
+            if ($gradingenabled && $grade === null) {
+                mtrace("local_forum_ai: AI response for discussion {$discussionid} contained no grade; " .
+                    'no rating will be applied.');
+            }
+
             if (!$requireapproval && $gradingenabled && $grade !== null && $effectivegraderid) {
                 $context = \context_module::instance($data->cmid);
                 $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);

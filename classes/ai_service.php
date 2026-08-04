@@ -40,9 +40,24 @@ class ai_service {
         $client = new ai_services_api();
         $response = $client->request('POST', '/forum/chat/v2', $payload);
 
+        return self::format_chat_response($response);
+    }
+
+    /**
+     * Map the raw chat service response to the plugin result shape.
+     *
+     * A missing grade stays null — it must never default to zero, because
+     * the tasks apply any non-null grade as a real rating and a service
+     * failure would otherwise land as an unfair zero in the student record.
+     * An explicit zero returned by the service is a legitimate grade.
+     *
+     * @param array|null $response Decoded service response.
+     * @return array Keys: reply (?string), grade (?int).
+     */
+    public static function format_chat_response(?array $response): array {
         return [
             'reply' => $response['reply'] ?? null,
-            'grade' => $response['grade'] ?? 0,
+            'grade' => $response['grade'] ?? null,
         ];
     }
 
