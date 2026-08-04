@@ -198,23 +198,40 @@ final class backup_restore_test extends \advanced_testcase {
             /** @var array<int, array<int, int|null>> */
             private array $mappings = [];
 
+            /**
+             * Build a test double without running the parent restore constructor.
+             */
             public function __construct() {
             }
 
             /**
-             * @param array<int, array<int, int|null>> $mappings
+             * Seed the mapping table used by the restore test double.
+             *
+             * @param array<int, array<int, int|null>> $mappings Mapping values by item name and source id.
+             * @return void
              */
             public function seed_mappings(array $mappings): void {
                 $this->mappings = $mappings;
             }
 
             /**
-             * @param array<int, stdClass> $configs
+             * Seed the temporary config rows used by the restore test double.
+             *
+             * @param array<int, stdClass> $configs Config rows captured from backup.
+             * @return void
              */
             public function seed_tempconfigs(array $configs): void {
                 $this->tempconfigs = $configs;
             }
 
+            /**
+             * Return the seeded mapping value for the requested item and source id.
+             *
+             * @param string $itemname Mapping group name.
+             * @param int $oldid Original identifier.
+             * @param bool|int $ifnotfound Fallback when no mapping exists.
+             * @return int|false|null
+             */
             protected function get_mappingid($itemname, $oldid, $ifnotfound = false) {
                 return $this->mappings[$itemname][$oldid] ?? $ifnotfound;
             }
