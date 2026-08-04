@@ -186,4 +186,77 @@ final class backup_restore_test extends \advanced_testcase {
         $rating = $DB->get_record('rating', ['itemid' => $restoredreply->id], '*', MUST_EXIST);
         $this->assertSame(73, (int) $rating->rating);
     }
+
+    /**
+     * Grader IDs are remapped to restored users and cleared when the mapping is missing.
+     */
+    public function test_config_graderid_is_remapped_or_cleared_when_missing_mapping(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $restore = new class extends \restore_local_forum_ai_plugin {
+            /** @var array<int, array<int, int|null>> */
+            private array $mappings = [];
+
+            public function __construct() {
+            }
+
+            /**
+             * @param array<int, array<int, int|null>> $mappings
+             */
+            public function seed_mappings(array $mappings): void {
+                $this->mappings = $mappings;
+            }
+
+            /**
+             * @param array<int, stdClass> $configs
+             */
+            public function seed_tempconfigs(array $configs): void {
+                $this->tempconfigs = $configs;
+            }
+
+            protected function get_mappingid($itemname, $oldid, $ifnotfound = false) {
+                return $this->mappings[$itemname][$oldid] ?? $ifnotfound;
+            }
+        };
+
+        $restore->seed_mappings([
+            'forum' => [
+                1001 => 2001,
+                1002 => 2002,
+            ],
+            'user' => [
+                3001 => 4001,
+            ],
+        ]);
+        $restore->seed_tempconfigs([
+            (object) [
+                'forumid' => 1001,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'graderid' => 3001,
+                'reply_message' => 'Mapped grader prompt',
+                'timecreated' => 1710000000,
+                'timemodified' => 1710000000,
+            ],
+            (object) [
+                'forumid' => 1002,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'graderid' => 3002,
+                'reply_message' => 'Unmapped grader prompt',
+                'timecreated' => 1710000000,
+                'timemodified' => 1710000000,
+            ],
+        ]);
+
+        $this->expectOutputRegex('/.*/s');
+        $restore->after_restore_course();
+
+        $mappedconfig = $DB->get_record('local_forum_ai_config', ['forumid' => 2001], '*', MUST_EXIST);
+        $unmappedconfig = $DB->get_record('local_forum_ai_config', ['forumid' => 2002], '*', MUST_EXIST);
+
+        $this->assertSame(4001, (int) $mappedconfig->graderid);
+        $this->assertNull($unmappedconfig->graderid);
+    }
 }
