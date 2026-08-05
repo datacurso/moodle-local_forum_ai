@@ -100,7 +100,9 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
                 ? $this->get_mappingid('user', $config->graderid, null)
                 : null;
             $record->usedelay = $config->usedelay ?? 0;
-            $record->delayminutes = isset($config->delayminutes) ? max(1, (int)$config->delayminutes) : 0;
+            $record->delayminutes = isset($config->delayminutes)
+                ? max(1, (int)$config->delayminutes)
+                : \local_forum_ai\utils::get_default_delay_minutes();
             $record->replyinlocked = $config->replyinlocked ?? 0;
             $record->timecreated = $config->timecreated;
             $record->timemodified = $config->timemodified;

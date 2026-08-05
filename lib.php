@@ -151,7 +151,6 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $rawdefaultreplymessage = get_config('local_forum_ai', 'default_reply_message');
     $rawdefaultinitconversation = get_config('local_forum_ai', 'default_enablediainitconversation');
     $rawdefaultusedelay = get_config('local_forum_ai', 'default_usedelay');
-    $rawdefaultdelayminutes = get_config('local_forum_ai', 'default_delayminutes');
     $defaultenabled = ($rawdefaultenabled === false || $rawdefaultenabled === '') ? 1 : (int)$rawdefaultenabled;
     $defaultrequireapproval =
         ($rawdefaultrequireapproval === false || $rawdefaultrequireapproval === '') ? 1 : (int)$rawdefaultrequireapproval;
@@ -162,9 +161,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $defaultinitconversation =
         ($rawdefaultinitconversation === false || $rawdefaultinitconversation === '') ? 0 : (int)$rawdefaultinitconversation;
     $defaultusedelay = ($rawdefaultusedelay === false || $rawdefaultusedelay === '') ? 0 : (int)$rawdefaultusedelay;
-    $defaultdelayminutes = ($rawdefaultdelayminutes === false || $rawdefaultdelayminutes === '')
-        ? 60
-        : max(1, (int)$rawdefaultdelayminutes);
+    $defaultdelayminutes = \local_forum_ai\utils::get_default_delay_minutes();
     $defaultreplyinlocked = \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
     $defaultquestionturns = \local_forum_ai\utils::get_default_question_turns();
     $globalenabled = \local_forum_ai\utils::is_global_ai_enabled();
