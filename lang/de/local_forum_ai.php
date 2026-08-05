@@ -67,6 +67,7 @@ $string['enablediainitconversation_help'] = 'Wenn diese Option aktiviert ist, ka
 $string['enableforumai'] = 'Forum-KI aktivieren';
 $string['enableforumai_desc'] = 'Wenn deaktiviert, wird der Abschnitt "Datacurso Forum KI" in den Foren-Einstellungen ausgeblendet und die automatische Verarbeitung pausiert.';
 $string['error_airequest'] = 'Fehler bei der Kommunikation mit dem KI-Dienst: {$a}';
+$string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_discussionlocked'] = 'Diese Diskussion ist gesperrt, daher kann die KI-Antwort nicht veröffentlicht werden. Entsperren Sie die Diskussion und versuchen Sie es erneut.';
 $string['error_forumclosed'] = 'Der Stichtag dieses Forums ist abgelaufen, daher kann die KI-Antwort nicht veröffentlicht werden.';
 $string['error_privatereply'] = 'Der Beitrag, auf den geantwortet wird, ist eine private Antwort, daher kann keine KI-Antwort veröffentlicht werden.';

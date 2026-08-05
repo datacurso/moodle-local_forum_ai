@@ -203,27 +203,32 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
                         cmid: parseInt(resolvedCmid, 10),
                         userid: parseInt(userid, 10)
                     }
-                }])[0].done(function (response) {
+                }])[0].done(async function (response) {
 
                     try {
                         const data = JSON.parse(response.data);
+                        let applied = false;
 
                         if (response.type === 'simple') {
-                            applySimpleGrade(data);
-                        }
-
-                        if (response.type === 'rubric') {
+                            applied = applySimpleGrade(data);
+                        } else if (response.type === 'rubric') {
                             applyRubricGrade(data);
+                            applied = true;
+                        } else if (response.type === 'guide') {
+                            applyGuideGrade(data);
+                            applied = true;
                         }
 
-                        if (response.type === 'guide') {
-                            applyGuideGrade(data);
+                        if (!applied) {
+                            const failureMessage = await Str.get_string('error_invalidgrade', 'local_forum_ai');
+                            showNotification(failureMessage, 'error');
+                            resetLoading(button);
+                            return;
                         }
 
                         // Show success message
-                        Str.get_string('gradesappliedsuccessfully', 'local_forum_ai').done(function (message) {
-                            showNotification(message, 'success');
-                        });
+                        const successMessage = await Str.get_string('gradesappliedsuccessfully', 'local_forum_ai');
+                        showNotification(successMessage, 'success');
 
                         resetLoading(button);
 
@@ -339,16 +344,19 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
          * only filled in — saving stays with the teacher.
          *
          * @param {Object} data
+         * @returns {boolean}
          */
         function applySimpleGrade(data) {
             const gradeField = document.querySelector('input[name="grade"], select[name="grade"]');
 
             if (!gradeField) {
-                return;
+                return false;
             }
 
-            gradeField.value = data.grade;
+            const appliedGrade = String(data.grade);
+            gradeField.value = appliedGrade;
             gradeField.dispatchEvent(new Event('change', {bubbles: true}));
+            return gradeField.value === appliedGrade;
         }
 
         /**

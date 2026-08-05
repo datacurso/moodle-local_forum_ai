@@ -46,6 +46,26 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  */
 final class process_review_test extends externallib_advanced_testcase {
     /**
+     * A valid integer grade must remain unchanged in the simple response.
+     */
+    public function test_build_simple_grade_response_preserves_integer_grade(): void {
+        $result = process_review::build_simple_grade_response(['grade' => 7], 100);
+
+        $this->assertSame('simple', $result['type']);
+        $this->assertSame('{"grade":7}', $result['data']);
+    }
+
+    /**
+     * An invalid grade must fail visibly instead of being returned as success.
+     */
+    public function test_build_simple_grade_response_rejects_invalid_grade(): void {
+        $this->expectException(moodle_exception::class);
+        $this->expectExceptionMessage('The AI grade could not be resolved to a valid forum grade.');
+
+        process_review::build_simple_grade_response(['grade' => 'Outstanding'], 100);
+    }
+
+    /**
      * An enrolled student without the review capability must be rejected.
      */
     public function test_execute_requires_capability(): void {

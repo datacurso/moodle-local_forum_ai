@@ -67,6 +67,7 @@ $string['enablediainitconversation_help'] = 'Mengaktifkan opsi ini akan memungki
 $string['enableforumai'] = 'Aktifkan Forum AI';
 $string['enableforumai_desc'] = 'Jika dinonaktifkan, bagian "Datacurso Forum AI" disembunyikan dari pengaturan aktivitas forum dan pemrosesan otomatis dijeda.';
 $string['error_airequest'] = 'Kesalahan komunikasi dengan layanan AI: {$a}';
+$string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_discussionlocked'] = 'Diskusi ini terkunci, sehingga respon AI tidak dapat dipublikasikan. Buka kunci diskusi lalu coba lagi.';
 $string['error_forumclosed'] = 'Tanggal batas akhir forum ini sudah lewat, sehingga respon AI tidak dapat dipublikasikan.';
 $string['error_privatereply'] = 'Posting yang dibalas adalah balasan pribadi, sehingga respon AI tidak dapat dipublikasikan.';

@@ -82,17 +82,13 @@ class process_review extends external_api {
         }
 
         $payload = utils::build_forum_ai_payload($params['cmid'], $params['userid']);
+        $scale = $payload['forum_participations'][0]['participation']['scale'] ?? null;
 
         $response = ai_service::call_ai_service_global($payload);
 
         // Simple grade.
-        if (isset($response['grade']) && is_numeric($response['grade'])) {
-            return [
-                'type' => 'simple',
-                'data' => json_encode([
-                    'grade' => (float) $response['grade'],
-                ], JSON_UNESCAPED_UNICODE),
-            ];
+        if (isset($response['grade'])) {
+            return self::build_simple_grade_response($response, $scale);
         }
 
         // Rubric.
@@ -112,6 +108,24 @@ class process_review extends external_api {
         }
 
         throw new \moodle_exception('Unrecognized AI response format');
+    }
+
+    /**
+     * Build the simple-grade response after normalizing the AI output.
+     *
+     * @param array $response AI response array.
+     * @param int|array|null $scale Forum grade payload.
+     * @return array
+     */
+    public static function build_simple_grade_response(array $response, int|array|null $scale): array {
+        $grade = utils::normalize_review_grade($response['grade'] ?? null, $scale);
+
+        return [
+            'type' => 'simple',
+            'data' => json_encode([
+                'grade' => $grade,
+            ], JSON_UNESCAPED_UNICODE),
+        ];
     }
 
     /**

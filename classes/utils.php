@@ -18,6 +18,7 @@ namespace local_forum_ai;
 
 use local_forum_ai\helper\rubric;
 use local_forum_ai\helper\guide;
+use core_text;
 
 /**
  * Utility functions for local_forum_ai.
@@ -60,6 +61,58 @@ class utils {
         }
 
         return null;
+    }
+
+    /**
+     * Normalize an AI grade against the forum grading configuration.
+     *
+     * Point grades accept numeric values and are returned as floats to match
+     * the current simple-grade payload. Named scales accept either the
+     * 1-based option index or the option label itself and are returned as the
+     * canonical integer index.
+     *
+     * @param mixed $rawgrade Raw AI grade value.
+     * @param int|string[]|null $scale Forum grade payload from get_scale_payload().
+     * @return int|float
+     * @throws \moodle_exception When the grade cannot be resolved.
+     */
+    public static function normalize_review_grade(mixed $rawgrade, int|array|null $scale): int|float {
+        if (is_int($scale) && $scale > 0) {
+            if (!is_numeric($rawgrade)) {
+                throw new \moodle_exception('error_invalidgrade', 'local_forum_ai');
+            }
+
+            return (float) $rawgrade;
+        }
+
+        if (is_int($scale) && $scale < 0) {
+            $scale = self::get_scale_payload($scale);
+        }
+
+        if (is_array($scale)) {
+            $rawgrade = trim((string) $rawgrade);
+
+            if (filter_var($rawgrade, FILTER_VALIDATE_INT) !== false) {
+                $index = (int) $rawgrade;
+                if ($index >= 1 && $index <= count($scale)) {
+                    return $index;
+                }
+            }
+
+            foreach ($scale as $index => $option) {
+                if (core_text::strtolower(trim((string) $option)) === core_text::strtolower($rawgrade)) {
+                    return $index + 1;
+                }
+            }
+
+            throw new \moodle_exception('error_invalidgrade', 'local_forum_ai');
+        }
+
+        if (is_numeric($rawgrade)) {
+            return (float) $rawgrade;
+        }
+
+        throw new \moodle_exception('error_invalidgrade', 'local_forum_ai');
     }
 
     /**
