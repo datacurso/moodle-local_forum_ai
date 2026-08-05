@@ -66,6 +66,15 @@ final class utils_reply_in_locked_test extends \advanced_testcase {
         set_config('default_replyinlocked', 1, 'local_forum_ai');
         $this->assertTrue(utils::get_effective_reply_in_locked(null));
 
+        // Inherited forum settings must track the current global value.
+        $config = new stdClass();
+        $config->replyinlocked = utils::REPLY_IN_LOCKED_INHERIT;
+        set_config('default_replyinlocked', 0, 'local_forum_ai');
+        $this->assertFalse(utils::get_effective_reply_in_locked($config));
+
+        set_config('default_replyinlocked', 1, 'local_forum_ai');
+        $this->assertTrue(utils::get_effective_reply_in_locked($config));
+
         // Empty config object (task fallback): global default applies too.
         $this->assertTrue(utils::get_effective_reply_in_locked(new stdClass()));
 

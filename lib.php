@@ -152,8 +152,6 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $rawdefaultinitconversation = get_config('local_forum_ai', 'default_enablediainitconversation');
     $rawdefaultusedelay = get_config('local_forum_ai', 'default_usedelay');
     $rawdefaultdelayminutes = get_config('local_forum_ai', 'default_delayminutes');
-    $rawdefaultreplyinlocked = get_config('local_forum_ai', 'default_replyinlocked');
-
     $defaultenabled = ($rawdefaultenabled === false || $rawdefaultenabled === '') ? 1 : (int)$rawdefaultenabled;
     $defaultrequireapproval =
         ($rawdefaultrequireapproval === false || $rawdefaultrequireapproval === '') ? 1 : (int)$rawdefaultrequireapproval;
@@ -167,8 +165,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $defaultdelayminutes = ($rawdefaultdelayminutes === false || $rawdefaultdelayminutes === '')
         ? 60
         : max(1, (int)$rawdefaultdelayminutes);
-    $defaultreplyinlocked =
-        ($rawdefaultreplyinlocked === false || $rawdefaultreplyinlocked === '') ? 0 : (int)$rawdefaultreplyinlocked;
+    $defaultreplyinlocked = \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
     $defaultquestionturns = \local_forum_ai\utils::get_default_question_turns();
     $globalenabled = \local_forum_ai\utils::is_global_ai_enabled();
 
@@ -199,7 +196,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
         $defaults->allowedroles_saved = true;
         $defaults->usedelay = $record->usedelay ?? 0;
         $defaults->delayminutes = max(1, (int)($record->delayminutes ?? 60));
-        $defaults->replyinlocked = $record->replyinlocked ?? 0;
+        $defaults->replyinlocked = $record->replyinlocked ?? \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
         $defaults->questionturns = \local_forum_ai\utils::normalize_question_turns(
             $record->questionturns ?? $defaultquestionturns
         );
@@ -311,12 +308,18 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->addHelpButton('local_forum_ai_delayminutes', 'delayminutes', 'local_forum_ai');
     $mform->setDefault('local_forum_ai_delayminutes', $defaults->delayminutes);
 
+    $replyinlockedoptions = [
+        \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT => get_string('default', 'core'),
+        0 => get_string('no'),
+        1 => get_string('yes'),
+    ];
     $mform->addElement(
         'select',
         'local_forum_ai_replyinlocked',
         get_string('replyinlocked', 'local_forum_ai'),
-        [0 => get_string('no'), 1 => get_string('yes')]
+        $replyinlockedoptions
     );
+    $mform->setType('local_forum_ai_replyinlocked', PARAM_INT);
     $mform->addHelpButton('local_forum_ai_replyinlocked', 'replyinlocked', 'local_forum_ai');
     $mform->setDefault('local_forum_ai_replyinlocked', $defaults->replyinlocked);
 
@@ -496,7 +499,7 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         if (property_exists($data, 'local_forum_ai_replyinlocked')) {
             $config->replyinlocked = (int) $data->local_forum_ai_replyinlocked;
         } else if (!isset($config->replyinlocked)) {
-            $config->replyinlocked = 0;
+            $config->replyinlocked = \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
         }
     }
 
