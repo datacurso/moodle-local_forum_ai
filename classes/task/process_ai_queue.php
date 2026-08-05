@@ -16,8 +16,8 @@
 
 namespace local_forum_ai\task;
 
-use local_forum_ai\task\process_ai_post;
 use local_forum_ai\task\process_ai_discussion;
+use local_forum_ai\task\process_ai_post;
 use local_forum_ai\utils;
 
 /**
@@ -28,6 +28,11 @@ use local_forum_ai\utils;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class process_ai_queue extends \core\task\scheduled_task {
+    /**
+     * Lock type used to serialize queue dispatch.
+     */
+    private const LOCKTYPE = 'local_forum_ai_queue';
+
     /**
      * Return the task name shown in admin screens.
      *
@@ -52,6 +57,7 @@ class process_ai_queue extends \core\task\scheduled_task {
         }
 
         $now = time();
+        $lockfactory = \core\lock\lock_config::get_lock_factory(self::LOCKTYPE);
 
         // Get pending items whose time has arrived.
         $items = $DB->get_records_select(
@@ -65,24 +71,42 @@ class process_ai_queue extends \core\task\scheduled_task {
         );
 
         foreach ($items as $item) {
-            $data = json_decode($item->payload);
+            $lock = $lockfactory->get_lock('queueitem_' . $item->id, 0);
+            if (!$lock) {
+                continue;
+            }
+
+            $transaction = $DB->start_delegated_transaction();
 
             try {
+                $data = json_decode($item->payload);
+
                 if ($item->type === 'post') {
+                    $post = $DB->get_record('forum_posts', ['id' => (int) $data->postid], 'id,userid', MUST_EXIST);
                     $task = new process_ai_post();
                     $task->set_custom_data($data);
+                    $task->set_component('local_forum_ai');
+                    $task->set_userid((int) $post->userid);
                     \core\task\manager::queue_adhoc_task($task);
                 } else if ($item->type === 'discussion') {
+                    $discussion = $DB->get_record('forum_discussions', ['id' => (int) $data->discussionid], 'id,userid', MUST_EXIST);
                     $task = new process_ai_discussion();
                     $task->set_custom_data($data);
+                    $task->set_component('local_forum_ai');
+                    $task->set_userid((int) $discussion->userid);
                     \core\task\manager::queue_adhoc_task($task);
                 }
 
                 // Remove the row once its adhoc task is queued: nothing reads
                 // dispatched rows, and keeping them grows the table unbounded.
                 $DB->delete_records('local_forum_ai_queue', ['id' => $item->id]);
+
+                $transaction->allow_commit();
             } catch (\Throwable $e) {
+                $transaction->rollback($e);
                 debugging('Error processing Forum AI queue: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            } finally {
+                $lock->release();
             }
         }
     }
