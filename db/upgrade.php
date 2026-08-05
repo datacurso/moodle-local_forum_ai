@@ -307,5 +307,26 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026073000, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026080401) {
+        $globalreplyinlocked = get_config('local_forum_ai', 'default_replyinlocked');
+        $globalreplyinlocked = ($globalreplyinlocked === false || $globalreplyinlocked === '') ? 0 : (int) $globalreplyinlocked;
+
+        // Legacy rows stored the site default as an explicit forum value. Convert
+        // those rows to "inherit" so future global changes reach untouched forums.
+        $DB->set_field_select(
+            'local_forum_ai_config',
+            'replyinlocked',
+            \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT,
+            'replyinlocked = :replyinlocked',
+            ['replyinlocked' => $globalreplyinlocked]
+        );
+
+        if (get_config('local_forum_ai', 'default_replyinlocked') === false) {
+            set_config('default_replyinlocked', 0, 'local_forum_ai');
+        }
+
+        upgrade_plugin_savepoint(true, 2026080401, 'local', 'forum_ai');
+    }
+
     return true;
 }

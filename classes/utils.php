@@ -28,6 +28,11 @@ use local_forum_ai\helper\guide;
  */
 class utils {
     /**
+     * Stored value meaning "follow the global default" for reply in locked discussions.
+     */
+    public const REPLY_IN_LOCKED_INHERIT = 2;
+
+    /**
      * Build the scale value to send to the AI service for post grading.
      *
      * Point grading (positive scale) keeps the numeric maximum. Named scales
@@ -173,7 +178,10 @@ class utils {
      */
     public static function get_effective_reply_in_locked(?\stdClass $config): bool {
         if ($config && isset($config->replyinlocked)) {
-            return !empty($config->replyinlocked);
+            $value = (int) $config->replyinlocked;
+            if ($value !== self::REPLY_IN_LOCKED_INHERIT) {
+                return !empty($value);
+            }
         }
 
         return self::get_default_reply_in_locked();

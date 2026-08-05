@@ -178,6 +178,37 @@ final class lib_test extends \advanced_testcase {
     }
 
     /**
+     * A new forum config row without an explicit reply-in-locked choice inherits the global setting.
+     */
+    public function test_missing_replyinlocked_value_defaults_to_inherit_global(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$course, $forum] = $this->create_course_forum();
+
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $data = $this->build_form_data($course->id, $forum->id, [
+            'local_forum_ai_enabled' => 1,
+            'local_forum_ai_require_approval' => 1,
+            'local_forum_ai_reply_message' => 'New prompt',
+            'enablediainitconversation' => 0,
+            'allowedroles' => [2, 3],
+            'local_forum_ai_grader' => 0,
+            'local_forum_ai_usedelay' => 0,
+            'local_forum_ai_delayminutes' => 60,
+            'local_forum_ai_questionturns' => 1,
+        ]);
+
+        local_forum_ai_coursemodule_edit_post_actions($data, $course);
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id], '*', MUST_EXIST);
+        $this->assertSame(\local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT, (int) $config->replyinlocked);
+    }
+
+    /**
      * Creates a course with a forum.
      *
      * @return array{0: stdClass, 1: stdClass} [$course, $forum].
