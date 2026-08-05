@@ -381,7 +381,10 @@ class utils {
             self::get_visible_discussion_posts($discussionid),
             static function (
                 \stdClass $post,
-            ) use ($currentpost, $postid): bool {
+            ) use (
+                $currentpost,
+                $postid
+            ): bool {
                 return $post->created < $currentpost->created ||
                     ($post->created == $currentpost->created && $post->id < $postid);
             }
