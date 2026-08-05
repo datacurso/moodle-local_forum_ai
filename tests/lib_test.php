@@ -23,6 +23,8 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+namespace local_forum_ai;
+
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
@@ -32,6 +34,7 @@ require_once($CFG->dirroot . '/local/forum_ai/lib.php');
  * Tests for preserving forum AI configuration when saving forum forms.
  *
  * @group local_forum_ai
+ * @covers \local_forum_ai_coursemodule_edit_post_actions
  */
 final class lib_test extends \advanced_testcase {
     /**
@@ -226,7 +229,7 @@ final class lib_test extends \advanced_testcase {
      * @param array $overrides Field overrides.
      * @return stdClass
      */
-    private function build_form_data(int $courseid, int $forumid, array $overrides): stdClass {
+    private function build_form_data(int $courseid, int $forumid, array $overrides): \stdClass {
         return (object) array_merge([
             'modulename' => 'forum',
             'instance' => $forumid,

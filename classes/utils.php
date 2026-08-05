@@ -377,22 +377,18 @@ class utils {
             return [];
         }
 
-        // Deleted posts and private replies are excluded: the context must only
-        // contain what a normal participant can see.
-        $posts = $DB->get_records_select(
-            'forum_posts',
-            'discussion = :discussionid AND privatereplyto = 0 AND deleted = 0
-                AND (created < :created OR (created = :created2 AND id < :postid))',
-            [
-                'discussionid' => $discussionid,
-                'created' => (int)$currentpost->created,
-                'created2' => (int)$currentpost->created,
-                'postid' => $postid,
-            ],
-            'created ASC, id ASC',
-            'id,userid,message,messageformat,created',
-        );
-        $posts = array_values($posts);
+        $posts = array_values(array_filter(
+            self::get_visible_discussion_posts($discussionid),
+            static function (
+                \stdClass $post,
+            ) use (
+                $currentpost,
+                $postid
+            ): bool {
+                return $post->created < $currentpost->created ||
+                    ($post->created == $currentpost->created && $post->id < $postid);
+            }
+        ));
 
         // Cap the context: always keep the root post (topic) plus the most recent posts.
         if ($maxposts > 0 && count($posts) > $maxposts) {
@@ -426,6 +422,28 @@ class utils {
         }
 
         return $threadentries;
+    }
+
+    /**
+     * Returns the posts that are visible to a normal forum participant.
+     *
+     * Deleted posts and private replies are excluded.
+     *
+     * @param int $discussionid Discussion ID.
+     * @return array<int, \stdClass>
+     */
+    public static function get_visible_discussion_posts(int $discussionid): array {
+        global $DB;
+
+        $posts = $DB->get_records_select(
+            'forum_posts',
+            'discussion = :discussionid AND privatereplyto = 0 AND deleted = 0',
+            ['discussionid' => $discussionid],
+            'created ASC, id ASC',
+            'id,discussion,parent,userid,subject,message,messageformat,created,privatereplyto,deleted',
+        );
+
+        return array_values($posts);
     }
 
     /**
