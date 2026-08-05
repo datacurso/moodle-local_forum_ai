@@ -21,6 +21,7 @@ use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
 use core_external\external_multiple_structure;
+use local_forum_ai\utils;
 
 /**
  * External service to approve or reject AI-generated responses in forums.
@@ -70,7 +71,7 @@ class get_discussion_data extends external_api {
         require_capability('local/forum_ai:approveresponses', $context);
 
         // Retrieve posts.
-        $posts = $DB->get_records('forum_posts', ['discussion' => $discussion->id], 'created ASC');
+        $posts = utils::get_visible_discussion_posts((int) $discussion->id);
 
         $data = [
             'discussion' => format_string($discussion->name),

@@ -30,6 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 use core_external\external_api;
 use externallib_advanced_testcase;
 use local_forum_ai\xss_payload_fixture;
+use local_forum_ai\utils;
 use moodle_exception;
 use required_capability_exception;
 use stdClass;
@@ -248,6 +249,51 @@ final class token_services_permissions_test extends externallib_advanced_testcas
     }
 
     /**
+     * Detail services must filter deleted and private posts in the same way.
+     */
+    public function test_detail_services_exclude_hidden_posts_consistently(): void {
+        $this->resetAfterTest();
+
+        [$pending, $discussion, , $teacher] = $this->create_pending_response_with_hidden_posts();
+
+        $this->setUser($teacher);
+
+        $details = external_api::clean_returnvalue(
+            get_details::execute_returns(),
+            get_details::execute($pending->approval_token)
+        );
+        $discussiondata = external_api::clean_returnvalue(
+            get_discussion_data::execute_returns(),
+            get_discussion_data::execute($pending->approval_token)
+        );
+
+        $this->assertDebuggingCalledCount(6);
+
+        $this->assertSame(
+            array_column($details['posts'], 'subject'),
+            array_column($discussiondata['posts'], 'subject')
+        );
+        $this->assertSame(
+            array_column($details['posts'], 'message'),
+            array_column($discussiondata['posts'], 'message')
+        );
+
+        $messages = implode(' | ', array_column($details['posts'], 'message'));
+        $this->assertStringContainsString('Root discussion topic', $messages);
+        $this->assertStringContainsString('Visible classmate reply', $messages);
+        $this->assertStringContainsString('Current visible reply', $messages);
+        $this->assertStringNotContainsString('Deleted moderation target', $messages);
+        $this->assertStringNotContainsString('Private guidance for one student only', $messages);
+
+        $context = utils::build_thread_context((int) $discussion->id, (int) $pending->parentpostid);
+        $contextmessages = implode(' | ', array_column($context, 'message'));
+        $this->assertStringContainsString('Root discussion topic', $contextmessages);
+        $this->assertStringContainsString('Visible classmate reply', $contextmessages);
+        $this->assertStringNotContainsString('Deleted moderation target', $contextmessages);
+        $this->assertStringNotContainsString('Private guidance for one student only', $contextmessages);
+    }
+
+    /**
      * A teacher with the approval capability can edit a pending response.
      */
     public function test_teacher_can_update_pending_response(): void {
@@ -440,5 +486,74 @@ final class token_services_permissions_test extends externallib_advanced_testcas
         $pending->id = $DB->insert_record('local_forum_ai_pending', $pending);
 
         return [$pending, $student, $teacher];
+    }
+
+    /**
+     * Creates a discussion containing visible, deleted and private posts.
+     *
+     * @return array [$pending, $discussion, $student, $teacher].
+     */
+    private function create_pending_response_with_hidden_posts(): array {
+        global $DB;
+
+        $course = $this->getDataGenerator()->create_course();
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+
+        $forummodule = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
+        $forum = $DB->get_record('forum', ['id' => $forummodule->id], '*', MUST_EXIST);
+
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'userid' => $student->id,
+            'message' => 'Root discussion topic',
+        ]);
+        $discussion = $DB->get_record('forum_discussions', ['id' => $discussion->id], '*', MUST_EXIST);
+
+        $visiblereply = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $student->id,
+            'message' => 'Visible classmate reply',
+        ]);
+        $deletedreply = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $student->id,
+            'message' => 'Deleted moderation target',
+        ]);
+        $DB->set_field('forum_posts', 'deleted', 1, ['id' => $deletedreply->id]);
+
+        $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $visiblereply->id,
+            'userid' => $teacher->id,
+            'privatereplyto' => $student->id,
+            'message' => 'Private guidance for one student only',
+        ]);
+
+        $currentpost = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $visiblereply->id,
+            'userid' => $student->id,
+            'message' => 'Current visible reply',
+        ]);
+
+        $pending = new stdClass();
+        $pending->discussionid = $discussion->id;
+        $pending->forumid = $forum->id;
+        $pending->parentpostid = $currentpost->id;
+        $pending->creator_userid = $student->id;
+        $pending->subject = 'Re: ' . $discussion->name;
+        $pending->message = 'AI-generated reply under review.';
+        $pending->status = 'pending';
+        $pending->approval_token = md5(uniqid('tokentest_', true));
+        $pending->timecreated = time();
+        $pending->timemodified = time();
+        $pending->id = $DB->insert_record('local_forum_ai_pending', $pending);
+
+        return [$pending, $discussion, $student, $teacher];
     }
 }

@@ -22,6 +22,7 @@ use core_external\external_value;
 use core_external\external_single_structure;
 use core_external\external_multiple_structure;
 use context_module;
+use local_forum_ai\utils;
 
 /**
  * External service to obtain details of a discussion with AI response.
@@ -69,7 +70,7 @@ class get_details extends external_api {
 
         require_capability('local/forum_ai:approveresponses', $context);
 
-        $posts = $DB->get_records('forum_posts', ['discussion' => $discussion->id], 'created ASC');
+        $posts = utils::get_visible_discussion_posts((int) $discussion->id);
 
         $data = [
             'course' => format_string($course->fullname),
