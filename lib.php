@@ -404,7 +404,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
  * @return stdClass
  */
 function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
-    global $DB;
+    global $DB, $USER;
 
     if ($data->modulename !== 'forum') {
         return $data;
@@ -414,33 +414,110 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         return $data;
     }
 
+    $context = context_course::instance($course->id);
+
+    if (!has_capability('local/forum_ai:approveresponses', $context, $USER)) {
+        return $data;
+    }
+
+    $aifields = [
+        'local_forum_ai_enabled',
+        'local_forum_ai_require_approval',
+        'local_forum_ai_reply_message',
+        'enablediainitconversation',
+        'local_forum_ai_grader',
+        'local_forum_ai_usedelay',
+        'local_forum_ai_delayminutes',
+        'local_forum_ai_replyinlocked',
+        'local_forum_ai_questionturns',
+        'allowedroles',
+    ];
+
+    $hasaidata = false;
+    foreach ($aifields as $fieldname) {
+        if (property_exists($data, $fieldname)) {
+            $hasaidata = true;
+            break;
+        }
+    }
+
+    if (!$hasaidata) {
+        return $data;
+    }
+
     $record = $DB->get_record('local_forum_ai_config', ['forumid' => $data->instance]);
 
-    $config = new stdClass();
+    $config = $record ?: new stdClass();
     $config->forumid = $data->instance;
-    $config->enabled = $data->local_forum_ai_enabled ?? 0;
-    $config->require_approval = $data->local_forum_ai_require_approval ?? 1;
-    $config->reply_message = $data->local_forum_ai_reply_message ?? '';
-    $config->enablediainitconversation = $data->enablediainitconversation ?? 0;
-    $config->graderid = $data->local_forum_ai_grader ?? null;
-    $config->usedelay = $data->local_forum_ai_usedelay ?? 0;
-    $config->delayminutes = max(1, (int)($data->local_forum_ai_delayminutes ?? 60));
+    if (property_exists($data, 'local_forum_ai_enabled')) {
+        $config->enabled = (int) $data->local_forum_ai_enabled;
+    } else if (!isset($config->enabled)) {
+        $config->enabled = 0;
+    }
+
+    if (property_exists($data, 'local_forum_ai_require_approval')) {
+        $config->require_approval = (int) $data->local_forum_ai_require_approval;
+    } else if (!isset($config->require_approval)) {
+        $config->require_approval = 1;
+    }
+
+    if (property_exists($data, 'local_forum_ai_reply_message')) {
+        $config->reply_message = (string) $data->local_forum_ai_reply_message;
+    } else if (!isset($config->reply_message)) {
+        $config->reply_message = '';
+    }
+
+    if (property_exists($data, 'enablediainitconversation')) {
+        $config->enablediainitconversation = (int) $data->enablediainitconversation;
+    } else if (!isset($config->enablediainitconversation)) {
+        $config->enablediainitconversation = 0;
+    }
+
+    if (property_exists($data, 'local_forum_ai_grader')) {
+        $config->graderid = !empty($data->local_forum_ai_grader) ? (int) $data->local_forum_ai_grader : null;
+    } else if (!isset($config->graderid)) {
+        $config->graderid = null;
+    }
+
+    if (property_exists($data, 'local_forum_ai_usedelay')) {
+        $config->usedelay = (int) $data->local_forum_ai_usedelay;
+    } else if (!isset($config->usedelay)) {
+        $config->usedelay = 0;
+    }
+
+    if (property_exists($data, 'local_forum_ai_delayminutes')) {
+        $config->delayminutes = max(1, (int) $data->local_forum_ai_delayminutes);
+    } else if (!isset($config->delayminutes)) {
+        $config->delayminutes = 60;
+    }
+
     // The column may not exist yet when the code is deployed ahead of the DB upgrade.
     if ($DB->get_manager()->field_exists('local_forum_ai_config', 'replyinlocked')) {
-        $config->replyinlocked = (int)($data->local_forum_ai_replyinlocked ?? 0);
+        if (property_exists($data, 'local_forum_ai_replyinlocked')) {
+            $config->replyinlocked = (int) $data->local_forum_ai_replyinlocked;
+        } else if (!isset($config->replyinlocked)) {
+            $config->replyinlocked = 0;
+        }
     }
-    $config->questionturns = \local_forum_ai\utils::normalize_question_turns(
-        $data->local_forum_ai_questionturns ?? \local_forum_ai\utils::get_default_question_turns()
-    );
+
+    if (property_exists($data, 'local_forum_ai_questionturns')) {
+        $config->questionturns = \local_forum_ai\utils::normalize_question_turns($data->local_forum_ai_questionturns);
+    } else if (!isset($config->questionturns)) {
+        $config->questionturns = \local_forum_ai\utils::get_default_question_turns();
+    }
 
     if (!\local_forum_ai\utils::is_global_ai_enabled()) {
         $config->enabled = 0;
     }
 
-    // Save null if not selected roles.
-    if (!empty($data->allowedroles) && is_array($data->allowedroles)) {
-        $config->allowedroles = implode(',', $data->allowedroles);
-    } else {
+    // Save the roles only when the field was submitted; otherwise keep the stored value.
+    if (property_exists($data, 'allowedroles')) {
+        if (!empty($data->allowedroles) && is_array($data->allowedroles)) {
+            $config->allowedroles = implode(',', $data->allowedroles);
+        } else {
+            $config->allowedroles = null;
+        }
+    } else if (!isset($config->allowedroles)) {
         $config->allowedroles = null;
     }
 
