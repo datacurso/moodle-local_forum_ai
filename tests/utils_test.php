@@ -89,6 +89,38 @@ final class utils_test extends \advanced_testcase {
     }
 
     /**
+     * Point grading must preserve a valid numeric grade.
+     */
+    public function test_normalize_review_grade_point_scale_preserves_numeric_grade(): void {
+        $this->assertSame(42.0, utils::normalize_review_grade('42', 100));
+    }
+
+    /**
+     * Named scales must resolve matching labels to their canonical 1-based index.
+     */
+    public function test_normalize_review_grade_named_scale_resolves_label(): void {
+        $this->resetAfterTest();
+
+        $scale = $this->getDataGenerator()->create_scale(['scale' => 'Poor, Good, Excellent']);
+
+        $this->assertSame(2, utils::normalize_review_grade('Good', -$scale->id));
+    }
+
+    /**
+     * Named scales must reject labels that do not match a configured option.
+     */
+    public function test_normalize_review_grade_named_scale_rejects_unknown_label(): void {
+        $this->resetAfterTest();
+
+        $scale = $this->getDataGenerator()->create_scale(['scale' => 'Poor, Good, Excellent']);
+
+        $this->expectException(\moodle_exception::class);
+        $this->expectExceptionMessage('The AI grade could not be resolved to a valid forum grade.');
+
+        utils::normalize_review_grade('Outstanding', -$scale->id);
+    }
+
+    /**
      * Creates a course with a forum, an enrolled student and one post.
      *
      * The forum ratings scale (Ratings section) is set to a numeric 50 on

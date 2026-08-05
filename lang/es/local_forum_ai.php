@@ -67,6 +67,7 @@ $string['enablediainitconversation_help'] = 'Al habilitar esta opción, la IA po
 $string['enableforumai'] = 'Habilitar Foro IA';
 $string['enableforumai_desc'] = 'Si se deshabilita, la sección "Datacurso Foro IA" se oculta en la configuración de la actividad foro y se pausa el procesamiento automático.';
 $string['error_airequest'] = 'Error al comunicarse con el servicio de IA: {$a}';
+$string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_discussionlocked'] = 'Este debate está bloqueado, por lo que la respuesta de la IA no se puede publicar. Desbloquea el debate e inténtalo de nuevo.';
 $string['error_forumclosed'] = 'La fecha límite de este foro ya pasó, por lo que la respuesta de la IA no se puede publicar.';
 $string['error_privatereply'] = 'La publicación a la que se responde es una respuesta privada, por lo que no se puede publicar una respuesta de la IA.';
