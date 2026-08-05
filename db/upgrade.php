@@ -29,6 +29,9 @@
  * @param int $oldversion
  * @return bool
  */
+global $CFG;
+require_once($CFG->libdir . '/upgradelib.php');
+
 function xmldb_local_forum_ai_upgrade($oldversion) {
     global $DB;
 
