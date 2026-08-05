@@ -89,7 +89,12 @@ class process_ai_queue extends \core\task\scheduled_task {
                     $task->set_userid((int) $post->userid);
                     \core\task\manager::queue_adhoc_task($task);
                 } else if ($item->type === 'discussion') {
-                    $discussion = $DB->get_record('forum_discussions', ['id' => (int) $data->discussionid], 'id,userid', MUST_EXIST);
+                    $discussion = $DB->get_record(
+                        'forum_discussions',
+                        ['id' => (int) $data->discussionid],
+                        'id,userid',
+                        MUST_EXIST
+                    );
                     $task = new process_ai_discussion();
                     $task->set_custom_data($data);
                     $task->set_component('local_forum_ai');

@@ -23,15 +23,17 @@
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-/**
- * Execute local_forum_ai upgrade from the given old version.
- *
- * @param int $oldversion
- * @return bool
- */
+defined('MOODLE_INTERNAL') || die();
+
 global $CFG;
 require_once($CFG->libdir . '/upgradelib.php');
 
+/**
+ * Execute local_forum_ai upgrade from the given old version.
+ *
+ * @param int $oldversion The version to upgrade from.
+ * @return bool
+ */
 function xmldb_local_forum_ai_upgrade($oldversion) {
     global $DB;
 

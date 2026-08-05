@@ -47,6 +47,7 @@ final class upgrade_test extends \advanced_testcase {
 
         [$forumdefault, $forumoverride] = $this->create_forums();
         set_config('default_replyinlocked', 0, 'local_forum_ai');
+        set_config('version', 2026080400, 'local_forum_ai');
 
         $this->insert_config_row($forumdefault->id, 0);
         $this->insert_config_row($forumoverride->id, 1);
