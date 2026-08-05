@@ -89,6 +89,22 @@ final class utils_test extends \advanced_testcase {
     }
 
     /**
+     * The default delay helper must use the plugin default and minimum-1 clamp.
+     */
+    public function test_get_default_delay_minutes(): void {
+        $this->resetAfterTest();
+
+        unset_config('default_delayminutes', 'local_forum_ai');
+        $this->assertSame(60, utils::get_default_delay_minutes());
+
+        set_config('default_delayminutes', 0, 'local_forum_ai');
+        $this->assertSame(1, utils::get_default_delay_minutes());
+
+        set_config('default_delayminutes', 15, 'local_forum_ai');
+        $this->assertSame(15, utils::get_default_delay_minutes());
+    }
+
+    /**
      * Point grading must preserve a valid numeric grade.
      */
     public function test_normalize_review_grade_point_scale_preserves_numeric_grade(): void {

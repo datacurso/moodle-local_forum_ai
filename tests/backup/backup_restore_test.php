@@ -410,4 +410,103 @@ final class backup_restore_test extends \advanced_testcase {
         $this->assertSame('Restored config', $config->reply_message);
         $this->assertSame(1, $DB->count_records('local_forum_ai_config', ['forumid' => 2001]));
     }
+
+    /**
+     * Missing delayminutes in backup must fall back to the plugin default delay.
+     */
+    public function test_restore_uses_default_delay_minutes_when_field_missing(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $restore = new restore_local_forum_ai_plugin_test_double();
+
+        $restore->seed_mappings([
+            'forum' => [1001 => 2001],
+        ]);
+        $restore->seed_tempconfigs([
+            (object) [
+                'forumid' => 1001,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'reply_message' => 'Restored config',
+                'timecreated' => 1710000000,
+                'timemodified' => 1710000000,
+            ],
+        ]);
+
+        unset_config('default_delayminutes', 'local_forum_ai');
+
+        $this->expectOutputRegex('/.*/s');
+        $restore->after_restore_course();
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => 2001], '*', MUST_EXIST);
+
+        $this->assertSame(60, (int) $config->delayminutes);
+    }
+
+    /**
+     * Explicit delayminutes in backup must be preserved as restored data.
+     */
+    public function test_restore_preserves_explicit_delay_minutes(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $restore = new restore_local_forum_ai_plugin_test_double();
+
+        $restore->seed_mappings([
+            'forum' => [1001 => 2001],
+        ]);
+        $restore->seed_tempconfigs([
+            (object) [
+                'forumid' => 1001,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'reply_message' => 'Restored config',
+                'delayminutes' => 15,
+                'timecreated' => 1710000000,
+                'timemodified' => 1710000000,
+            ],
+        ]);
+
+        $this->expectOutputRegex('/.*/s');
+        $restore->after_restore_course();
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => 2001], '*', MUST_EXIST);
+
+        $this->assertSame(15, (int) $config->delayminutes);
+    }
+
+    /**
+     * Restore fallback must match the direct default delay helper.
+     */
+    public function test_restored_delay_matches_direct_default_delay_minutes(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $restore = new restore_local_forum_ai_plugin_test_double();
+
+        $restore->seed_mappings([
+            'forum' => [1001 => 2001],
+        ]);
+        $restore->seed_tempconfigs([
+            (object) [
+                'forumid' => 1001,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'reply_message' => 'Restored config',
+                'timecreated' => 1710000000,
+                'timemodified' => 1710000000,
+            ],
+        ]);
+
+        set_config('default_delayminutes', 0, 'local_forum_ai');
+        $this->assertSame(1, \local_forum_ai\utils::get_default_delay_minutes());
+
+        $this->expectOutputRegex('/.*/s');
+        $restore->after_restore_course();
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => 2001], '*', MUST_EXIST);
+
+        $this->assertSame(\local_forum_ai\utils::get_default_delay_minutes(), (int) $config->delayminutes);
+    }
 }

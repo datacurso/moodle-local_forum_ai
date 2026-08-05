@@ -196,6 +196,20 @@ class utils {
     }
 
     /**
+     * Gets the global default delay for AI responses in minutes.
+     *
+     * @return int
+     */
+    public static function get_default_delay_minutes(): int {
+        $raw = get_config('local_forum_ai', 'default_delayminutes');
+        if ($raw === false || $raw === '') {
+            return 60;
+        }
+
+        return max(1, (int) $raw);
+    }
+
+    /**
      * Gets effective question-turn limit using forum config or global fallback.
      *
      * @param \stdClass|null $config Forum config row.
