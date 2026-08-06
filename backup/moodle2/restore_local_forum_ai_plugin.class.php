@@ -126,6 +126,11 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->forumid = $newforumid;
             $record->discussionid = $newdiscussionid;
             $record->creator_userid = $newuserid ?? $pending->creator_userid;
+            // Remap the approver/rejecter too; the reference is dropped when the
+            // user did not survive the restore (nullable column).
+            $record->action_userid = !empty($pending->action_userid)
+                ? ($this->get_mappingid('user', $pending->action_userid) ?: null)
+                : null;
             $record->parentpostid = !empty($pending->parentpostid)
                 ? ($this->get_mappingid('forum_post', $pending->parentpostid) ?: null)
                 : null;

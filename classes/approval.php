@@ -345,13 +345,12 @@ class approval {
      * Rating is best effort: this method never throws and a false return must
      * NEVER block or undo the publication of the AI response.
      *
-     * rating_manager::add_rating() runs core's full validation chain
-     * (forum_rating_validate: assessment window, groups, scale, self-rating,
-     * post visibility) and pushes the grade to the gradebook. The rating
-     * subsystem hardcodes the rater to $USER, and the gradebook push logs
-     * \core\event\user_graded against the current user, so the helper switches
-     * to the rater when needed and restores the original user in the finally
-     * block (task/queue paths only; the web approval path already matches).
+     * It delegates to the plugin's single shared writer,
+     * local_forum_ai_add_rating(), which runs core's full validation chain
+     * through rating_manager::add_rating() (forum_rating_validate: assessment
+     * window, groups, scale, self-rating, post visibility), pushes the grade
+     * to the gradebook, and switches to the rater when needed so the
+     * \core\event\user_graded event is attributed to the grader.
      *
      * @param \stdClass $cm Course module record.
      * @param \context_module $context Module context.
@@ -375,12 +374,10 @@ class approval {
         int $rateruserid,
         ?string &$failurereason = null
     ): bool {
-        global $CFG, $USER;
+        global $USER;
 
-        require_once($CFG->dirroot . '/rating/lib.php');
-
-        // Switch to the rater when the current user differs (task/queue paths only).
-        $originaluser = null;
+        // Reject a missing or inactive rater with a specific reason before the
+        // shared writer collapses it into a generic error code.
         if ((int) $USER->id !== $rateruserid) {
             $rater = \core_user::get_user($rateruserid);
             if (!$rater || !empty($rater->deleted) || !empty($rater->suspended)) {
@@ -391,14 +388,12 @@ class approval {
                 );
                 return false;
             }
-            $originaluser = $USER;
-            \core\cron::setup_user($rater);
         }
 
         try {
             // Parity with core's rating callers; mod/forum:rate is checked inside
             // add_rating() through the forum permissions callback.
-            if (!has_capability('moodle/rating:rate', $context)) {
+            if (!has_capability('moodle/rating:rate', $context, $rateruserid)) {
                 $failurereason = 'rater lacks moodle/rating:rate';
                 debugging(
                     'Cannot rate AI post: rater user ' . $rateruserid . ' lacks moodle/rating:rate',
@@ -407,8 +402,7 @@ class approval {
                 return false;
             }
 
-            $rm = new \rating_manager();
-            $result = $rm->add_rating(
+            $result = local_forum_ai_add_rating(
                 $cm,
                 $context,
                 'mod_forum',
@@ -417,7 +411,8 @@ class approval {
                 (int) $forum->scale,
                 $grade,
                 $rateduserid,
-                (int) $forum->assessed
+                (int) $forum->assessed,
+                $rateruserid
             );
 
             if (!empty($result->error)) {
@@ -428,15 +423,9 @@ class approval {
 
             return true;
         } catch (\Throwable $e) {
-            // The forum validation callback throws rating_exception on window,
-            // group, visibility or scale failures.
             $failurereason = ($e instanceof \moodle_exception) ? (string) $e->errorcode : $e->getMessage();
             debugging('Cannot rate AI post: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return false;
-        } finally {
-            if ($originaluser !== null) {
-                \core\cron::setup_user($originaluser);
-            }
         }
     }
 }

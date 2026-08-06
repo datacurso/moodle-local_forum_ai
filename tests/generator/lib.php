@@ -28,8 +28,9 @@ class local_forum_ai_generator extends component_generator_base {
      *
      * Required fields: discussionid, forumid, creator_userid.
      * Optional fields with defaults: parentpostid (discussion first post),
-     * postid (null), subject, message, grade (null), status ('pending'),
-     * approval_token (random unique hash), timecreated/timemodified (now).
+     * postid (null), action_userid (null), subject, message, grade (null),
+     * status ('pending'), approval_token (random unique hash),
+     * timecreated/timemodified (now).
      *
      * @param array|stdClass $record Record data.
      * @return stdClass The inserted record.
@@ -61,6 +62,7 @@ class local_forum_ai_generator extends component_generator_base {
                 : (int) $discussion->firstpost,
             'postid' => isset($record['postid']) ? (int) $record['postid'] : null,
             'creator_userid' => (int) $record['creator_userid'],
+            'action_userid' => !empty($record['action_userid']) ? (int) $record['action_userid'] : null,
             'subject' => $record['subject'] ?? ('Re: ' . $discussion->name),
             'message' => $record['message'] ?? '<p>AI generated response for testing.</p>',
             'grade' => (isset($record['grade']) && $record['grade'] !== '') ? (int) $record['grade'] : null,

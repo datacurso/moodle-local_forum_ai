@@ -175,13 +175,16 @@ class approve_response extends external_api {
             }
 
             $pending->status       = 'approved';
-            $pending->creator_userid = $USER->id;
+            // Record who managed the response without touching creator_userid:
+            // the originating student's identity must survive for traceability.
+            $pending->action_userid = $USER->id;
             $pending->approved_at  = time();
             $pending->timemodified = time();
             $DB->update_record('local_forum_ai_pending', $pending);
         } else if ($params['action'] === 'reject') {
             $pending->status       = 'rejected';
-            $pending->creator_userid = $USER->id;
+            // Same traceability rule as on approval: keep the creator, record the actor.
+            $pending->action_userid = $USER->id;
             $pending->timemodified = time();
             $DB->update_record('local_forum_ai_pending', $pending);
         } else {

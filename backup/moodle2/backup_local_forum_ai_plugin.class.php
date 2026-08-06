@@ -51,8 +51,8 @@ class backup_local_forum_ai_plugin extends backup_local_plugin {
 
         $pending = new backup_nested_element('forum_ai_pending', ['id'], [
             'discussionid', 'forumid', 'parentpostid', 'postid', 'creator_userid',
-            'subject', 'message', 'grade', 'status', 'approval_token', 'timecreated',
-            'timemodified', 'approved_at',
+            'action_userid', 'subject', 'message', 'grade', 'status', 'approval_token',
+            'timecreated', 'timemodified', 'approved_at',
         ]);
         $pendings->add_child($pending);
 

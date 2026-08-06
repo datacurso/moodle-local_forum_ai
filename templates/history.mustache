@@ -30,6 +30,7 @@
           "discussionname": "Past discussion",
           "discussionmsg": "Example message",
           "userfullname": "Student Two",
+          "managedby": "Teacher One",
           "status": "Approved",
           "token": "xyz789",
           "viewdetails": "View details"
@@ -40,6 +41,7 @@
       "col_discussion": "Discussion",
       "col_message": "Message",
       "col_user": "User",
+      "col_managedby": "Managed by",
       "col_status": "Status",
       "col_actions": "Actions",
       "noresponses": "No history"
@@ -67,6 +69,7 @@
             <th>{{col_message}}</th>
             <th>{{col_grade}}</th>
             <th>{{col_user}}</th>
+            <th>{{col_managedby}}</th>
             <th>{{col_status}}</th>
             <th>{{col_actions}}</th>
         </tr>
@@ -80,6 +83,7 @@
             <td>{{discussionmsg}}</td>
             <td>{{grade}}</td>
             <td>{{userfullname}}</td>
+            <td>{{managedby}}</td>
             <td>{{status}}</td>
             <td>
                 <button class="btn btn-info btn-sm view-details" data-token="{{token}}">

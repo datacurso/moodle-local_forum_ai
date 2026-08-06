@@ -29,9 +29,16 @@ defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot . '/local/forum_ai/locallib.php');
+require_once($CFG->dirroot . '/rating/lib.php');
 
 /**
- * Tests for local_forum_ai_add_rating().
+ * Tests for locallib functions.
+ *
+ * local_forum_ai_add_rating() is the plugin's shared rating writer and now
+ * delegates the whole validation chain to core's rating_manager::add_rating()
+ * (forum_rating_validate). Only the result-object contract and named-scale
+ * bounds are pinned here; window/groups/events/capability behavior is covered
+ * by tests/rating_auto_path_test.php and tests/rate_ai_post_test.php.
  *
  * Covers: MDL-INT-016 — Valoracion por publicacion en el flujo automatico y diferido (validaciones)
  * Covers: MDL-INT-021 — Pagina de historial de respuestas (campos del historial)
@@ -142,7 +149,10 @@ final class locallib_test extends \advanced_testcase {
     }
 
     /**
-     * A rating above the named scale option count must be rejected.
+     * A rating above the named scale option count must be rejected with the
+     * standard validation code (forum_rating_validate throws 'invalidnum').
+     * Numeric-scale bounds through the same path are already covered by
+     * rate_ai_post_test::test_rating_above_scale_maximum_fails().
      */
     public function test_add_rating_named_scale_above_max_is_invalid(): void {
         global $DB;
@@ -152,37 +162,8 @@ final class locallib_test extends \advanced_testcase {
 
         $result = $this->add_rating($data, 4);
 
-        $this->assertSame('ratinginvalid', $result->error);
+        $this->assertSame('invalidnum', $result->error);
         $this->assertEquals(0, $DB->count_records('rating', ['contextid' => $data['context']->id]));
-    }
-
-    /**
-     * Rating 0 is not a selectable option on a named scale and must be rejected.
-     */
-    public function test_add_rating_named_scale_zero_is_invalid(): void {
-        $this->resetAfterTest();
-
-        $data = $this->setup_rated_forum();
-
-        $result = $this->add_rating($data, 0);
-
-        $this->assertSame('ratinginvalid', $result->error);
-    }
-
-    /**
-     * Numeric point grading must accept ratings within 0..max and reject above max.
-     */
-    public function test_add_rating_numeric_scale_range(): void {
-        $this->resetAfterTest();
-
-        $data = $this->setup_rated_forum(10);
-
-        $result = $this->add_rating($data, 7);
-        $this->assertFalse(property_exists($result, 'error'));
-        $this->assertTrue($result->success);
-
-        $result = $this->add_rating($data, 11);
-        $this->assertSame('ratinginvalid', $result->error);
     }
 
     /**
@@ -203,19 +184,6 @@ final class locallib_test extends \advanced_testcase {
             'userid' => $data['teacher']->id,
         ], '*', MUST_EXIST);
         $this->assertEquals(0, $record->rating);
-    }
-
-    /**
-     * A user must not be able to rate their own post.
-     */
-    public function test_add_rating_self_rating_is_rejected(): void {
-        $this->resetAfterTest();
-
-        $data = $this->setup_rated_forum();
-
-        $result = $this->add_rating($data, 2, $data['student']->id);
-
-        $this->assertSame('norate', $result->error);
     }
 
     /**

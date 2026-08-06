@@ -131,19 +131,14 @@ class post {
 
         $DB->delete_records('local_forum_ai_pending', ['parentpostid' => $postid]);
 
-        $like1 = '%"postid":' . $postid . '%';
-        $like2 = '%"postid":"' . $postid . '"%';
-
-        $sql = "DELETE FROM {local_forum_ai_queue}
-            WHERE type = :type
-              AND (payload LIKE :like1 OR payload LIKE :like2)";
-
-        $params = [
-            'type' => 'post',
-            'like1' => $like1,
-            'like2' => $like2,
-        ];
-
-        $DB->execute($sql, $params);
+        // Match by exact decoded id: a LIKE on the JSON payload would also hit
+        // prefix-colliding ids (deleting post 12 must not remove rows of post 123).
+        $rows = $DB->get_records('local_forum_ai_queue', ['type' => 'post'], '', 'id, payload');
+        foreach ($rows as $row) {
+            $data = json_decode($row->payload);
+            if (is_object($data) && isset($data->postid) && (int) $data->postid === $postid) {
+                $DB->delete_records('local_forum_ai_queue', ['id' => $row->id]);
+            }
+        }
     }
 }

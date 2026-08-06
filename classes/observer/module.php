@@ -105,5 +105,17 @@ class module {
         // Clean up all forum AI related records.
         $DB->delete_records('local_forum_ai_config', ['forumid' => $forumid]);
         $DB->delete_records('local_forum_ai_pending', ['forumid' => $forumid]);
+
+        // Delayed queue rows of this forum would otherwise be retried forever.
+        // Both payload types ('post' and 'discussion') carry the cmid, which for
+        // course_module_deleted is the event objectid; match it by exact decoded value.
+        $cmid = (int) $event->objectid;
+        $rows = $DB->get_records('local_forum_ai_queue', null, '', 'id, payload');
+        foreach ($rows as $row) {
+            $data = json_decode($row->payload);
+            if (is_object($data) && isset($data->cmid) && (int) $data->cmid === $cmid) {
+                $DB->delete_records('local_forum_ai_queue', ['id' => $row->id]);
+            }
+        }
     }
 }

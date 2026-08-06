@@ -177,8 +177,8 @@ final class privacy_provider_test extends provider_testcase {
     /**
      * The student keeps being found after a teacher approves the response.
      *
-     * The approval flow overwrites pending.creator_userid with the approving
-     * teacher, so attribution must also follow the parent post's author.
+     * The approval flow preserves pending.creator_userid (the originating
+     * student) and records the approving teacher in pending.action_userid.
      *
      * @covers ::get_contexts_for_userid
      * @covers ::get_users_in_context
@@ -192,14 +192,21 @@ final class privacy_provider_test extends provider_testcase {
         $pending = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
         $modulecontext = context_module::instance($this->cm->id);
 
-        // Approve as the teacher: creator_userid now points to the teacher.
+        // Approve as the teacher: the creator stays the student, the teacher
+        // is recorded as the acting user.
         $this->setUser($this->teacher);
         approve_response::execute($pending->approval_token, 'approve');
-        $this->assertEquals(
-            $this->teacher->id,
-            $DB->get_field('local_forum_ai_pending', 'creator_userid', ['id' => $pendingid], MUST_EXIST)
-        );
+        $row = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
+        $this->assertEquals($this->student->id, $row->creator_userid);
+        $this->assertEquals($this->teacher->id, $row->action_userid);
         $this->setAdminUser();
+
+        // The approving teacher is attributed too, through action_userid.
+        $teachercontexts = provider::get_contexts_for_userid($this->teacher->id);
+        $this->assertContains((int) $modulecontext->id, array_map('intval', $teachercontexts->get_contextids()));
+        $teacherlist = new userlist($modulecontext, 'local_forum_ai');
+        provider::get_users_in_context($teacherlist);
+        $this->assertContains((int) $this->teacher->id, array_map('intval', $teacherlist->get_userids()));
 
         // The student must still resolve to the module context.
         $contextlist = provider::get_contexts_for_userid($this->student->id);

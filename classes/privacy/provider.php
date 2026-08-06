@@ -32,10 +32,11 @@ use core_privacy\local\request\writer;
  * every request is resolved against module contexts.
  *
  * Scope note: pending.creator_userid holds the student who triggered the AI
- * response, but the manual approval flow overwrites it with the approving
- * teacher — after approval the student would no longer be found through that
- * column alone. To compensate, every operation also attributes pending rows
- * through the author of parentpostid (the student's post). This can slightly
+ * response and pending.action_userid the user who approved/rejected it. Rows
+ * managed before the action_userid column existed had creator_userid
+ * overwritten with the acting teacher, so every operation also attributes
+ * pending rows through the author of parentpostid (the student's post) to
+ * keep finding the student on those legacy rows. This can slightly
  * over-attribute (and over-delete) rows towards the student, which is the
  * GDPR-safe direction: the row is AI content about the student's post.
  *
@@ -79,6 +80,7 @@ class provider implements
             'local_forum_ai_pending',
             [
                 'creator_userid' => 'privacy:metadata:local_forum_ai_pending:creator_userid',
+                'action_userid'  => 'privacy:metadata:local_forum_ai_pending:action_userid',
                 'discussionid'   => 'privacy:metadata:local_forum_ai_pending:discussionid',
                 'forumid'        => 'privacy:metadata:local_forum_ai_pending:forumid',
                 'parentpostid'   => 'privacy:metadata:local_forum_ai_pending:parentpostid',
@@ -136,16 +138,23 @@ class provider implements
         $forummodule = (int) $DB->get_field('modules', 'id', ['name' => 'forum']);
 
         // Pending records: pending.forumid holds the forum instance id. Rows are
-        // attributed to the creator OR to the author of the parent post (approval
-        // overwrites creator_userid with the approving teacher).
+        // attributed to the creator, to the user who approved/rejected them, OR
+        // to the author of the parent post (legacy rows managed before the
+        // action_userid column had creator_userid overwritten with the actor).
         $contextlist->add_from_sql(
             "SELECT ctx.id
                FROM {local_forum_ai_pending} p
                JOIN {course_modules} cm ON cm.instance = p.forumid AND cm.module = :forummod
                JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :modlevel
           LEFT JOIN {forum_posts} fp ON fp.id = p.parentpostid
-              WHERE p.creator_userid = :uid1 OR fp.userid = :uid2",
-            ['forummod' => $forummodule, 'modlevel' => CONTEXT_MODULE, 'uid1' => $userid, 'uid2' => $userid]
+              WHERE p.creator_userid = :uid1 OR fp.userid = :uid2 OR p.action_userid = :uid3",
+            [
+                'forummod' => $forummodule,
+                'modlevel' => CONTEXT_MODULE,
+                'uid1' => $userid,
+                'uid2' => $userid,
+                'uid3' => $userid,
+            ]
         );
 
         // Config records: the recorded grader.
@@ -195,7 +204,16 @@ class provider implements
                 ['fid' => $instanceid]
             );
 
-            // Pending: the author of the parent post (approval overwrites creator_userid).
+            // Pending: the user who approved/rejected each AI response.
+            $userlist->add_from_sql(
+                'action_userid',
+                'SELECT action_userid FROM {local_forum_ai_pending}
+                  WHERE forumid = :fid AND action_userid IS NOT NULL',
+                ['fid' => $instanceid]
+            );
+
+            // Pending: the author of the parent post (legacy rows managed before
+            // the action_userid column had creator_userid overwritten).
             $userlist->add_from_sql(
                 'userid',
                 'SELECT fp.userid
@@ -243,13 +261,15 @@ class provider implements
             $instanceid = self::instanceid_for_cmid($cmid);
 
             if ($instanceid) {
-                // Attributed to the creator OR to the author of the parent post.
+                // Attributed to the creator, to the approving/rejecting user OR
+                // to the author of the parent post (legacy rows).
                 $pending = $DB->get_records_sql(
                     "SELECT p.*
                        FROM {local_forum_ai_pending} p
                   LEFT JOIN {forum_posts} fp ON fp.id = p.parentpostid
-                      WHERE p.forumid = :fid AND (p.creator_userid = :uid1 OR fp.userid = :uid2)",
-                    ['fid' => $instanceid, 'uid1' => $user->id, 'uid2' => $user->id]
+                      WHERE p.forumid = :fid
+                        AND (p.creator_userid = :uid1 OR fp.userid = :uid2 OR p.action_userid = :uid3)",
+                    ['fid' => $instanceid, 'uid1' => $user->id, 'uid2' => $user->id, 'uid3' => $user->id]
                 );
                 if (!empty($pending)) {
                     writer::with_context($context)->export_data(
@@ -352,8 +372,9 @@ class provider implements
      * Deletes/anonymises the given users' data within one module context.
      *
      * The users' pending rows and queue rows are removed. When a user only
-     * appears as the recorded grader, the reference is nulled rather than
-     * deleting the config row, which belongs to the forum.
+     * appears as the recorded grader or as the approver/rejecter of a row,
+     * the reference is nulled rather than deleting the record, which belongs
+     * to the forum (config) or to the originating student (pending).
      *
      * @param \context_module $context The module context.
      * @param int[] $userids User ids to remove.
@@ -371,8 +392,9 @@ class provider implements
 
         if ($instanceid) {
             // The users' pending rows are deleted, whether attributed through the
-            // creator or through the parent post's author (approval overwrites
-            // creator_userid; over-deleting towards the student is the safe side).
+            // creator or through the parent post's author (legacy rows managed
+            // before the action_userid column had creator_userid overwritten;
+            // over-deleting towards the student is the safe side).
             [$insqlcreator, $creatorparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'cu');
             [$insqlauthor, $authorparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'au');
             $DB->delete_records_select(
@@ -380,6 +402,17 @@ class provider implements
                 "forumid = :fid AND (creator_userid $insqlcreator
                     OR parentpostid IN (SELECT id FROM {forum_posts} WHERE userid $insqlauthor))",
                 ['fid' => $instanceid] + $creatorparams + $authorparams
+            );
+
+            // Approver/rejecter references are anonymised: the surviving rows
+            // belong to the originating student, not to the acting user.
+            [$insqlaction, $actionparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'xu');
+            $DB->set_field_select(
+                'local_forum_ai_pending',
+                'action_userid',
+                null,
+                "forumid = :fid AND action_userid $insqlaction",
+                ['fid' => $instanceid] + $actionparams
             );
 
             // Grader references are anonymised, the config row is kept.

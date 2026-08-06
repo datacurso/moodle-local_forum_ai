@@ -184,11 +184,40 @@ final class queue_cleanup_test extends \advanced_testcase {
      * MDL-INT-011 (step 2): deleting the forum should also remove its delayed queue entries.
      */
     public function test_forum_deletion_removes_queue_rows(): void {
-        $this->markTestSkipped(
-            'MDL-INT-011 NOTA [Pendiente:skip]: las entradas de la cola diferida no se eliminan ' .
-            'al borrar el foro y la tarea programada intenta procesarlas indefinidamente — ' .
-            'fuga de recursos, no critica.'
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $setup = $this->create_setup();
+        $other = $this->create_setup();
+
+        // Both payload types of the deleted forum must go away.
+        $postrowid = $this->insert_queue_row(
+            'post',
+            ['postid' => (int) $setup->discussion->firstpost, 'cmid' => (int) $setup->cm->id]
         );
+        $discussionrowid = $this->insert_queue_row(
+            'discussion',
+            ['discussionid' => (int) $setup->discussion->id, 'cmid' => (int) $setup->cm->id]
+        );
+
+        // Rows of another forum must survive.
+        $otherpostrowid = $this->insert_queue_row(
+            'post',
+            ['postid' => (int) $other->discussion->firstpost, 'cmid' => (int) $other->cm->id]
+        );
+        $otherdiscussionrowid = $this->insert_queue_row(
+            'discussion',
+            ['discussionid' => (int) $other->discussion->id, 'cmid' => (int) $other->cm->id]
+        );
+
+        course_delete_module($setup->cm->id);
+
+        $this->assertFalse($DB->record_exists('local_forum_ai_queue', ['id' => $postrowid]));
+        $this->assertFalse($DB->record_exists('local_forum_ai_queue', ['id' => $discussionrowid]));
+        $this->assertTrue($DB->record_exists('local_forum_ai_queue', ['id' => $otherpostrowid]));
+        $this->assertTrue($DB->record_exists('local_forum_ai_queue', ['id' => $otherdiscussionrowid]));
     }
 
     /**

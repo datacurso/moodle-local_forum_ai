@@ -120,6 +120,9 @@ final class history_identity_test extends \advanced_testcase {
         $post = $DB->get_record('forum_posts', ['id' => $row->postid], '*', MUST_EXIST);
         $this->assertEquals((int) $setup->teacher->id, (int) $post->userid);
 
+        // The acting teacher is recorded in its own column.
+        $this->assertEquals((int) $setup->teacher->id, (int) $row->action_userid);
+
         // The management is timestamped.
         $this->assertSame('approved', $row->status);
         $this->assertNotEmpty($row->approved_at);

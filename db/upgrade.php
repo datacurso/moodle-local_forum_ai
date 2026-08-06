@@ -333,5 +333,22 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026080401, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026080600) {
+        // Define field action_userid to be added to local_forum_ai_pending.
+        // Approval/rejection used to overwrite creator_userid with the acting
+        // user, destroying the originating student's identity; the acting user
+        // is now recorded in its own column.
+        $table = new xmldb_table('local_forum_ai_pending');
+        $field = new xmldb_field('action_userid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'creator_userid');
+
+        // Conditionally launch add field action_userid.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026080600, 'local', 'forum_ai');
+    }
+
     return true;
 }
