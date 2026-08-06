@@ -33,6 +33,8 @@ require_once($CFG->dirroot . '/local/forum_ai/db/upgrade.php');
 /**
  * Tests for migrating reply-in-locked forum AI settings.
  *
+ * Covers: MDL-INT-033 — Persistencia de la configuracion global al actualizar el plugin
+ *
  * @group local_forum_ai
  * @coversNothing
  */

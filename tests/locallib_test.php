@@ -33,6 +33,9 @@ require_once($CFG->dirroot . '/local/forum_ai/locallib.php');
 /**
  * Tests for local_forum_ai_add_rating().
  *
+ * Covers: MDL-INT-016 — Valoracion por publicacion en el flujo automatico y diferido (validaciones)
+ * Covers: MDL-INT-021 — Pagina de historial de respuestas (campos del historial)
+ *
  * @group local_forum_ai
  * @covers ::local_forum_ai_add_rating
  */

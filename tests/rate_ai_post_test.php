@@ -37,6 +37,8 @@ require_once($CFG->dirroot . '/rating/lib.php');
 /**
  * Tests that AI ratings go through rating_manager with core's forum validations.
  *
+ * Covers: MDL-INT-015 — Valoracion por publicacion en el flujo de aprobacion manual
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\approval
  */

@@ -39,6 +39,9 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 /**
  * Tests for approve_response behaviour when the parent post is a private reply.
  *
+ * Covers: MDL-INT-014 — Barreras de publicacion: fecha limite, bloqueo y respuestas privadas
+ * Covers: MDL-INT-024 — Permisos y validacion de contexto en los servicios web
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\external\approve_response
  */

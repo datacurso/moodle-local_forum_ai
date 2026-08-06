@@ -33,6 +33,8 @@ require_once($CFG->dirroot . '/local/forum_ai/lib.php');
 /**
  * Tests for preserving forum AI configuration when saving forum forms.
  *
+ * Covers: MDL-INT-003 — Persistencia de la configuracion del foro al guardar el formulario
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai_coursemodule_edit_post_actions
  */

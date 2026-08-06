@@ -41,6 +41,9 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * All scenarios are negative paths: the exception must be thrown before
  * the AI service call, so the tests pass without any network access.
  *
+ * Covers: MDL-INT-024 — Permisos y validacion de contexto en los servicios web
+ * Covers: MDL-UNIT-011 — Deteccion del metodo de calificacion en la respuesta del servicio
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\external\process_review
  */

@@ -38,6 +38,8 @@ use local_forum_ai\external\approve_response;
 /**
  * Full-cycle backup/restore regression test for restored AI pending rows.
  *
+ * Covers: MDL-INT-026 — Copia de seguridad y restauracion del curso
+ *
  * @group local_forum_ai
  * @covers \backup_local_forum_ai_plugin::define_course_plugin_structure
  * @covers \restore_local_forum_ai_plugin::after_restore_course

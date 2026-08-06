@@ -42,6 +42,9 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * The tests run as admin, which also proves the gate is date-based: admins
  * hold mod/forum:canoverridecutoff, so a capability gate would never fire.
  *
+ * Covers: MDL-INT-014 — Barreras de publicacion: fecha limite, bloqueo y respuestas privadas
+ * Covers: MDL-INT-024 — Permisos y validacion de contexto en los servicios web
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\external\approve_response
  */

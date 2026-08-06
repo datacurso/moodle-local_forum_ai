@@ -30,6 +30,8 @@ namespace local_forum_ai;
  * travel to the external AI service, neither in the thread context nor in the
  * whole-forum participation payload.
  *
+ * Covers: MDL-INT-035 — Construccion del contexto del hilo para la IA
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\utils
  */

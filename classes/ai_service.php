@@ -27,6 +27,36 @@ use aiprovider_datacurso\httpclient\ai_services_api;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class ai_service {
+    /** @var object|null Test-only replacement for the AI HTTP client. */
+    private static ?object $testclient = null;
+
+    /**
+     * Injects a stub HTTP client for PHPUnit runs.
+     *
+     * The stub only needs to expose request(string $method, string $path,
+     * array $body = []): ?array, matching ai_services_api. Pass null to
+     * restore the real client (do this in tearDown).
+     *
+     * @param object|null $client Stub client or null to reset.
+     * @return void
+     * @throws \coding_exception When called outside a PHPUnit run.
+     */
+    public static function set_client_for_testing(?object $client): void {
+        if (!(defined('PHPUNIT_TEST') && PHPUNIT_TEST)) {
+            throw new \coding_exception('set_client_for_testing() is only available during PHPUnit runs.');
+        }
+        self::$testclient = $client;
+    }
+
+    /**
+     * Returns the HTTP client used to reach the AI service.
+     *
+     * @return object The injected test client, or a real ai_services_api.
+     */
+    private static function get_client(): object {
+        return self::$testclient ?? new ai_services_api();
+    }
+
     /**
      * Send the payload to the external AI service and return its response for post rating individually.
      *
@@ -37,7 +67,7 @@ class ai_service {
     public static function call_ai_service(array $payload): array {
         // The payload travels verbatim: the HTTP client sends UTF-8 JSON, so
         // accents and special characters must reach the AI service intact.
-        $client = new ai_services_api();
+        $client = self::get_client();
         $response = $client->request('POST', '/forum/chat/v2', $payload);
 
         return self::format_chat_response($response);
@@ -71,7 +101,7 @@ class ai_service {
     public static function call_ai_service_global(array $payload): array {
         // The payload travels verbatim: rubric and guide criteria must keep
         // their accents so the AI echoes them exactly as the form shows them.
-        $client = new ai_services_api();
+        $client = self::get_client();
         $response = $client->request('POST', '/forum/grade', $payload);
 
         if (is_array($response)) {

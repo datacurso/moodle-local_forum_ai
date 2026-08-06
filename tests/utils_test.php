@@ -33,6 +33,14 @@ require_once($CFG->dirroot . '/rating/lib.php');
 /**
  * Tests for \local_forum_ai\utils.
  *
+ * Covers: MDL-UNIT-005 — Preservacion de caracteres acentuados en el contenido enviado a la IA
+ * Covers: MDL-INT-034 — Resolucion de flags globales y valores por defecto
+ * Covers: MDL-INT-035 — Construccion del contexto del hilo para la IA
+ * Covers: MDL-INT-036 — Payload de escala para la valoracion por publicacion
+ * Covers: MDL-CTR-001 — Contrato de la solicitud de generacion de respuesta
+ * Covers: MDL-CTR-002 — Contrato de la solicitud de calificacion de participacion global
+ * Covers: SYS-E2E-006 — Boton Revisar con IA: evaluacion con escala con nombre (partes de normalizacion de calificacion)
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\utils
  */

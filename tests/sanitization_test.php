@@ -35,6 +35,8 @@ require_once(__DIR__ . '/fixtures/xss_payload_fixture.php');
  * The AI service response is external, untrusted content: script payloads
  * must be neutralized (not rejected) while legitimate formatting survives.
  *
+ * Covers: MDL-INT-025 — Sanitizacion del contenido de la IA almacenado y publicado
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\approval
  */

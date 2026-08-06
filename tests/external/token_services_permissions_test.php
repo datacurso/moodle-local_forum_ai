@@ -43,6 +43,10 @@ require_once(__DIR__ . '/../fixtures/xss_payload_fixture.php');
 /**
  * Tests that approve_response, get_details and update_response require the approval capability.
  *
+ * Covers: MDL-INT-024 — Permisos y validacion de contexto en los servicios web
+ * Covers: MDL-INT-019 — Pagina de respuestas pendientes de aprobacion
+ * Covers: MDL-INT-025 — Sanitizacion del contenido de la IA almacenado y publicado
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\external\approve_response
  * @covers \local_forum_ai\external\get_details

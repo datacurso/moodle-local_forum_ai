@@ -38,6 +38,8 @@ use local_forum_ai\privacy\provider;
  * Behavioural tests for the privacy provider under the module-context model.
  *
  * @coversDefaultClass \local_forum_ai\privacy\provider
+ * Covers: MDL-INT-027 — Privacidad: exportacion y eliminacion de datos personales
+ *
  * @group local_forum_ai
  * @group local_forum_ai_privacy
  */

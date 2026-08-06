@@ -30,6 +30,11 @@ use stdClass;
 /**
  * Tests that AI posts are published through the standard forum flow.
  *
+ * Covers: MDL-INT-012 — Publicacion de la respuesta aprobada manualmente
+ * Covers: MDL-INT-013 — Publicacion automatica sin aprobacion
+ * Covers: MDL-INT-007 — Disparo del procesamiento al publicar una replica
+ * Covers: MDL-INT-014 — Barreras de publicacion: fecha limite, bloqueo y respuestas privadas
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\approval
  */

@@ -30,6 +30,10 @@ use stdClass;
 /**
  * Tests for the is_private_reply helper, the private-reply gates and the thread context filter.
  *
+ * Covers: MDL-UNIT-002 — Deteccion de respuestas privadas al profesor
+ * Covers: MDL-INT-007 — Disparo del procesamiento al publicar una replica
+ * Covers: MDL-INT-035 — Construccion del contexto del hilo para la IA
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\utils
  */

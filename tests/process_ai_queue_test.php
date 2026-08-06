@@ -30,6 +30,8 @@ use stdClass;
 /**
  * Regression tests for the delayed queue processor.
  *
+ * Covers: MDL-INT-009 — Cola de procesamiento diferido y tarea programada
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\task\process_ai_queue
  * @covers \local_forum_ai\observer\post

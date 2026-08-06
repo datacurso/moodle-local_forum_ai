@@ -30,6 +30,9 @@ use stdClass;
 /**
  * Tests for the is_forum_cutoff_reached helper and the cut-off generation gates.
  *
+ * Covers: MDL-UNIT-007 — Verificacion de fecha limite y de discusion bloqueada
+ * Covers: MDL-INT-014 — Barreras de publicacion: fecha limite, bloqueo y respuestas privadas
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\utils
  */

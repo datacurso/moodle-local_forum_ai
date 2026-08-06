@@ -37,6 +37,9 @@ require_once($CFG->dirroot . '/local/forum_ai/locallib.php');
 /**
  * Tests that the cleanup is course/forum scoped and leaves traceable 'expired' rows.
  *
+ * Covers: MDL-INT-020 — Expiracion automatica de respuestas pendientes vencidas
+ * Covers: MDL-INT-018 — Conteo de preguntas guia por hilo
+ *
  * @group local_forum_ai
  * @covers ::local_forum_ai_cleanup_expired
  * @covers ::local_forum_ai_get_history

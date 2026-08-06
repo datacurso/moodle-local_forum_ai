@@ -33,6 +33,8 @@ use core_privacy\local\metadata\types\external_location;
  * Tests that the privacy metadata declares every table and the external AI transfer.
  *
  * @coversDefaultClass \local_forum_ai\privacy\provider
+ * Covers: MDL-INT-027 — Privacidad: exportacion y eliminacion de datos personales
+ *
  * @group local_forum_ai
  * @group local_forum_ai_privacy
  */

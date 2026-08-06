@@ -30,6 +30,10 @@ use stdClass;
 /**
  * Tests for utils reply-in-locked helpers and the locked-discussion generation gate.
  *
+ * Covers: MDL-UNIT-007 — Verificacion de fecha limite y de discusion bloqueada
+ * Covers: MDL-INT-014 — Barreras de publicacion: fecha limite, bloqueo y respuestas privadas
+ * Covers: MDL-INT-034 — Resolucion de flags globales y valores por defecto
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\utils
  */

@@ -32,6 +32,8 @@ namespace local_forum_ai;
  * become a real zero in the student's record; an explicit zero returned by
  * the service is a legitimate grade and must be preserved.
  *
+ * Covers: MDL-UNIT-004 — Mapeo de la respuesta del servicio de IA
+ *
  * @group local_forum_ai
  * @covers \local_forum_ai\ai_service
  */
