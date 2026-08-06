@@ -37,6 +37,8 @@ require_once($CFG->libdir . '/upgradelib.php');
 function xmldb_local_forum_ai_upgrade($oldversion) {
     global $DB;
 
+    require_once(__DIR__ . '/upgradelib.php');
+
     $dbman = $DB->get_manager();
 
     // For further information please read {@link https://docs.moodle.org/dev/Upgrade_API}.
@@ -267,6 +269,11 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
     }
 
     if ($oldversion < 2026072800) {
+        // Some production sites recorded a divergent version whose schema is
+        // missing historical columns (e.g. delayminutes); reconcile them so
+        // replyinlocked can be anchored safely.
+        local_forum_ai_reconcile_config_schema($dbman);
+
         // Define field replyinlocked to be added to local_forum_ai_config.
         $table = new xmldb_table('local_forum_ai_config');
         $field = new xmldb_field('replyinlocked', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'delayminutes');
@@ -293,6 +300,10 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
     }
 
     if ($oldversion < 2026073000) {
+        // Reconcile historical columns first so postid can be anchored safely
+        // on drifted production schemas.
+        local_forum_ai_reconcile_pending_schema($dbman);
+
         // Define field postid to be added to local_forum_ai_pending.
         $table = new xmldb_table('local_forum_ai_pending');
         $field = new xmldb_field('postid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'parentpostid');
@@ -334,6 +345,10 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
     }
 
     if ($oldversion < 2026080600) {
+        // Reconcile historical columns first so action_userid can be anchored
+        // safely on drifted production schemas.
+        local_forum_ai_reconcile_pending_schema($dbman);
+
         // Define field action_userid to be added to local_forum_ai_pending.
         // Approval/rejection used to overwrite creator_userid with the acting
         // user, destroying the originating student's identity; the acting user
@@ -348,6 +363,17 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
 
         // Forum_ai savepoint reached.
         upgrade_plugin_savepoint(true, 2026080600, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026080601) {
+        // Belt and braces for sites whose recorded version comes from a
+        // divergent lineage past the earlier steps: make sure every
+        // historical column of both plugin tables exists.
+        local_forum_ai_reconcile_config_schema($dbman);
+        local_forum_ai_reconcile_pending_schema($dbman);
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026080601, 'local', 'forum_ai');
     }
 
     return true;
