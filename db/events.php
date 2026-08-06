@@ -41,14 +41,10 @@ $observers = [
     [
         'eventname'   => '\core\event\course_module_deleted',
         'callback'    => '\local_forum_ai\observer\module::forum_deleted',
-        'internal'    => false,
-        'priority'    => 9999,
     ],
     [
         'eventname'   => '\mod_forum\event\discussion_deleted',
         'callback'    => '\local_forum_ai\observer\discussion::discussion_deleted',
-        'internal'    => false,
-        'priority'    => 9999,
     ],
     [
         'eventname'   => '\mod_forum\event\post_created',
