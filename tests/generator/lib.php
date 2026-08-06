@@ -23,7 +23,6 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class local_forum_ai_generator extends component_generator_base {
-
     /**
      * Creates a pending AI response record in local_forum_ai_pending.
      *

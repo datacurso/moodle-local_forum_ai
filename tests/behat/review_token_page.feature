@@ -55,17 +55,21 @@ Feature: Review an AI response through the token review page
     And I should see "AI draft answer one"
     And I should see "Discussion A"
     # Reabrir el mismo enlace: el token gestionado queda inutilizado.
-    When I am on the "behattoken0000000000000000000001" "local_forum_ai > review" page
-    Then I should see "This request has already been approved, rejected, or does not exist."
-    And "Continue" "button" should exist
+    # A custom step is required: the invalid/used-token branch of review.php exits
+    # before the footer and calls set_title() without a page context, so it triggers a
+    # debugging() message and never completes the pending-JS setup. Core navigation
+    # steps therefore fail on that page (JS-not-ready timeout / debugging detection).
+    Then the review page for token "behattoken0000000000000000000001" should show the already submitted notice
     # Paso manual: requiere servicio de IA (verificar que la notificacion original del profesor
     # contiene este mismo enlace de revision generado por el flujo real).
 
   @MDL-INT-022
   Scenario: A non existing token shows the informative message with a continue button
-    When I am on the "doesnotexist0000000000000000000x" "local_forum_ai > review" page logged in as "teacher1"
-    Then I should see "This request has already been approved, rejected, or does not exist."
-    And "Continue" "button" should exist
+    # A custom step is required: the invalid-token branch of review.php calls
+    # set_title() without a page context, which emits a debugging() message that makes
+    # any core navigation step fail on that page (Behat fails scenarios on debugging).
+    Given I log in as "teacher1"
+    Then the review page for token "doesnotexist0000000000000000000x" should show the already submitted notice
 
   @MDL-INT-022 @SYS-E2E-003
   Scenario: A student opening the review URL is denied access

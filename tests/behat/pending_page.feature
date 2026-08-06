@@ -41,13 +41,15 @@ Feature: Pending responses page and response history page
     And I should see "AI Message" in the "generaltable" "table"
     And I should see "Grade" in the "generaltable" "table"
     And I should see "Actions" in the "generaltable" "table"
+    # The Subject column renders the discussion name (locallib.php list query selects
+    # d.name AS discussionname), not the pending row subject "Re: ...".
     And the following should exist in the "generaltable" table:
-      | Subject          | Creator     | Grade |
-      | Re: Discussion A | Student One | 8     |
+      | Subject      | Creator     | Grade |
+      | Discussion A | Student One | 8     |
     And I should see "AI draft answer one"
-    And "Approve" "button" should exist in the "Re: Discussion A" "table_row"
-    And "Reject" "button" should exist in the "Re: Discussion A" "table_row"
-    And "Details" "button" should exist in the "Re: Discussion A" "table_row"
+    And "Approve" "button" should exist in the "Discussion A" "table_row"
+    And "Reject" "button" should exist in the "Discussion A" "table_row"
+    And "Details" "button" should exist in the "Discussion A" "table_row"
 
   @MDL-INT-019
   Scenario: Access from the forum menu filters to that forum and course access lists all forums
@@ -57,11 +59,13 @@ Feature: Pending responses page and response history page
       | Forum two | Discussion B | student1 | Re: Discussion B | AI draft answer two |
     When I am on the "Forum two" "forum activity" page logged in as "teacher1"
     And I navigate to "Pending Forum AI Responses" in current page administration
-    Then I should see "Re: Discussion B"
-    And I should not see "Re: Discussion A"
+    # The pending table never shows the pending row subject "Re: ..."; assert on the
+    # unique AI message previews (AI Message column) instead.
+    Then I should see "AI draft answer two"
+    And I should not see "AI draft answer one"
     When I am on the "C1" "local_forum_ai > course pending" page
-    Then I should see "Re: Discussion A"
-    And I should see "Re: Discussion B"
+    Then I should see "AI draft answer one"
+    And I should see "AI draft answer two"
 
   @javascript @MDL-INT-019
   Scenario: Approving a pending response from the table removes the row and publishes the reply
@@ -70,7 +74,7 @@ Feature: Pending responses page and response history page
       | Forum one | Discussion A | student1 | Re: Discussion A | AI draft answer one |
     And I am on the "Forum one" "forum activity" page logged in as "teacher1"
     And I navigate to "Pending Forum AI Responses" in current page administration
-    When I click on "Approve" "button" in the "Re: Discussion A" "table_row"
+    When I click on "Approve" "button" in the "Discussion A" "table_row"
     Then I should not see "AI draft answer one"
     And I am on the "Forum one" "forum activity" page
     And I follow "Discussion A"
@@ -85,7 +89,7 @@ Feature: Pending responses page and response history page
       | Forum one | Discussion A | student1 | Re: Discussion A | AI draft answer one |
     And I am on the "Forum one" "forum activity" page logged in as "teacher1"
     And I navigate to "Pending Forum AI Responses" in current page administration
-    When I click on "Reject" "button" in the "Re: Discussion A" "table_row"
+    When I click on "Reject" "button" in the "Discussion A" "table_row"
     Then I should not see "AI draft answer one"
     And I am on the "Forum one" "forum activity" page
     And I follow "Discussion A"
@@ -125,11 +129,14 @@ Feature: Pending responses page and response history page
     And I should see "AI Response Approved"
     And "Save" "button" should not exist in the ".modal-body" "css_element"
     And "Save and Approve" "button" should not exist in the ".modal-body" "css_element"
-    And I click on "Close" "button" in the ".modal-dialog" "css_element"
+    # Each Details click creates a new modal and closed ones stay hidden in the DOM
+    # (history.js calls ModalFactory.create per click; modal.js hide() only swaps the
+    # "show"/"hide" classes), so Close must be scoped to the currently visible modal.
+    And I click on "Close" "button" in the ".modal.show .modal-dialog" "css_element"
     When I click on "Details" "button" in the "Rejected AI text" "table_row"
     Then ".modal-body .alert.bg-danger" "css_element" should exist
     And I should see "AI Response Rejected"
-    And I click on "Close" "button" in the ".modal-dialog" "css_element"
+    And I click on "Close" "button" in the ".modal.show .modal-dialog" "css_element"
     When I click on "Details" "button" in the "Expired AI text" "table_row"
     Then ".modal-body .alert.bg-warning" "css_element" should exist
     And I should see "AI Response (expired)"
@@ -145,7 +152,7 @@ Feature: Pending responses page and response history page
       | Forum one | Discussion A | student1 | Re: Discussion A | AI draft answer one |
     And I am on the "Forum one" "forum activity" page logged in as "teacher1"
     And I navigate to "Pending Forum AI Responses" in current page administration
-    When I click on "Details" "button" in the "Re: Discussion A" "table_row"
+    When I click on "Details" "button" in the "Discussion A" "table_row"
     Then I should see "Discussion Details" in the ".modal-title" "css_element"
     And ".modal-body .badge" "css_element" should exist
     And I should see "Reply level 1" in the ".modal-body" "css_element"

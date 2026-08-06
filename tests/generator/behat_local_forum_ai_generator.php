@@ -23,7 +23,6 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class behat_local_forum_ai_generator extends behat_generator_base {
-
     /**
      * Get a list of the entities that Behat can create using the generator step.
      *

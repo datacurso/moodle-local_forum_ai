@@ -37,7 +37,9 @@ Feature: Full approval flow of an AI generated response
       | Forum one | Discussion A | student1 | Re: Discussion A | Original AI draft one |
     And I am on the "Forum one" "forum activity" page logged in as "teacher1"
     And I navigate to "Pending Forum AI Responses" in current page administration
-    And I click on "Details" "button" in the "Re: Discussion A" "table_row"
+    # The Subject column of the pending table renders the discussion name (locallib.php
+    # list query joins forum_discussions.name), not the pending row subject "Re: ...".
+    And I click on "Details" "button" in the "Discussion A" "table_row"
     And I should see "Discussion Details" in the ".modal-title" "css_element"
     When I set the field with xpath "//textarea[@id='airesponse-edit']" to "Edited AI answer by the teacher"
     And I click on "Save and Approve" "button" in the ".modal-body" "css_element"
@@ -55,11 +57,12 @@ Feature: Full approval flow of an AI generated response
       | Forum one | Discussion A | student1 | Re: Discussion A | Original AI draft one |
     And I am on the "Forum one" "forum activity" page logged in as "teacher1"
     And I navigate to "Pending Forum AI Responses" in current page administration
-    And I click on "Details" "button" in the "Re: Discussion A" "table_row"
+    And I click on "Details" "button" in the "Discussion A" "table_row"
     When I set the field with xpath "//textarea[@id='airesponse-edit']" to "Saved but not approved text"
     And I click on "Save" "button" in the ".modal-body" "css_element"
     # The page reloads and the row must still be pending, with the updated text.
-    Then I should see "Re: Discussion A"
+    # The pending table shows the discussion name as Subject, not "Re: Discussion A".
+    Then I should see "Discussion A" in the "generaltable" "table"
     And I should see "Saved but not approved text"
     And I am on the "Forum one" "forum activity" page
     And I follow "Discussion A"
@@ -76,7 +79,7 @@ Feature: Full approval flow of an AI generated response
       | Forum one | Discussion A | student1 | Re: Discussion A | AI queued answer    |
     And I am on the "Forum one" "forum activity" page logged in as "teacher1"
     And I navigate to "Pending Forum AI Responses" in current page administration
-    When I click on "Approve" "button" in the "Re: Discussion A" "table_row"
+    When I click on "Approve" "button" in the "Discussion A" "table_row"
     Then I should not see "AI queued answer"
     And I am on the "Forum one" "forum activity" page
     And I follow "Discussion A"

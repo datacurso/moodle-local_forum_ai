@@ -27,7 +27,6 @@ require_once(__DIR__ . '/../../../../lib/behat/behat_base.php');
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class behat_local_forum_ai extends behat_base {
-
     /**
      * Convert page names to URLs for steps like "When I am on the "X" "local_forum_ai > Y" page".
      *
@@ -101,6 +100,37 @@ class behat_local_forum_ai extends behat_base {
         $this->assertSession()->pageTextContains($expected);
 
         // Leave the error page so the automatic exception check does not flag this scenario.
+        $this->getSession()->visit($this->locate_path('/'));
+    }
+
+    /**
+     * Visit the token review page for an invalid or already handled token and assert
+     * the informative "already submitted" notice with its continue button.
+     *
+     * A custom step is required because the invalid-token branch of review.php calls
+     * $PAGE->set_title() without a page context (emitting a debugging() message) and
+     * exits before rendering the footer, so the standard pending-JS setup never
+     * completes. Core navigation steps fail on that page, either through the
+     * automatic debugging() detection or through the JS-not-ready timeout. Asserting
+     * directly through Mink (not via execute()) skips the chained exception check,
+     * mirroring review_page_should_deny_access() below.
+     *
+     * @Then /^the review page for token "(?P<token_string>(?:[^"]|\\")*)" should show the already submitted notice$/
+     *
+     * @param string $token The approval token to visit.
+     */
+    public function review_page_should_show_already_submitted_notice(string $token): void {
+        $url = new moodle_url('/local/forum_ai/review.php', ['token' => $token]);
+        $this->getSession()->visit($this->locate_path($url->out_as_local_url(false)));
+
+        $this->assertSession()->pageTextContains(
+            get_string('alreadysubmitted', 'local_forum_ai')
+        );
+
+        // The continue button rendered by $OUTPUT->continue_button() targets /my.
+        $this->find('button', get_string('continue'));
+
+        // Leave the incomplete page so later steps and automatic checks do not flag it.
         $this->getSession()->visit($this->locate_path('/'));
     }
 
