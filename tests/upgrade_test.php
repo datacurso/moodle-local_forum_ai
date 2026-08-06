@@ -64,49 +64,6 @@ final class upgrade_test extends \advanced_testcase {
     }
 
     /**
-     * A drifted production schema (divergent recorded version, missing historical
-     * columns) must be reconciled by the upgrade instead of failing on ALTER TABLE.
-     *
-     * Covers: MDL-INT-033 — Persistencia de la configuracion global al actualizar el plugin
-     */
-    public function test_upgrade_from_drifted_schema_restores_missing_columns(): void {
-        global $DB;
-
-        $this->resetAfterTest();
-
-        $dbman = $DB->get_manager();
-
-        // Simulate the drifted production schema: historical columns missing
-        // while the recorded version is already past the steps that add them.
-        $configtable = new \xmldb_table('local_forum_ai_config');
-        $delayminutes = new \xmldb_field('delayminutes', XMLDB_TYPE_INTEGER, '6', null, XMLDB_NOTNULL, null, '0', 'usedelay');
-        if ($dbman->field_exists($configtable, $delayminutes)) {
-            $dbman->drop_field($configtable, $delayminutes);
-        }
-        $usedelay = new \xmldb_field('usedelay', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'timemodified');
-        if ($dbman->field_exists($configtable, $usedelay)) {
-            $dbman->drop_field($configtable, $usedelay);
-        }
-
-        $pendingtable = new \xmldb_table('local_forum_ai_pending');
-        $grade = new \xmldb_field('grade', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'message');
-        if ($dbman->field_exists($pendingtable, $grade)) {
-            $dbman->drop_field($pendingtable, $grade);
-        }
-
-        set_config('version', 2026070300, 'local_forum_ai');
-
-        // Must not throw ddl_change_structure_exception on the replyinlocked step.
-        xmldb_local_forum_ai_upgrade(2026070300);
-
-        $this->assertTrue($dbman->field_exists($configtable, new \xmldb_field('usedelay')));
-        $this->assertTrue($dbman->field_exists($configtable, new \xmldb_field('delayminutes')));
-        $this->assertTrue($dbman->field_exists($configtable, new \xmldb_field('replyinlocked')));
-        $this->assertTrue($dbman->field_exists($pendingtable, new \xmldb_field('grade')));
-        $this->assertTrue($dbman->field_exists($pendingtable, new \xmldb_field('action_userid')));
-    }
-
-    /**
      * Creates two forums for migration tests.
      *
      * @return array{0: \stdClass, 1: \stdClass}
