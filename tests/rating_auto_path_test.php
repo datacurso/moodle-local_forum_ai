@@ -177,16 +177,60 @@ final class rating_auto_path_test extends \advanced_testcase {
 
         $this->assertTrue((bool) ($result->success ?? false));
 
-        $graded = array_values(array_filter($events, static function ($event): bool {
-            return $event instanceof \core\event\user_graded;
-        }));
-        $this->assertNotEmpty($graded, 'The automatic rating must log a user_graded event.');
+        $graded = $this->filter_forum_user_graded_events($events, (int) $fixture->forum->id);
+        $this->assertNotEmpty($graded, 'The automatic rating must log a user_graded event for the forum item.');
         $this->assertEquals(
             (int) $fixture->grader->id,
             (int) $graded[0]->userid,
             'The grading event must be attributed to the configured grader.'
         );
         $this->assertEquals((int) $fixture->student->id, (int) $graded[0]->relateduserid);
+    }
+
+    /**
+     * MDL-INT-016 (step 3) — regression for the production incident where the
+     * forum "Grade users" panel (core_grades_get_gradable_users) threw
+     * gradesneedregrading: the writer used to flag the course grade item with
+     * force_regrading() after every AI rating and nothing ever regraded it, so
+     * export_verify_grades() failed for the whole course.
+     *
+     * Asserts the CORRECT behavior: after rating through the plugin path the
+     * course must have no grade item left with needsupdate=1 and
+     * export_verify_grades() must not throw.
+     */
+    public function test_rating_leaves_no_grade_item_needing_regrade(): void {
+        global $CFG, $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $fixture = $this->create_fixture(['assessed' => RATING_AGGREGATE_AVERAGE, 'scale' => 100]);
+        $context = context_module::instance($fixture->cm->id);
+
+        $result = local_forum_ai_add_rating(
+            $fixture->cm,
+            $context,
+            'mod_forum',
+            'post',
+            (int) $fixture->discussion->firstpost,
+            (int) $fixture->forum->scale,
+            85,
+            (int) $fixture->student->id,
+            (int) $fixture->forum->assessed,
+            (int) $fixture->grader->id
+        );
+        $this->assertTrue((bool) ($result->success ?? false));
+
+        $this->assertSame(
+            0,
+            $DB->count_records_select('grade_items', 'courseid = ? AND needsupdate = 1', [$fixture->course->id]),
+            'The rating must not leave any grade item of the course flagged for regrading.'
+        );
+
+        // The exact path core_grades_get_gradable_users takes in production.
+        require_once($CFG->dirroot . '/grade/export/lib.php');
+        export_verify_grades($fixture->course->id);
+        $this->assertTrue(true, 'export_verify_grades() must not throw gradesneedregrading.');
     }
 
     /**
@@ -240,9 +284,7 @@ final class rating_auto_path_test extends \advanced_testcase {
 
         $this->assertSame(1, $DB->count_records('rating', ['itemid' => $fixture->discussion->firstpost]));
 
-        $graded = array_values(array_filter($events, static function ($event): bool {
-            return $event instanceof \core\event\user_graded;
-        }));
+        $graded = $this->filter_forum_user_graded_events($events, (int) $fixture->forum->id);
         $this->assertCount(1, $graded, 'The rating must be applied (and logged) exactly once per post.');
         $this->assertEquals(
             (int) $fixture->grader->id,
@@ -300,6 +342,30 @@ final class rating_auto_path_test extends \advanced_testcase {
             'notifican al profesor (solo mtrace/debugging); el aviso al profesor esta pendiente ' .
             'de implementar.'
         );
+    }
+
+    /**
+     * Filters captured events down to user_graded events for the forum's own
+     * grade item, excluding the user_graded events that core's synchronous
+     * course-total aggregation logs against the course grade item.
+     *
+     * @param array $events Events captured by the sink.
+     * @param int $forumid Forum instance id.
+     * @return \core\event\user_graded[] Events for the forum grade item only.
+     */
+    private function filter_forum_user_graded_events(array $events, int $forumid): array {
+        global $DB;
+
+        $forumitemid = (int) $DB->get_field('grade_items', 'id', [
+            'itemtype' => 'mod',
+            'itemmodule' => 'forum',
+            'iteminstance' => $forumid,
+        ], MUST_EXIST);
+
+        return array_values(array_filter($events, static function ($event) use ($forumitemid): bool {
+            return $event instanceof \core\event\user_graded
+                && (int) ($event->other['itemid'] ?? 0) === $forumitemid;
+        }));
     }
 
     /**

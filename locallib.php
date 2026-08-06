@@ -246,20 +246,6 @@ function local_forum_ai_add_rating(
     }
 
     try {
-        // Defer the course-total aggregation to Moodle's standard regrade run:
-        // grade_item::update_raw_grade() skips the synchronous course regrade
-        // when the course item is flagged as needing an update, so the rating
-        // produces exactly one grading application — a single user_graded
-        // event for the forum grade item, attributed to the rater — instead of
-        // also aggregating the course total inline. The flagged course item is
-        // recalculated by the next standard regrade (cron or gradebook view).
-        if ($context->contextlevel == CONTEXT_MODULE) {
-            require_once($CFG->libdir . '/gradelib.php');
-            if ($courseitem = grade_item::fetch_course_item($cm->course)) {
-                $courseitem->force_regrading();
-            }
-        }
-
         $rm = new rating_manager();
         return $rm->add_rating(
             $cm,
