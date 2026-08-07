@@ -117,6 +117,7 @@ class process_ai_discussion extends adhoc_task {
             }
 
             $gradingenabled = ($forum->assessed != 0);
+            $scalepayload = $gradingenabled ? utils::get_scale_payload((int)$forum->scale) : null;
 
             $postmessage = format_text($post->message, $post->messageformat, [
                 'context' => \context_module::instance($data->cmid),
@@ -149,16 +150,16 @@ class process_ai_discussion extends adhoc_task {
                 'prompt' => $replymessage,
                 'allow_followup_question' => $allowfollowupquestion,
                 'grading_enabled' => $gradingenabled,
-                'scale' => $gradingenabled ? utils::get_scale_payload((int)$forum->scale) : null,
+                'scale' => $scalepayload,
             ];
 
             $airesponse = ai_service::call_ai_service($payload);
             $replytext = $airesponse['reply'] ?? '';
-            $grade = $gradingenabled ? ($airesponse['grade'] ?? null) : null;
+            $rawgrade = $airesponse['grade'] ?? null;
+            $grade = utils::resolve_ai_grade($rawgrade, $scalepayload);
 
             if ($gradingenabled && $grade === null) {
-                mtrace("local_forum_ai: AI response for discussion {$discussionid} contained no grade; " .
-                    'no rating will be applied.');
+                mtrace("local_forum_ai: no usable grade for discussion {$discussionid}; skipping rating.");
             }
 
             $pendingid = approval::create_approval_request(
