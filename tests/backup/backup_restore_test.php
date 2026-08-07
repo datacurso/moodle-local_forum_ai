@@ -302,10 +302,13 @@ final class backup_restore_test extends \advanced_testcase {
         ]);
         $discussion = $DB->get_record('forum_discussions', ['id' => $discussion->id], '*', MUST_EXIST);
 
+        $grader = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+
         $DB->insert_record('local_forum_ai_config', (object) [
             'forumid' => $forum->id,
             'enabled' => 1,
-            'require_approval' => 1,
+            'require_approval' => 0,
+            'graderid' => $grader->id,
             'reply_message' => 'No user data prompt',
             'timecreated' => time(),
             'timemodified' => time(),
@@ -364,11 +367,20 @@ final class backup_restore_test extends \advanced_testcase {
         );
 
         // The forum configuration is course data and still travels.
-        $this->assertSame(
-            1,
-            $DB->count_records('local_forum_ai_config', ['forumid' => $restoredforum->id])
+        $restoredconfig = $DB->get_record(
+            'local_forum_ai_config',
+            ['forumid' => $restoredforum->id],
+            '*',
+            MUST_EXIST
         );
-        // The per-student responses do not.
+        $this->assertSame('No user data prompt', $restoredconfig->reply_message);
+
+        // The grader is a reference to a person, so it does not survive a backup
+        // that carries no user data. Without it the forum falls back to approval
+        // mode instead of publishing on behalf of an arbitrary user.
+        $this->assertNull($restoredconfig->graderid);
+
+        // The per-student responses do not travel either.
         $this->assertSame(
             0,
             $DB->count_records('local_forum_ai_pending', ['forumid' => $restoredforum->id])
