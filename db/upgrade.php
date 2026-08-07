@@ -350,5 +350,30 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026080600, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026080700) {
+        // The 2026072800 step created replyinlocked with default '0' while install.xml
+        // declares REPLY_IN_LOCKED_INHERIT, so upgraded and freshly installed sites
+        // disagreed on the meaning of a row inserted without the field. Align the
+        // upgraded column with install.xml.
+        $table = new xmldb_table('local_forum_ai_config');
+        $field = new xmldb_field(
+            'replyinlocked',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            (string) \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT,
+            'delayminutes'
+        );
+
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->change_field_default($table, $field);
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026080700, 'local', 'forum_ai');
+    }
+
     return true;
 }
