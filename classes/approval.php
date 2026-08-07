@@ -132,7 +132,7 @@ class approval {
             $renderer = null;
             try {
                 $renderer = $PAGE->get_renderer('local_forum_ai');
-            } catch (\Throwable $e) {
+            } catch (\Exception $e) {
                 $renderer = null;
             }
 
@@ -195,7 +195,7 @@ class approval {
             }
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             debugging('Error sending Moodle notification: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return false;
         }
@@ -327,7 +327,7 @@ class approval {
                 if ($completion->is_enabled($cm) && ($forum->completionreplies || $forum->completionposts)) {
                     $completion->update_state($cm, COMPLETION_COMPLETE);
                 }
-            } catch (\Throwable $e) {
+            } catch (\Exception $e) {
                 debugging('Error in AI post publication follow-ups: ' . $e->getMessage(), DEBUG_DEVELOPER);
             }
 
@@ -422,7 +422,7 @@ class approval {
             }
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             $failurereason = ($e instanceof \moodle_exception) ? (string) $e->errorcode : $e->getMessage();
             debugging('Cannot rate AI post: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return false;

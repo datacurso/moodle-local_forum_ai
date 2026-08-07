@@ -114,7 +114,7 @@ class process_single_forum_discussion extends \core\task\adhoc_task {
                 "process_single_forum_discussion database error: " . $e->getMessage(),
                 DEBUG_DEVELOPER
             );
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             // General error occurred.
             mtrace("Error in process_single_forum_discussion: " . $e->getMessage());
             debugging(

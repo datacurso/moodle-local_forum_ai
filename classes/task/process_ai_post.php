@@ -218,7 +218,7 @@ class process_ai_post extends adhoc_task {
                     }
                 }
             }
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             debugging('Error in process_ai_post task: ' . $e->getMessage(), DEBUG_DEVELOPER);
             throw $e;
         }
