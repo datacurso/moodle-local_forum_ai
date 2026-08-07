@@ -57,7 +57,7 @@ class discussion {
             self::process_discussion($discussionid, $forumid, $courseid, $context);
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             debugging('Error in discussion_created observer: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return true;
         }
@@ -140,7 +140,7 @@ class discussion {
                 'Missing record in process_discussion: ' . $e->getMessage(),
                 DEBUG_DEVELOPER
             );
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             debugging(
                 'Error processing discussion for AI: ' . $e->getMessage(),
                 DEBUG_DEVELOPER

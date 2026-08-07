@@ -461,6 +461,85 @@ final class task_pipeline_test extends \advanced_testcase {
     }
 
     /**
+     * A named-scale label returned by the service is resolved to its scale index.
+     */
+    public function test_named_scale_label_is_normalized_before_rating(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $scale = $this->getDataGenerator()->create_scale(['scale' => 'Mal, Regular, Bien']);
+        $fixture = $this->create_fixture(['assessed' => 1, 'scale' => -$scale->id]);
+        $this->set_forum_config((int) $fixture->forum->id, [
+            'require_approval' => 0,
+            'graderid' => $fixture->teacher->id,
+        ]);
+        $post = $this->create_reply($fixture, $fixture->student->id, 'Reply graded with a scale label');
+
+        $this->inject_mock(['reply' => 'Mock AI reply', 'grade' => 'Bien']);
+        $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
+
+        $pending = $DB->get_record('local_forum_ai_pending', ['parentpostid' => $post->id], '*', MUST_EXIST);
+        $this->assertSame(3, (int) $pending->grade);
+
+        $rating = $DB->get_record('rating', ['itemid' => $post->id], '*', MUST_EXIST);
+        $this->assertSame(3.0, (float) $rating->rating);
+    }
+
+    /**
+     * A grade that cannot be resolved must leave the student without any rating.
+     */
+    public function test_unresolvable_grade_applies_no_rating(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $scale = $this->getDataGenerator()->create_scale(['scale' => 'Mal, Regular, Bien']);
+        $fixture = $this->create_fixture(['assessed' => 1, 'scale' => -$scale->id]);
+        $this->set_forum_config((int) $fixture->forum->id, [
+            'require_approval' => 0,
+            'graderid' => $fixture->teacher->id,
+        ]);
+        $post = $this->create_reply($fixture, $fixture->student->id, 'Reply graded with an unknown label');
+
+        $this->inject_mock(['reply' => 'Mock AI reply', 'grade' => 'Excelente']);
+        $output = $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
+
+        $pending = $DB->get_record('local_forum_ai_pending', ['parentpostid' => $post->id], '*', MUST_EXIST);
+        $this->assertNull($pending->grade);
+        $this->assertSame(0, $DB->count_records('rating', ['itemid' => $post->id]));
+        $this->assertStringContainsString('no usable grade', $output);
+    }
+
+    /**
+     * An explicit and legitimate zero is still applied as a real rating.
+     */
+    public function test_explicit_zero_grade_is_applied(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $fixture = $this->create_fixture(['assessed' => 1, 'scale' => 100]);
+        $this->set_forum_config((int) $fixture->forum->id, [
+            'require_approval' => 0,
+            'graderid' => $fixture->teacher->id,
+        ]);
+        $post = $this->create_reply($fixture, $fixture->student->id, 'Reply graded with a legitimate zero');
+
+        $this->inject_mock(['reply' => 'Mock AI reply', 'grade' => 0]);
+        $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
+
+        $pending = $DB->get_record('local_forum_ai_pending', ['parentpostid' => $post->id], '*', MUST_EXIST);
+        $this->assertSame(0, (int) $pending->grade);
+
+        $rating = $DB->get_record('rating', ['itemid' => $post->id], '*', MUST_EXIST);
+        $this->assertSame(0.0, (float) $rating->rating);
+    }
+
+    /**
      * MDL-INT-030: the plugin should bound its own retries (limit or timeout)
      * instead of re-calling the paid service on every framework retry.
      */

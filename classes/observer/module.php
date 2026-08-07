@@ -73,7 +73,7 @@ class module {
             \core\task\manager::queue_adhoc_task($task);
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             debugging('Error in course_module_created observer: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return true;
         }

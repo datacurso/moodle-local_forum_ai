@@ -130,6 +130,55 @@ final class process_ai_queue_test extends \advanced_testcase {
     }
 
     /**
+     * A row whose post no longer exists must be dropped and must not abort the run.
+     */
+    public function test_unprocessable_row_is_discarded_without_stalling_the_run(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$forum, $discussion, $course, $cm, $student, $teacher] = $this->create_forum_and_discussion();
+
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $post = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $teacher->id,
+            'message' => 'Reply that survives a poisoned queue row',
+        ]);
+
+        // A hard-deleted post: the target lookup can never succeed for this row.
+        $deletedrowid = $this->create_queue_row('post', [
+            'postid' => 99999999,
+            'cmid' => $cm->id,
+        ]);
+        // A payload without any usable identifier.
+        $brokenrowid = $this->create_queue_row('post', ['cmid' => $cm->id]);
+        $validrowid = $this->create_queue_row('post', [
+            'postid' => $post->id,
+            'cmid' => $cm->id,
+        ]);
+
+        $task = new task\process_ai_queue();
+        $task->execute();
+        $this->assertDebuggingCalledCount(2);
+
+        // The unprocessable rows are gone, so they cannot poison the next run.
+        $this->assertFalse($DB->record_exists('local_forum_ai_queue', ['id' => $deletedrowid]));
+        $this->assertFalse($DB->record_exists('local_forum_ai_queue', ['id' => $brokenrowid]));
+
+        // The healthy row was still dispatched in the same run.
+        $this->assertFalse($DB->record_exists('local_forum_ai_queue', ['id' => $validrowid]));
+        $queued = $this->get_single_queued_task();
+        $this->assertSame((int) $post->id, (int) json_decode($queued->customdata)->postid);
+
+        // A second run has nothing left to do and stays clean.
+        $task->execute();
+        $this->assertSame(1, $DB->count_records('task_adhoc', ['component' => 'local_forum_ai']));
+        $this->assertSame(0, $DB->count_records('local_forum_ai_queue'));
+    }
+
+    /**
      * Creates or updates the plugin config row for a forum.
      *
      * @param int $forumid Forum ID.

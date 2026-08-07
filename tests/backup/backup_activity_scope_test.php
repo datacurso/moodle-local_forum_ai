@@ -30,6 +30,8 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
+require_once($CFG->dirroot . '/local/forum_ai/backup/moodle2/restore_local_forum_ai_plugin.class.php');
+require_once(__DIR__ . '/restore_local_forum_ai_plugin_test_double.php');
 
 /**
  * Tests that single-activity backups never carry plugin data.
@@ -149,12 +151,31 @@ final class backup_activity_scope_test extends \advanced_testcase {
      * (utils::REPLY_IN_LOCKED_INHERIT), not to an explicit "No".
      */
     public function test_restore_missing_replyinlocked_defaults_to_inherit(): void {
-        $this->markTestSkipped(
-            'MDL-INT-026 NOTA [Pendiente:skip]: al restaurar sin el campo "responder en ' .
-            'discusiones bloqueadas", el valor cae a "No" explicito (0) en lugar del estado ' .
-            '"heredar" (utils::REPLY_IN_LOCKED_INHERIT), reintroduciendo para los foros ' .
-            'restaurados el bloqueo del valor global que ya se habia corregido — misma clase ' .
-            'de defecto que el default del tiempo de espera.'
+        global $DB;
+
+        $this->resetAfterTest();
+        $restore = new restore_local_forum_ai_plugin_test_double();
+
+        $restore->seed_mappings(['forum' => [1001 => 2001]]);
+        $restore->seed_tempconfigs([
+            (object) [
+                'forumid' => 1001,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'reply_message' => 'Pre-feature backup config',
+                'timecreated' => 1710000000,
+                'timemodified' => 1710000000,
+            ],
+        ]);
+
+        $this->expectOutputRegex('/.*/s');
+        $restore->after_restore_course();
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => 2001], '*', MUST_EXIST);
+
+        $this->assertSame(
+            \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT,
+            (int) $config->replyinlocked
         );
     }
 }

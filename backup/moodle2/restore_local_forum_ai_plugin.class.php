@@ -103,7 +103,9 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->delayminutes = isset($config->delayminutes)
                 ? max(1, (int)$config->delayminutes)
                 : \local_forum_ai\utils::get_default_delay_minutes();
-            $record->replyinlocked = $config->replyinlocked ?? 0;
+            // Pre-feature backups carry no value: inherit the site default instead of
+            // pinning the restored forum to an explicit "No" it can never leave.
+            $record->replyinlocked = $config->replyinlocked ?? \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
             $record->timecreated = $config->timecreated;
             $record->timemodified = $config->timemodified;
 

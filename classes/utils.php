@@ -116,6 +116,30 @@ class utils {
     }
 
     /**
+     * Resolve the grade returned by the AI service into an applicable rating.
+     *
+     * A named-scale label is resolved to its 1-based index and out-of-range
+     * values are rejected. Anything unresolvable yields null so that no rating
+     * is applied, rather than a 0 that would reach the student gradebook as a
+     * real mark. An explicit 0 is preserved.
+     *
+     * @param mixed $rawgrade Raw grade returned by the AI service.
+     * @param int|array|null $scale Scale payload, or null when rating is off.
+     * @return int|null Grade ready to be applied, or null when unresolvable.
+     */
+    public static function resolve_ai_grade(mixed $rawgrade, int|array|null $scale): ?int {
+        if ($scale === null || $rawgrade === null || $rawgrade === '') {
+            return null;
+        }
+
+        try {
+            return (int) self::normalize_review_grade($rawgrade, $scale);
+        } catch (\moodle_exception $e) {
+            return null;
+        }
+    }
+
+    /**
      * Checks whether forum AI feature is globally enabled.
      *
      * @return bool

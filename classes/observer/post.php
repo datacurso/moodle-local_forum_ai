@@ -112,7 +112,7 @@ class post {
             }
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             debugging('Error queueing AI response task: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return true;
         }

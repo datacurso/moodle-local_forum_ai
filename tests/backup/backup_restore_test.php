@@ -275,6 +275,119 @@ final class backup_restore_test extends \advanced_testcase {
     }
 
     /**
+     * A backup taken without user data must not carry the per-student AI responses.
+     */
+    public function test_backup_without_user_data_excludes_pending_responses(): void {
+        global $CFG, $DB, $USER;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $CFG->backup_file_logger_level = \backup::LOG_NONE;
+        $this->expectOutputRegex('/.*/s');
+
+        $course = $this->getDataGenerator()->create_course();
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+
+        $forummodule = $this->getDataGenerator()->create_module('forum', [
+            'course' => $course->id,
+            'name' => 'No user data forum',
+        ]);
+        $forum = $DB->get_record('forum', ['id' => $forummodule->id], '*', MUST_EXIST);
+
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'userid' => $student->id,
+        ]);
+        $discussion = $DB->get_record('forum_discussions', ['id' => $discussion->id], '*', MUST_EXIST);
+
+        $grader = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+
+        $DB->insert_record('local_forum_ai_config', (object) [
+            'forumid' => $forum->id,
+            'enabled' => 1,
+            'require_approval' => 0,
+            'graderid' => $grader->id,
+            'reply_message' => 'No user data prompt',
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+        $DB->insert_record('local_forum_ai_pending', (object) [
+            'discussionid' => $discussion->id,
+            'forumid' => $forum->id,
+            'parentpostid' => $discussion->firstpost,
+            'creator_userid' => $student->id,
+            'subject' => 'Re: ' . $discussion->name,
+            'message' => '<p>Personal AI response</p>',
+            'status' => 'pending',
+            'approval_token' => md5(uniqid('nouserdata_', true)),
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        $backupcontroller = new \backup_controller(
+            \backup::TYPE_1COURSE,
+            $course->id,
+            \backup::FORMAT_MOODLE,
+            \backup::INTERACTIVE_NO,
+            \backup::MODE_IMPORT,
+            $USER->id
+        );
+        $backupcontroller->get_plan()->get_setting('users')->set_status(\backup_setting::NOT_LOCKED);
+        $backupcontroller->get_plan()->get_setting('users')->set_value(false);
+        $backupid = $backupcontroller->get_backupid();
+        $backupcontroller->execute_plan();
+        $backupcontroller->destroy();
+
+        $newcourseid = \restore_dbops::create_new_course(
+            'Restored without users',
+            'RESTOREDNOUSERS' . $course->id,
+            $course->category
+        );
+        $restorecontroller = new \restore_controller(
+            $backupid,
+            $newcourseid,
+            \backup::INTERACTIVE_NO,
+            \backup::MODE_GENERAL,
+            $USER->id,
+            \backup::TARGET_NEW_COURSE
+        );
+        $restorecontroller->get_plan()->get_setting('users')->set_status(\backup_setting::NOT_LOCKED);
+        $restorecontroller->get_plan()->get_setting('users')->set_value(false);
+        $this->assertTrue($restorecontroller->execute_precheck());
+        $restorecontroller->execute_plan();
+        $restorecontroller->destroy();
+
+        $restoredforum = $DB->get_record(
+            'forum',
+            ['course' => $newcourseid, 'name' => 'No user data forum'],
+            '*',
+            MUST_EXIST
+        );
+
+        // The forum configuration is course data and still travels.
+        $restoredconfig = $DB->get_record(
+            'local_forum_ai_config',
+            ['forumid' => $restoredforum->id],
+            '*',
+            MUST_EXIST
+        );
+        $this->assertSame('No user data prompt', $restoredconfig->reply_message);
+
+        // The grader is a reference to a person, so it does not survive a backup
+        // that carries no user data. Without it the forum falls back to approval
+        // mode instead of publishing on behalf of an arbitrary user.
+        $this->assertNull($restoredconfig->graderid);
+
+        // The per-student responses do not travel either.
+        $this->assertSame(
+            0,
+            $DB->count_records('local_forum_ai_pending', ['forumid' => $restoredforum->id])
+        );
+    }
+
+    /**
      * Grader IDs are remapped to restored users and cleared when the mapping is missing.
      */
     public function test_config_graderid_is_remapped_or_cleared_when_missing_mapping(): void {

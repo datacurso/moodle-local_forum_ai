@@ -64,6 +64,45 @@ final class upgrade_test extends \advanced_testcase {
     }
 
     /**
+     * The upgraded replyinlocked column must keep the same default as install.xml.
+     */
+    public function test_replyinlocked_column_default_matches_install_schema(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        // Reproduce the column an upgraded site ended up with: the 2026072800 step
+        // created replyinlocked with default '0' instead of REPLY_IN_LOCKED_INHERIT.
+        $dbman = $DB->get_manager();
+        $table = new \xmldb_table('local_forum_ai_config');
+        $legacyfield = new \xmldb_field(
+            'replyinlocked',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '0',
+            'delayminutes'
+        );
+        $dbman->change_field_default($table, $legacyfield);
+
+        $legacycolumns = $DB->get_columns('local_forum_ai_config', false);
+        $this->assertSame(0, (int) $legacycolumns['replyinlocked']->default_value);
+
+        set_config('version', 2026080601, 'local_forum_ai');
+
+        xmldb_local_forum_ai_upgrade(2026080601);
+
+        $columns = $DB->get_columns('local_forum_ai_config', false);
+
+        $this->assertSame(
+            \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT,
+            (int) $columns['replyinlocked']->default_value
+        );
+    }
+
+    /**
      * Creates two forums for migration tests.
      *
      * @return array{0: \stdClass, 1: \stdClass}
