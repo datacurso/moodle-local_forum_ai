@@ -76,43 +76,93 @@ class process_ai_queue extends \core\task\scheduled_task {
                 continue;
             }
 
-            $transaction = $DB->start_delegated_transaction();
-
             try {
-                $data = json_decode($item->payload);
-
-                if ($item->type === 'post') {
-                    $post = $DB->get_record('forum_posts', ['id' => (int) $data->postid], 'id,userid', MUST_EXIST);
-                    $task = new process_ai_post();
-                    $task->set_custom_data($data);
-                    $task->set_component('local_forum_ai');
-                    $task->set_userid((int) $post->userid);
-                    \core\task\manager::queue_adhoc_task($task);
-                } else if ($item->type === 'discussion') {
-                    $discussion = $DB->get_record(
-                        'forum_discussions',
-                        ['id' => (int) $data->discussionid],
-                        'id,userid',
-                        MUST_EXIST
-                    );
-                    $task = new process_ai_discussion();
-                    $task->set_custom_data($data);
-                    $task->set_component('local_forum_ai');
-                    $task->set_userid((int) $discussion->userid);
-                    \core\task\manager::queue_adhoc_task($task);
-                }
-
-                // Remove the row once its adhoc task is queued: nothing reads
-                // dispatched rows, and keeping them grows the table unbounded.
-                $DB->delete_records('local_forum_ai_queue', ['id' => $item->id]);
-
-                $transaction->allow_commit();
-            } catch (\Throwable $e) {
-                $transaction->rollback($e);
-                debugging('Error processing Forum AI queue: ' . $e->getMessage(), DEBUG_DEVELOPER);
+                $this->dispatch_item($item);
+            } catch (\Exception $e) {
+                // Only runtime failures are skipped. A programming error is left to
+                // propagate so cron records the task as failed instead of hiding it.
+                debugging(
+                    'Error processing Forum AI queue item ' . $item->id . ': ' . $e->getMessage(),
+                    DEBUG_DEVELOPER
+                );
             } finally {
                 $lock->release();
             }
         }
+    }
+
+    /**
+     * Queue the adhoc task for one queue item and drop the item from the queue.
+     *
+     * Items whose post or discussion no longer exists can never be dispatched,
+     * so they are discarded instead of failing again on every later run.
+     *
+     * @param \stdClass $item Queue row.
+     */
+    private function dispatch_item(\stdClass $item): void {
+        global $DB;
+
+        $data = json_decode($item->payload);
+        $authorid = $this->resolve_author_id($item->type, $data);
+
+        if ($authorid === null) {
+            debugging(
+                'Discarding Forum AI queue item ' . $item->id . ': unusable payload or missing target.',
+                DEBUG_DEVELOPER
+            );
+            $DB->delete_records('local_forum_ai_queue', ['id' => $item->id]);
+            return;
+        }
+
+        $transaction = $DB->start_delegated_transaction();
+
+        try {
+            $task = $item->type === 'post' ? new process_ai_post() : new process_ai_discussion();
+            $task->set_custom_data($data);
+            $task->set_component('local_forum_ai');
+            $task->set_userid($authorid);
+            \core\task\manager::queue_adhoc_task($task);
+
+            // Dispatched rows are never read again, so keeping them only grows the table.
+            $DB->delete_records('local_forum_ai_queue', ['id' => $item->id]);
+
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            // rollback_delegated_transaction() always rethrows; execute() logs it.
+            $transaction->rollback($e);
+        }
+    }
+
+    /**
+     * Resolve the author of the post or discussion a queue item refers to.
+     *
+     * @param string $type Queue item type, either 'post' or 'discussion'.
+     * @param mixed $data Decoded queue payload.
+     * @return int|null Author id, or null when the target cannot be resolved.
+     */
+    private function resolve_author_id(string $type, mixed $data): ?int {
+        global $DB;
+
+        if (!is_object($data)) {
+            return null;
+        }
+
+        if ($type === 'post') {
+            $table = 'forum_posts';
+            $targetid = (int) ($data->postid ?? 0);
+        } else if ($type === 'discussion') {
+            $table = 'forum_discussions';
+            $targetid = (int) ($data->discussionid ?? 0);
+        } else {
+            return null;
+        }
+
+        if ($targetid <= 0) {
+            return null;
+        }
+
+        $authorid = $DB->get_field($table, 'userid', ['id' => $targetid], IGNORE_MISSING);
+
+        return $authorid === false ? null : (int) $authorid;
     }
 }
