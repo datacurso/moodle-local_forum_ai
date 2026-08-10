@@ -51,6 +51,26 @@ class post {
             $postid = $data['objectid'];
 
             $post = $DB->get_record('forum_posts', ['id' => $postid], '*', MUST_EXIST);
+
+            // Posts published by this plugin must never re-trigger generation. The marker
+            // is persistent because this observer is 'internal' => false (dispatch can be
+            // deferred past transaction commit), so static flags would not survive.
+            try {
+                if ($DB->record_exists('local_forum_ai_pending', ['postid' => $post->id])) {
+                    return true;
+                }
+            } catch (\dml_exception $e) {
+                // The postid column may not exist yet when code is deployed ahead of the
+                // DB upgrade: fall through to normal processing instead of erroring on
+                // every forum post site-wide.
+                debugging('local_forum_ai: postid marker lookup failed: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            }
+
+            // The AI never replies to private replies: skip before queueing anything.
+            if (utils::is_private_reply($post)) {
+                return true;
+            }
+
             $discussion = $DB->get_record('forum_discussions', ['id' => $post->discussion], '*', MUST_EXIST);
             $forum = $DB->get_record('forum', ['id' => $discussion->forum], '*', MUST_EXIST);
             $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
@@ -92,7 +112,7 @@ class post {
             }
 
             return true;
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             debugging('Error queueing AI response task: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return true;
         }
@@ -111,19 +131,14 @@ class post {
 
         $DB->delete_records('local_forum_ai_pending', ['parentpostid' => $postid]);
 
-        $like1 = '%"postid":' . $postid . '%';
-        $like2 = '%"postid":"' . $postid . '"%';
-
-        $sql = "DELETE FROM {local_forum_ai_queue}
-            WHERE type = :type
-              AND (payload LIKE :like1 OR payload LIKE :like2)";
-
-        $params = [
-            'type' => 'post',
-            'like1' => $like1,
-            'like2' => $like2,
-        ];
-
-        $DB->execute($sql, $params);
+        // Match by exact decoded id: a LIKE on the JSON payload would also hit
+        // prefix-colliding ids (deleting post 12 must not remove rows of post 123).
+        $rows = $DB->get_records('local_forum_ai_queue', ['type' => 'post'], '', 'id, payload');
+        foreach ($rows as $row) {
+            $data = json_decode($row->payload);
+            if (is_object($data) && isset($data->postid) && (int) $data->postid === $postid) {
+                $DB->delete_records('local_forum_ai_queue', ['id' => $row->id]);
+            }
+        }
     }
 }

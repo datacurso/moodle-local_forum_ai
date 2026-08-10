@@ -98,6 +98,21 @@ class process_ai_post extends adhoc_task {
                 return;
             }
 
+            if (utils::is_forum_cutoff_reached($forum)) {
+                mtrace("local_forum_ai: skipping post {$post->id} — forum {$forum->id} cut-off date has passed.");
+                return;
+            }
+
+            if (!utils::can_reply_in_discussion($forum, $discussion, $config)) {
+                mtrace("local_forum_ai: skipping post {$post->id} — discussion {$discussion->id} is locked.");
+                return;
+            }
+
+            if (utils::is_private_reply($post)) {
+                mtrace("local_forum_ai: skipping post {$post->id} — it is a private reply.");
+                return;
+            }
+
             // Never reply to posts authored by the configured AI grader (avoid self-replies).
             if (!empty($config->graderid) && (int)$post->userid === (int)$config->graderid) {
                 mtrace("local_forum_ai: skipping post {$post->id} — authored by the AI grader user.");
@@ -111,6 +126,7 @@ class process_ai_post extends adhoc_task {
             }
 
             $gradingenabled = ($forum->assessed != 0);
+            $scalepayload = $gradingenabled ? utils::get_scale_payload((int)$forum->scale) : null;
 
             $postmessage = format_text($post->message, $post->messageformat, [
                 'context' => \context_module::instance($data->cmid),
@@ -143,43 +159,19 @@ class process_ai_post extends adhoc_task {
                 'prompt' => $replymessage,
                 'allow_followup_question' => $allowfollowupquestion,
                 'grading_enabled' => $gradingenabled,
-                'scale' => $gradingenabled ? $forum->scale : null,
+                'scale' => $scalepayload,
             ];
 
             $airesponse = ai_service::call_ai_service($payload);
             $replytext = $airesponse['reply'] ?? '';
-            $grade = $gradingenabled ? ($airesponse['grade'] ?? null) : null;
+            $rawgrade = $airesponse['grade'] ?? null;
+            $grade = utils::resolve_ai_grade($rawgrade, $scalepayload);
 
-            if (!$requireapproval && $gradingenabled && $grade !== null && $effectivegraderid) {
-                $context = \context_module::instance($data->cmid);
-                $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-
-                try {
-                    // Use custom function to add rating without modifying global $USER.
-                    $result = local_forum_ai_add_rating(
-                        $cm,
-                        $context,
-                        'mod_forum',
-                        'post',
-                        $post->id,
-                        $forum->scale,
-                        $grade,
-                        $post->userid,
-                        $forum->assessed,
-                        $effectivegraderid
-                    );
-
-                    if (!empty($result->error)) {
-                        debugging('Error adding AI rating: ' . $result->error, DEBUG_DEVELOPER);
-                    }
-                } catch (\Exception $e) {
-                    debugging('Exception adding AI rating: ' . $e->getMessage(), DEBUG_DEVELOPER);
-                }
-            } else if (!$requireapproval && $gradingenabled && $grade !== null && !$effectivegraderid) {
-                debugging('Grading enabled but no grader configured for forum ' . $forum->id, DEBUG_DEVELOPER);
+            if ($gradingenabled && $grade === null) {
+                mtrace("local_forum_ai: no usable grade for post {$post->id}; skipping rating.");
             }
 
-            approval::create_approval_request(
+            $pendingid = approval::create_approval_request(
                 $discussion,
                 $forum,
                 $replytext,
@@ -189,10 +181,44 @@ class process_ai_post extends adhoc_task {
                 (!$requireapproval && $effectivegraderid) ? $effectivegraderid : $post->userid
             );
 
-            if (!$requireapproval) {
-                approval::create_ai_reply($discussion, $replytext, $post->id, $effectivegraderid);
+            if (!$requireapproval && $pendingid) {
+                $pendingrow = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
+                $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
+                $published = approval::publish_ai_post(
+                    $discussion,
+                    $forum,
+                    $cm,
+                    $course,
+                    $pendingrow,
+                    (int) $post->id,
+                    (int) $effectivegraderid
+                );
+                if (!$published) {
+                    // A false return is final (inactive author or private parent): do not rethrow,
+                    // an adhoc retry would only re-call the paid AI service for the same outcome.
+                    mtrace("local_forum_ai: could not publish AI reply for pending {$pendingid}.");
+                    return;
+                }
+
+                // Rating is best effort and accompanies the published response.
+                if ($gradingenabled && $grade !== null && $effectivegraderid) {
+                    $failurereason = null;
+                    $rated = approval::rate_ai_post(
+                        $cm,
+                        \context_module::instance($data->cmid),
+                        $forum,
+                        (int) $post->id,
+                        (int) $post->userid,
+                        (int) $grade,
+                        (int) $effectivegraderid,
+                        $failurereason
+                    );
+                    if (!$rated) {
+                        mtrace("local_forum_ai: rating skipped for post {$post->id} — {$failurereason}.");
+                    }
+                }
             }
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             debugging('Error in process_ai_post task: ' . $e->getMessage(), DEBUG_DEVELOPER);
             throw $e;
         }

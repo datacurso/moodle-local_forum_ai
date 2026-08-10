@@ -16,17 +16,13 @@
 
 namespace local_forum_ai\external;
 
-defined('MOODLE_INTERNAL') || die();
-
-require_once($CFG->libdir . '/externallib.php');
-
-use external_api;
-use external_function_parameters;
-use external_value;
-use external_single_structure;
-use external_multiple_structure;
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_value;
+use core_external\external_single_structure;
+use core_external\external_multiple_structure;
 use context_module;
-use moodle_exception;
+use local_forum_ai\utils;
 
 /**
  * External service to obtain details of a discussion with AI response.
@@ -56,7 +52,7 @@ class get_details extends external_api {
      *
      * @param string $token Approval token
      * @return array Course information, forum, discussion, and posts
-     * @throws moodle_exception If the record is not found or permission is missing
+     * @throws \moodle_exception If the record is not found or permission is missing
      */
     public static function execute($token) {
         global $DB;
@@ -72,9 +68,9 @@ class get_details extends external_api {
         $context = context_module::instance($cm->id);
         self::validate_context($context);
 
-        require_capability('mod/forum:viewdiscussion', $context);
+        require_capability('local/forum_ai:approveresponses', $context);
 
-        $posts = $DB->get_records('forum_posts', ['discussion' => $discussion->id], 'created ASC');
+        $posts = utils::get_visible_discussion_posts((int) $discussion->id);
 
         $data = [
             'course' => format_string($course->fullname),
@@ -82,6 +78,8 @@ class get_details extends external_api {
             'discussion' => format_string($discussion->name),
             'posts' => self::buildhierarchicalposts($posts),
             'airesponse' => format_text($pending->message, FORMAT_HTML),
+            // The edit textarea must receive the stored source, not filter-rendered output.
+            'airesponseraw' => clean_text($pending->message, FORMAT_HTML),
             'token' => $pending->approval_token,
             'status' => $pending->status,
         ];
@@ -198,8 +196,9 @@ class get_details extends external_api {
             ])
         ),
         'airesponse' => new external_value(PARAM_RAW, 'Proposed AI response'),
+        'airesponseraw' => new external_value(PARAM_RAW, 'Purified stored source of the AI response, for editing'),
         'token' => new external_value(PARAM_ALPHANUMEXT, 'Approval token'),
-        'status' => new external_value(PARAM_ALPHA, 'Message status (pending, approved, rejected)'),
+        'status' => new external_value(PARAM_ALPHA, 'Message status (pending, approved, rejected, expired)'),
         ]);
     }
 }

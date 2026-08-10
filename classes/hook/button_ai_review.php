@@ -55,7 +55,9 @@ class button_ai_review {
             return;
         }
 
-        $PAGE->requires->js_call_amd('local_forum_ai/analyze', 'init');
+        // Pass the course module id resolved by the page: the URL may use
+        // either ?id=<cmid> or ?f=<forumid>, so the client cannot rely on it.
+        $PAGE->requires->js_call_amd('local_forum_ai/analyze', 'init', [$PAGE->cm->id]);
 
         $renderer = $PAGE->get_renderer('local_forum_ai');
 

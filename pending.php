@@ -51,9 +51,11 @@ $PAGE->set_title(get_string('pendingresponses', 'local_forum_ai'));
 $PAGE->set_heading($course->fullname);
 $PAGE->requires->css('/local/forum_ai/styles/review.css');
 
-$removed = local_forum_ai_cleanup_expired();
-if ($removed > 0) {
-    debugging("Forum AI: {$removed} expired responses were removed.", DEBUG_DEVELOPER);
+// Pass $course->id explicitly: the raw courseid param may differ when the page
+// is entered through a forumid.
+$expiredcount = local_forum_ai_cleanup_expired($course->id, $forumid);
+if ($expiredcount > 0) {
+    debugging("Forum AI: {$expiredcount} responses were marked as expired.", DEBUG_DEVELOPER);
 }
 
 $courseid = $course->id;
@@ -82,7 +84,7 @@ $templatecontext = [
 
 
 foreach ($pendings as $p) {
-    $user = (object)['id' => $p->creator_userid, 'firstname' => $p->firstname, 'lastname' => $p->lastname];
+    $user = username_load_fields_from_object((object)['id' => $p->creator_userid], $p);
 
     $templatecontext['pendings'][] = [
         'coursename' => format_string($p->coursename),

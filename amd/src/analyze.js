@@ -37,9 +37,10 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
         /**
          * Initializes the AI button integration for forum grading.
          *
+         * @param {number|null} cmid Course module id resolved server-side.
          * @returns {void}
          */
-        function init() {
+        function init(cmid) {
 
             const $button = $('#forum-ai-review-btn');
             const $messagesContainer = $('#forum-ai-review-messages');
@@ -113,7 +114,8 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
              */
             const injectButtonIntoGrader = function () {
 
-                const simpleInput = document.querySelector('input[name="grade"]');
+                // Point grading renders a text input; named scales render a select.
+                const simpleInput = document.querySelector('input[name="grade"], select[name="grade"]');
                 const rubricForm = document.querySelector('form[id^="gradingform_rubric"]');
                 const guideForm = document.querySelector('form[id^="gradingform_guide"]');
 
@@ -181,11 +183,13 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
 
                 await setLoading(button);
 
-                const cmid = new URLSearchParams(window.location.search).get('id');
+                // Prefer the server-resolved cmid; the URL only carries it when
+                // the page was reached via ?id=<cmid> (not via ?f=<forumid>).
+                const resolvedCmid = cmid || new URLSearchParams(window.location.search).get('id');
                 const userNode = document.querySelector('[data-region="name"][data-userid]');
                 const userid = userNode ? userNode.getAttribute('data-userid') : null;
 
-                if (!cmid || !userid) {
+                if (!resolvedCmid || !userid) {
                     resetLoading(button);
 
                     showNotification('Missing required parameters (cmid or userid)', 'error');
@@ -196,30 +200,35 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
                 Ajax.call([{
                     methodname: 'local_forum_ai_process_review',
                     args: {
-                        cmid: parseInt(cmid, 10),
+                        cmid: parseInt(resolvedCmid, 10),
                         userid: parseInt(userid, 10)
                     }
-                }])[0].done(function (response) {
+                }])[0].done(async function (response) {
 
                     try {
                         const data = JSON.parse(response.data);
+                        let applied = false;
 
                         if (response.type === 'simple') {
-                            applySimpleGrade(data);
-                        }
-
-                        if (response.type === 'rubric') {
+                            applied = applySimpleGrade(data);
+                        } else if (response.type === 'rubric') {
                             applyRubricGrade(data);
+                            applied = true;
+                        } else if (response.type === 'guide') {
+                            applyGuideGrade(data);
+                            applied = true;
                         }
 
-                        if (response.type === 'guide') {
-                            applyGuideGrade(data);
+                        if (!applied) {
+                            const failureMessage = await Str.get_string('error_invalidgrade', 'local_forum_ai');
+                            showNotification(failureMessage, 'error');
+                            resetLoading(button);
+                            return;
                         }
 
                         // Show success message
-                        Str.get_string('gradesappliedsuccessfully', 'local_forum_ai').done(function (message) {
-                            showNotification(message, 'success');
-                        });
+                        const successMessage = await Str.get_string('gradesappliedsuccessfully', 'local_forum_ai');
+                        showNotification(successMessage, 'success');
 
                         resetLoading(button);
 
@@ -330,20 +339,45 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
         /**
          * Applies a simple direct grade.
          *
+         * Point grading uses a text input; named scales use a select whose
+         * option values are the 1-based indexes the AI returns. The form is
+         * only filled in — saving stays with the teacher.
+         *
          * @param {Object} data
+         * @returns {boolean}
          */
         function applySimpleGrade(data) {
-            $('input[name="grade"]').val(data.grade);
+            const gradeField = document.querySelector('input[name="grade"], select[name="grade"]');
+
+            if (!gradeField) {
+                return false;
+            }
+
+            const appliedGrade = String(data.grade);
+            gradeField.value = appliedGrade;
+            gradeField.dispatchEvent(new Event('change', {bubbles: true}));
+            return gradeField.value === appliedGrade;
         }
 
         /**
          * Applies grading using rubric structure.
          *
+         * Values are written to the live grading panel form only, and never
+         * stamp data-initial-value: the grader only calls the store service
+         * when a field differs from that sentinel, so overwriting it makes
+         * "Save" a silent no-op (no grade stored, no student notification).
+         *
          * @param {Array} rubricData
          */
         function applyRubricGrade(rubricData) {
+            const gradingForm = document.querySelector('[data-region="grade"] form');
+
+            if (!gradingForm) {
+                return;
+            }
+
             rubricData.forEach(function (crit) {
-                const allCriterionTitles = document.querySelectorAll('h5[id^="criterion-description-"]');
+                const allCriterionTitles = gradingForm.querySelectorAll('h5[id^="criterion-description-"]');
 
                 allCriterionTitles.forEach(h5 => {
 
@@ -382,7 +416,6 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
                             input.checked = true;
                             input.setAttribute('aria-checked', 'true');
                             input.setAttribute('tabindex', '0');
-                            input.setAttribute('data-initial-value', 'true');
                             input.dispatchEvent(new Event('change', { bubbles: true }));
                         }
                     });
@@ -390,7 +423,6 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
                     const textarea = mainContainer.querySelector('textarea[id^="advancedgrading-criteria-"][id$="-remark"]');
                     if (textarea && crit.reply) {
                         textarea.value = crit.reply;
-                        textarea.setAttribute('data-initial-value', JSON.stringify(crit.reply));
 
                         if (textarea.hasAttribute('data-auto-rows')) {
                             textarea.dispatchEvent(new Event('input', { bubbles: true }));
@@ -406,8 +438,13 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
          * @param {Object} guideData
          */
         function applyGuideGrade(guideData) {
+            const gradingForm = document.querySelector('[data-region="grade"] form');
 
-            document.querySelectorAll('[data-gradingform-guide-role="criterion"]').forEach(container => {
+            if (!gradingForm) {
+                return;
+            }
+
+            gradingForm.querySelectorAll('[data-gradingform-guide-role="criterion"]').forEach(container => {
 
                 const title = container.querySelector('h5').textContent.trim();
 

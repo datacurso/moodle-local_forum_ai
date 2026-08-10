@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<XMLDB PATH="local/forum_ai/db" VERSION="20260507"
+<XMLDB PATH="local/forum_ai/db" VERSION="20260806"
     COMMENT="XMLDB file for Moodle local/forum_ai"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
@@ -23,6 +23,8 @@
                     SEQUENCE="false" />
                 <FIELD NAME="delayminutes" TYPE="int" LENGTH="6" NOTNULL="false" DEFAULT="0"
                     SEQUENCE="false" />
+                <FIELD NAME="replyinlocked" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="2"
+                    SEQUENCE="false" />
                 <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" />
                 <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" />
             </FIELDS>
@@ -38,7 +40,10 @@
                 <FIELD NAME="discussionid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" />
                 <FIELD NAME="forumid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" />
                 <FIELD NAME="parentpostid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" />
+                <FIELD NAME="postid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" />
                 <FIELD NAME="creator_userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" />
+                <FIELD NAME="action_userid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false"
+                    COMMENT="User who approved or rejected the response" />
                 <FIELD NAME="subject" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" />
                 <FIELD NAME="message" TYPE="text" NOTNULL="true" SEQUENCE="false" />
                 <FIELD NAME="grade" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" />
@@ -55,6 +60,9 @@
                     REFTABLE="forum_discussions" REFFIELDS="id" />
                 <KEY NAME="approval_token_unique" TYPE="unique" FIELDS="approval_token" />
             </KEYS>
+            <INDEXES>
+                <INDEX NAME="postid" UNIQUE="false" FIELDS="postid" />
+            </INDEXES>
         </TABLE>
 
         <TABLE NAME="local_forum_ai_queue" COMMENT="Queue for AI forum tasks">

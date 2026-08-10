@@ -18,6 +18,7 @@ namespace local_forum_ai;
 
 use local_forum_ai\helper\rubric;
 use local_forum_ai\helper\guide;
+use core_text;
 
 /**
  * Utility functions for local_forum_ai.
@@ -28,56 +29,114 @@ use local_forum_ai\helper\guide;
  */
 class utils {
     /**
-     * Mapping of accented and special characters to plain UTF-8 equivalents.
-     *
-     * @var array
+     * Stored value meaning "follow the global default" for reply in locked discussions.
      */
-    private static $unwanted = [
-        'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U',
-        'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u',
-        'ñ' => 'n', 'Ñ' => 'N',
-    ];
+    public const REPLY_IN_LOCKED_INHERIT = 2;
 
     /**
-     * Remove accents and special characters while keeping UTF-8.
+     * Build the scale value to send to the AI service for post grading.
      *
-     * @param string $text Input text.
-     * @return string Cleaned text.
+     * Point grading (positive scale) keeps the numeric maximum. Named scales
+     * are stored by Moodle as the negative id of the scale record; in that
+     * case the ordered list of option names is returned so the AI can pick a
+     * valid option. The AI is expected to return the 1-based index of the
+     * chosen option as the grade.
+     *
+     * @param int $scale Forum 'scale' field (max grade, or negative scale id).
+     * @return int|string[]|null Numeric maximum, list of scale options, or null
+     *                           when the scale is unset or cannot be resolved.
      */
-    public static function remove_accents($text) {
-        return strtr($text, self::$unwanted);
+    public static function get_scale_payload(int $scale) {
+        global $DB;
+
+        if ($scale > 0) {
+            return $scale;
+        }
+
+        if ($scale < 0) {
+            $scalerecord = $DB->get_record('scale', ['id' => -$scale]);
+            if ($scalerecord) {
+                return array_map('trim', explode(',', $scalerecord->scale));
+            }
+        }
+
+        return null;
     }
 
     /**
-     * Normalize the payload by iterating over all its values.
+     * Normalize an AI grade against the forum grading configuration.
      *
-     * Top-level keys listed in $preservekeys are kept verbatim (accents and
-     * special characters intact), e.g. the teacher's free-text instructions.
+     * Point grades accept numeric values and are returned as floats to match
+     * the current simple-grade payload. Named scales accept either the
+     * 1-based option index or the option label itself and are returned as the
+     * canonical integer index.
      *
-     * @param array $payload Input array payload.
-     * @param array $preservekeys Top-level keys to exclude from normalization.
-     * @return array Normalized array.
+     * @param mixed $rawgrade Raw AI grade value.
+     * @param int|string[]|null $scale Forum grade payload from get_scale_payload().
+     * @return int|float
+     * @throws \moodle_exception When the grade cannot be resolved.
      */
-    public static function normalize_payload(array $payload, array $preservekeys = []) {
-        $preserved = [];
-        foreach ($preservekeys as $key) {
-            if (array_key_exists($key, $payload)) {
-                $preserved[$key] = $payload[$key];
-                unset($payload[$key]);
+    public static function normalize_review_grade(mixed $rawgrade, int|array|null $scale): int|float {
+        if (is_int($scale) && $scale > 0) {
+            if (!is_numeric($rawgrade)) {
+                throw new \moodle_exception('error_invalidgrade', 'local_forum_ai');
             }
+
+            return (float) $rawgrade;
         }
 
-        array_walk_recursive($payload, function (&$item) {
-            if (is_string($item)) {
-                $item = self::remove_accents($item);
-            }
-        });
-
-        foreach ($preserved as $key => $value) {
-            $payload[$key] = $value;
+        if (is_int($scale) && $scale < 0) {
+            $scale = self::get_scale_payload($scale);
         }
 
-        return $payload;
+        if (is_array($scale)) {
+            $rawgrade = trim((string) $rawgrade);
+
+            if (filter_var($rawgrade, FILTER_VALIDATE_INT) !== false) {
+                $index = (int) $rawgrade;
+                if ($index >= 1 && $index <= count($scale)) {
+                    return $index;
+                }
+            }
+
+            foreach ($scale as $index => $option) {
+                if (core_text::strtolower(trim((string) $option)) === core_text::strtolower($rawgrade)) {
+                    return $index + 1;
+                }
+            }
+
+            throw new \moodle_exception('error_invalidgrade', 'local_forum_ai');
+        }
+
+        if (is_numeric($rawgrade)) {
+            return (float) $rawgrade;
+        }
+
+        throw new \moodle_exception('error_invalidgrade', 'local_forum_ai');
+    }
+
+    /**
+     * Resolve the grade returned by the AI service into an applicable rating.
+     *
+     * A named-scale label is resolved to its 1-based index and out-of-range
+     * values are rejected. Anything unresolvable yields null so that no rating
+     * is applied, rather than a 0 that would reach the student gradebook as a
+     * real mark. An explicit 0 is preserved.
+     *
+     * @param mixed $rawgrade Raw grade returned by the AI service.
+     * @param int|array|null $scale Scale payload, or null when rating is off.
+     * @return int|null Grade ready to be applied, or null when unresolvable.
+     */
+    public static function resolve_ai_grade(mixed $rawgrade, int|array|null $scale): ?int {
+        if ($scale === null || $rawgrade === null || $rawgrade === '') {
+            return null;
+        }
+
+        try {
+            return (int) self::normalize_review_grade($rawgrade, $scale);
+        } catch (\moodle_exception $e) {
+            return null;
+        }
     }
 
     /**
@@ -161,6 +220,20 @@ class utils {
     }
 
     /**
+     * Gets the global default delay for AI responses in minutes.
+     *
+     * @return int
+     */
+    public static function get_default_delay_minutes(): int {
+        $raw = get_config('local_forum_ai', 'default_delayminutes');
+        if ($raw === false || $raw === '') {
+            return 60;
+        }
+
+        return max(1, (int) $raw);
+    }
+
+    /**
      * Gets effective question-turn limit using forum config or global fallback.
      *
      * @param \stdClass|null $config Forum config row.
@@ -172,6 +245,95 @@ class utils {
         }
 
         return self::get_default_question_turns();
+    }
+
+    /**
+     * Gets global default for "reply in locked discussions".
+     *
+     * @return bool
+     */
+    public static function get_default_reply_in_locked(): bool {
+        $raw = get_config('local_forum_ai', 'default_replyinlocked');
+        if ($raw === false || $raw === '') {
+            return false;
+        }
+
+        return !empty($raw);
+    }
+
+    /**
+     * Gets effective "reply in locked discussions" value using forum config or global fallback.
+     *
+     * @param \stdClass|null $config Forum config row.
+     * @return bool
+     */
+    public static function get_effective_reply_in_locked(?\stdClass $config): bool {
+        if ($config && isset($config->replyinlocked)) {
+            $value = (int) $config->replyinlocked;
+            if ($value !== self::REPLY_IN_LOCKED_INHERIT) {
+                return !empty($value);
+            }
+        }
+
+        return self::get_default_reply_in_locked();
+    }
+
+    /**
+     * Checks whether a forum post is a private reply.
+     *
+     * Policy: the AI never replies to private replies. Core treats them as
+     * leaves (replying to them is forbidden in capability checks, in
+     * forum_add_new_post and in the UI), so the plugin skips them entirely.
+     *
+     * @param \stdClass $post Forum post record.
+     * @return bool
+     */
+    public static function is_private_reply(\stdClass $post): bool {
+        return !empty($post->privatereplyto);
+    }
+
+    /**
+     * Checks whether the forum cut-off date has passed.
+     *
+     * Deliberately a date check, NOT a capability check: graders and admins
+     * hold mod/forum:canoverridecutoff, so a capability gate would never
+     * fire for the users who publish AI responses. Only cutoffdate gates;
+     * duedate is advisory in core and does not block posting.
+     *
+     * @param \stdClass $forum Forum record.
+     * @return bool
+     */
+    public static function is_forum_cutoff_reached(\stdClass $forum): bool {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        return forum_is_cutoff_date_reached($forum);
+    }
+
+    /**
+     * Determines whether the AI may reply in the given discussion.
+     *
+     * Unlocked discussions always allow replies. Locked discussions
+     * (either manually locked or locked by the forum inactivity rule)
+     * only allow replies when the effective "reply in locked
+     * discussions" option is enabled.
+     *
+     * @param \stdClass $forum Forum record.
+     * @param \stdClass $discussion Discussion record.
+     * @param \stdClass|null $config Forum config row.
+     * @return bool
+     */
+    public static function can_reply_in_discussion(\stdClass $forum, \stdClass $discussion, ?\stdClass $config): bool {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        if (!forum_discussion_is_locked($forum, $discussion)) {
+            return true;
+        }
+
+        return self::get_effective_reply_in_locked($config);
     }
 
     /**
@@ -224,7 +386,7 @@ class utils {
     /**
      * Counts previous AI responses in the same reply thread branch.
      *
-     * Rejected responses are excluded from the count.
+     * Rejected and expired responses are excluded from the count.
      *
      * @param int $discussionid Discussion ID.
      * @param int $postid Current post ID.
@@ -239,16 +401,19 @@ class utils {
         }
 
         [$insql, $inparams] = $DB->get_in_or_equal($ancestorids, SQL_PARAMS_NAMED);
+        // Expired rows are excluded like rejected ones: they were never published
+        // (before the traceable 'expired' status they were deleted and never counted).
         $params = [
             'discussionid' => $discussionid,
             'rejected' => 'rejected',
+            'expired' => 'expired',
         ] + $inparams;
 
         $sql = "SELECT COUNT(1)
                   FROM {local_forum_ai_pending}
                  WHERE discussionid = :discussionid
                    AND parentpostid $insql
-                   AND status <> :rejected";
+                   AND status NOT IN (:rejected, :expired)";
 
         return (int)$DB->count_records_sql($sql, $params);
     }
@@ -311,19 +476,18 @@ class utils {
             return [];
         }
 
-        $posts = $DB->get_records_select(
-            'forum_posts',
-            'discussion = :discussionid AND (created < :created OR (created = :created2 AND id < :postid))',
-            [
-                'discussionid' => $discussionid,
-                'created' => (int)$currentpost->created,
-                'created2' => (int)$currentpost->created,
-                'postid' => $postid,
-            ],
-            'created ASC, id ASC',
-            'id,userid,message,messageformat,created',
-        );
-        $posts = array_values($posts);
+        $posts = array_values(array_filter(
+            self::get_visible_discussion_posts($discussionid),
+            static function (
+                \stdClass $post,
+            ) use (
+                $currentpost,
+                $postid
+            ): bool {
+                return $post->created < $currentpost->created ||
+                    ($post->created == $currentpost->created && $post->id < $postid);
+            }
+        ));
 
         // Cap the context: always keep the root post (topic) plus the most recent posts.
         if ($maxposts > 0 && count($posts) > $maxposts) {
@@ -357,6 +521,28 @@ class utils {
         }
 
         return $threadentries;
+    }
+
+    /**
+     * Returns the posts that are visible to a normal forum participant.
+     *
+     * Deleted posts and private replies are excluded.
+     *
+     * @param int $discussionid Discussion ID.
+     * @return array<int, \stdClass>
+     */
+    public static function get_visible_discussion_posts(int $discussionid): array {
+        global $DB;
+
+        $posts = $DB->get_records_select(
+            'forum_posts',
+            'discussion = :discussionid AND privatereplyto = 0 AND deleted = 0',
+            ['discussionid' => $discussionid],
+            'created ASC, id ASC',
+            'id,discussion,parent,userid,subject,message,messageformat,created,privatereplyto,deleted',
+        );
+
+        return array_values($posts);
     }
 
     /**
@@ -397,12 +583,16 @@ class utils {
             $guidedata = guide::get($cmid);
         }
 
+        // Deleted posts and private replies are excluded: the payload must only
+        // contain what a normal participant can see.
         $posts = $DB->get_records_sql("
             SELECT d.id, d.name, p.message
             FROM {forum_discussions} d
             JOIN {forum_posts} p ON p.discussion = d.id
             WHERE p.userid = ?
             AND d.forum = ?
+            AND p.privatereplyto = 0
+            AND p.deleted = 0
         ", [$userid, $forum->id]);
 
         $discussions = [];
@@ -420,7 +610,9 @@ class utils {
             'participation' => [
                 'forum_id' => (string)$forum->id,
                 'forum' => $forum->name,
-                'scale' => (string)$forum->scale,
+                // Whole forum grading setting (not the per-post ratings scale):
+                // numeric maximum, or the option list for named scales.
+                'scale' => self::get_scale_payload((int)$forum->grade_forum) ?? 0,
                 'rubric' => $rubricdata,
                 'assessment_guide' => $guidedata,
                 'discussions' => $discussions,

@@ -23,10 +23,15 @@
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
+
+global $CFG;
+require_once($CFG->libdir . '/upgradelib.php');
+
 /**
  * Execute local_forum_ai upgrade from the given old version.
  *
- * @param int $oldversion
+ * @param int $oldversion The version to upgrade from.
  * @return bool
  */
 function xmldb_local_forum_ai_upgrade($oldversion) {
@@ -213,7 +218,16 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
     if ($oldversion < 2026050701) {
         // Define field questionturns to be added to local_forum_ai_config.
         $table = new xmldb_table('local_forum_ai_config');
-        $field = new xmldb_field('questionturns', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1', 'enablediainitconversation');
+        $field = new xmldb_field(
+            'questionturns',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            '1',
+            'enablediainitconversation'
+        );
 
         // Conditionally launch add field questionturns.
         if (!$dbman->field_exists($table, $field)) {
@@ -250,6 +264,115 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
 
         // Forum_ai savepoint reached.
         upgrade_plugin_savepoint(true, 2026050702, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026072800) {
+        // Define field replyinlocked to be added to local_forum_ai_config.
+        $table = new xmldb_table('local_forum_ai_config');
+        $field = new xmldb_field('replyinlocked', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'delayminutes');
+
+        // Conditionally launch add field replyinlocked.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        if (get_config('local_forum_ai', 'default_replyinlocked') === false) {
+            set_config('default_replyinlocked', 0, 'local_forum_ai');
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026072800, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026072803) {
+        // Queue rows are now deleted after dispatch; purge legacy dispatched rows.
+        $DB->delete_records('local_forum_ai_queue', ['processed' => 1]);
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026072803, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026073000) {
+        // Define field postid to be added to local_forum_ai_pending.
+        $table = new xmldb_table('local_forum_ai_pending');
+        $field = new xmldb_field('postid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'parentpostid');
+
+        // Conditionally launch add field postid.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // The observer marker lookup runs on every forum post site-wide: index it.
+        $index = new xmldb_index('postid', XMLDB_INDEX_NOTUNIQUE, ['postid']);
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026073000, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026080401) {
+        $globalreplyinlocked = get_config('local_forum_ai', 'default_replyinlocked');
+        $globalreplyinlocked = ($globalreplyinlocked === false || $globalreplyinlocked === '') ? 0 : (int) $globalreplyinlocked;
+
+        // Legacy rows stored the site default as an explicit forum value. Convert
+        // those rows to "inherit" so future global changes reach untouched forums.
+        $DB->set_field_select(
+            'local_forum_ai_config',
+            'replyinlocked',
+            \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT,
+            'replyinlocked = :replyinlocked',
+            ['replyinlocked' => $globalreplyinlocked]
+        );
+
+        if (get_config('local_forum_ai', 'default_replyinlocked') === false) {
+            set_config('default_replyinlocked', 0, 'local_forum_ai');
+        }
+
+        upgrade_plugin_savepoint(true, 2026080401, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026080600) {
+        // Define field action_userid to be added to local_forum_ai_pending.
+        // Approval/rejection used to overwrite creator_userid with the acting
+        // user, destroying the originating student's identity; the acting user
+        // is now recorded in its own column.
+        $table = new xmldb_table('local_forum_ai_pending');
+        $field = new xmldb_field('action_userid', XMLDB_TYPE_INTEGER, '10', null, null, null, null, 'creator_userid');
+
+        // Conditionally launch add field action_userid.
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026080600, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026080700) {
+        // The 2026072800 step created replyinlocked with default '0' while install.xml
+        // declares REPLY_IN_LOCKED_INHERIT, so upgraded and freshly installed sites
+        // disagreed on the meaning of a row inserted without the field. Align the
+        // upgraded column with install.xml.
+        $table = new xmldb_table('local_forum_ai_config');
+        $field = new xmldb_field(
+            'replyinlocked',
+            XMLDB_TYPE_INTEGER,
+            '1',
+            null,
+            XMLDB_NOTNULL,
+            null,
+            (string) \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT,
+            'delayminutes'
+        );
+
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->change_field_default($table, $field);
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026080700, 'local', 'forum_ai');
     }
 
     return true;

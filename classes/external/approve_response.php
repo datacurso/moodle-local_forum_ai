@@ -18,13 +18,14 @@ namespace local_forum_ai\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->libdir . '/externallib.php');
+global $CFG;
+
 require_once(__DIR__ . '/../../locallib.php');
 
-use external_api;
-use external_function_parameters;
-use external_value;
-use external_single_structure;
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_value;
+use core_external\external_single_structure;
 use moodle_exception;
 
 /**
@@ -81,10 +82,26 @@ class approve_response extends external_api {
 
         $context = \context_module::instance($cm->id);
         self::validate_context($context);
-        require_capability('mod/forum:viewdiscussion', $context);
+        require_capability('local/forum_ai:approveresponses', $context);
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]) ?: null;
+
+        // Restored or legacy rows may hold a published post while still marked pending:
+        // an already-published response must never be re-published.
+        if (!empty($pending->postid)) {
+            throw new moodle_exception('error_responsenotpending', 'local_forum_ai');
+        }
 
         if ($params['action'] === 'approve') {
             require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+            if (\local_forum_ai\utils::is_forum_cutoff_reached($forum)) {
+                throw new moodle_exception('error_forumclosed', 'local_forum_ai');
+            }
+
+            if (!\local_forum_ai\utils::can_reply_in_discussion($forum, $discussion, $config)) {
+                throw new moodle_exception('error_discussionlocked', 'local_forum_ai');
+            }
 
             // Determine the correct parent post based on parentpostid.
             $parentid = $discussion->firstpost;
@@ -98,6 +115,13 @@ class approve_response extends external_api {
 
                 if ($parentpost) {
                     $parentid = $pending->parentpostid;
+
+                    // Core forbids replying to private replies (forum_add_new_post would throw
+                    // a coding_exception): surface a clean, localized error instead. The
+                    // firstpost fallback needs no check because a first post is never private.
+                    if (\local_forum_ai\utils::is_private_reply($parentpost)) {
+                        throw new moodle_exception('error_privatereply', 'local_forum_ai');
+                    }
                 } else {
                     // If the parent post does not exist, log the error and use firstpost instead.
                     debugging(
@@ -107,62 +131,60 @@ class approve_response extends external_api {
                 }
             }
 
-            $post = new \stdClass();
-            $post->discussion    = $discussion->id;
-            $post->parent        = $parentid;
-            // In manual mode, attribute the AI response to the user who approved it.
-            $post->userid        = $USER->id;
-            $post->created       = time();
-            $post->modified      = time();
-            $post->subject       = $pending->subject ?: ("Re: " . $discussion->name);
-            $post->message       = $pending->message;
-            $post->messageformat = FORMAT_HTML;
-            $post->messagetrust  = 1;
-
-            $newpostid = forum_add_new_post($post, null);
+            // In manual mode the AI response is attributed to the user who approved it,
+            // so the shared publisher never needs to switch users on this path.
+            $newpostid = \local_forum_ai\approval::publish_ai_post(
+                $discussion,
+                $forum,
+                $cm,
+                $course,
+                $pending,
+                (int) $parentid,
+                (int) $USER->id
+            );
+            if (!$newpostid) {
+                // Defense in depth: false only happens for pre-insert failures (the gates
+                // above should have caught them already), so no post was published.
+                throw new moodle_exception('error_privatereply', 'local_forum_ai');
+            }
 
             $gradingenabled = ($forum->assessed != 0);
 
-            if ($gradingenabled && !empty($pending->grade) && !empty($pending->parentpostid)) {
-                try {
-                    // In manual mode, attribute grading to the user who approved it.
-                    $graderid = $USER->id;
+            // Rating is best effort: a grade of zero is valid and must not be dropped.
+            if ($gradingenabled && $pending->grade !== null && !empty($pending->parentpostid)) {
+                $originalpost = $DB->get_record('forum_posts', ['id' => $pending->parentpostid]);
 
-                    // Get the original post that was graded.
-                    $originalpost = $DB->get_record('forum_posts', ['id' => $pending->parentpostid]);
-
-                    if ($originalpost) {
-                        // Use custom function to add rating without modifying global $USER.
-                        $result = local_forum_ai_add_rating(
-                            $cm,
-                            $context,
-                            'mod_forum',
-                            'post',
-                            $pending->parentpostid,
-                            $forum->scale,
-                            $pending->grade,
-                            $originalpost->userid,
-                            $forum->assessed,
-                            $graderid
+                if ($originalpost) {
+                    // In manual mode, attribute the rating to the user who approved it.
+                    $rated = \local_forum_ai\approval::rate_ai_post(
+                        $cm,
+                        $context,
+                        $forum,
+                        (int) $pending->parentpostid,
+                        (int) $originalpost->userid,
+                        (int) $pending->grade,
+                        (int) $USER->id
+                    );
+                    if (!$rated) {
+                        debugging(
+                            'AI rating skipped on manual approval for post ' . $pending->parentpostid,
+                            DEBUG_DEVELOPER
                         );
-
-                        if (!empty($result->error)) {
-                            debugging('Error adding AI rating on manual approval: ' . $result->error, DEBUG_DEVELOPER);
-                        }
                     }
-                } catch (\Exception $e) {
-                    debugging('Exception adding rating on manual approval: ' . $e->getMessage(), DEBUG_DEVELOPER);
                 }
             }
 
             $pending->status       = 'approved';
-            $pending->creator_userid = $USER->id;
+            // Record who managed the response without touching creator_userid:
+            // the originating student's identity must survive for traceability.
+            $pending->action_userid = $USER->id;
             $pending->approved_at  = time();
             $pending->timemodified = time();
             $DB->update_record('local_forum_ai_pending', $pending);
         } else if ($params['action'] === 'reject') {
             $pending->status       = 'rejected';
-            $pending->creator_userid = $USER->id;
+            // Same traceability rule as on approval: keep the creator, record the actor.
+            $pending->action_userid = $USER->id;
             $pending->timemodified = time();
             $DB->update_record('local_forum_ai_pending', $pending);
         } else {

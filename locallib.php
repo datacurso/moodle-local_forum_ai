@@ -22,9 +22,9 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-require_once($CFG->dirroot . '/rating/lib.php');
+// Kept for consistency with every sibling lib file, although the sniff deems
+// it unneeded for a functions-only file.
+defined('MOODLE_INTERNAL') || die(); // phpcs:ignore moodle.Files.MoodleInternal.MoodleInternalNotNeeded
 
 /**
  * Gets the list of pending responses.
@@ -37,8 +37,11 @@ require_once($CFG->dirroot . '/rating/lib.php');
 function local_forum_ai_get_pending(int $courseid, int $forumid = 0) {
     global $DB;
 
+    // All user name fields so fullname() can be used on the returned rows.
+    $usernamefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
+
     $sql = "SELECT p.*, d.name AS discussionname, f.name AS forumname,
-                   c.fullname AS coursename, u.firstname, u.lastname,
+                   c.fullname AS coursename, {$usernamefields},
                    fp.subject AS discussionsubject, fp.message AS discussionmessage, fp.messageformat
               FROM {local_forum_ai_pending} p
               JOIN {forum_discussions} d ON d.id = p.discussionid
@@ -80,8 +83,14 @@ function local_forum_ai_get_pending(int $courseid, int $forumid = 0) {
 function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
     global $DB;
 
+    // All user name fields so fullname() can be used on the returned rows:
+    // plain aliases for the creator (the originating student) and
+    // 'action'-prefixed aliases for the user who approved/rejected the row.
+    $usernamefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
+    $actionnamefields = \core_user\fields::for_name()->get_sql('au', false, 'action', '', false)->selects;
+
     $sql = "SELECT p.*, d.name AS discussionname, f.name AS forumname, c.fullname AS coursename,
-                   u.firstname, u.lastname
+                   {$usernamefields}, {$actionnamefields}
               FROM {local_forum_ai_pending} p
               JOIN {forum_discussions} d ON d.id = p.discussionid
               JOIN {forum} f ON f.id = p.forumid
@@ -90,7 +99,8 @@ function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
                     SELECT id FROM {modules} WHERE name = 'forum'
               )
               JOIN {user} u ON u.id = p.creator_userid
-             WHERE p.status IN ('approved', 'rejected')
+         LEFT JOIN {user} au ON au.id = p.action_userid
+             WHERE p.status IN ('approved', 'rejected', 'expired')
                AND f.course = :courseid
                AND cm.deletioninprogress = 0
                AND cm.visible = 1";
@@ -108,11 +118,20 @@ function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
 }
 
 /**
- * Cleans pending AI responses from expired forums.
+ * Marks pending AI responses of expired forums as expired.
  *
- * @return int Number of deleted records.
+ * Scoped to one course (and optionally one forum): opening the pending list
+ * of a course must never touch other courses. Rows are kept for traceability
+ * with status 'expired' instead of being deleted, so they reach the history.
+ * Expiry criterion (unchanged): the forum cut-off date has passed, or the due
+ * date has passed when no cut-off date is set.
+ *
+ * @package local_forum_ai
+ * @param int $courseid Course ID the cleanup is scoped to.
+ * @param int $forumid (optional) Forum ID to further scope the cleanup.
+ * @return int Number of records marked as expired.
  */
-function local_forum_ai_cleanup_expired(): int {
+function local_forum_ai_cleanup_expired(int $courseid, int $forumid = 0): int {
     global $DB;
 
     $now = time();
@@ -121,22 +140,42 @@ function local_forum_ai_cleanup_expired(): int {
               FROM {local_forum_ai_pending} p
               JOIN {forum} f ON f.id = p.forumid
              WHERE p.status = 'pending'
+               AND f.course = :courseid
                AND (
                    (f.cutoffdate > 0 AND f.cutoffdate < :now1)
                    OR (f.cutoffdate = 0 AND f.duedate > 0 AND f.duedate < :now2)
                )";
 
     $params = [
+        'courseid' => $courseid,
         'now1' => $now,
         'now2' => $now,
     ];
+
+    if ($forumid > 0) {
+        $sql .= " AND f.id = :forumid";
+        $params['forumid'] = $forumid;
+    }
 
     $pendings = $DB->get_records_sql($sql, $params);
 
     if ($pendings) {
         $ids = array_keys($pendings);
         [$insql, $inparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
-        $DB->delete_records_select('local_forum_ai_pending', "id $insql", $inparams);
+        $DB->set_field_select(
+            'local_forum_ai_pending',
+            'status',
+            'expired',
+            "id $insql",
+            $inparams
+        );
+        $DB->set_field_select(
+            'local_forum_ai_pending',
+            'timemodified',
+            $now,
+            "id $insql",
+            $inparams
+        );
         return count($ids);
     }
 
@@ -144,10 +183,18 @@ function local_forum_ai_cleanup_expired(): int {
 }
 
 /**
- * Adds a rating on behalf of a specific user (for AI forum plugin).
+ * Adds a rating on behalf of a specific user through Moodle's standard rating API.
  *
- * This is a custom version of rating_manager::add_rating() that accepts
- * a specific user ID instead of using the global $USER variable.
+ * Single shared rating writer for the plugin: it delegates the whole validation
+ * chain to rating_manager::add_rating(), which runs the component callbacks
+ * (forum_rating_validate: assessment date window, group membership, scale
+ * bounds, self-rating, post visibility) and pushes the grade to the gradebook.
+ *
+ * The rating subsystem hardcodes the rater to $USER and the gradebook push
+ * logs \core\event\user_graded against the current user, so the writer
+ * switches to the rater when needed and restores the original user in the
+ * finally block. It never calls debugging(): failures are reported through
+ * the returned error code only, callers decide how to surface them.
  *
  * @param stdClass $cm course module object
  * @param stdClass $context context object
@@ -173,147 +220,52 @@ function local_forum_ai_add_rating(
     $aggregationmethod,
     $rateruserid
 ) {
-    global $CFG, $DB, $USER;
+    global $CFG, $USER;
+
+    require_once($CFG->dirroot . '/rating/lib.php');
 
     $result = new stdClass();
-    $rm = new rating_manager();
 
-    // Check the module rating permissions for the specific rater user.
-    $pluginpermissionsarray = [
-        'rate' => has_capability('moodle/rating:rate', $context, $rateruserid),
-        'view' => has_capability('moodle/rating:view', $context, $rateruserid),
-        'viewany' => has_capability('moodle/rating:viewany', $context, $rateruserid),
-        'viewall' => has_capability('moodle/rating:viewall', $context, $rateruserid),
-    ];
-
-    if (!$pluginpermissionsarray['rate']) {
+    // Parity with core's rating entry point (rating/rate.php), which requires
+    // moodle/rating:rate before reaching the component permission callbacks.
+    if (!has_capability('moodle/rating:rate', $context, $rateruserid)) {
         $result->error = 'ratepermissiondenied';
         return $result;
     }
 
-    if ($userrating != RATING_UNSET_RATING) {
-        $scale = $DB->get_record('scale', ['id' => $scaleid]);
-        if ($scale) {
-            $scalearray = explode(',', $scale->scale);
-            $scalemax = count($scalearray);
-            if ($userrating < 0 || $userrating > $scalemax) {
-                $result->error = 'ratinginvalid';
-                return $result;
-            }
-        } else {
-            if ($userrating < 0 || $userrating > $scaleid) {
-                $result->error = 'ratinginvalid';
-                return $result;
-            }
+    // Switch to the rater when the current user differs (task/queue paths).
+    $originaluser = null;
+    if ((int) $USER->id !== (int) $rateruserid) {
+        $rater = \core_user::get_user($rateruserid);
+        if (!$rater || !empty($rater->deleted) || !empty($rater->suspended)) {
+            $result->error = 'invaliduser';
+            return $result;
         }
+        $originaluser = $USER;
+        \core\cron::setup_user($rater);
     }
 
-    if ($rateruserid == $rateduserid) {
-        $result->error = 'norate';
+    try {
+        $rm = new rating_manager();
+        return $rm->add_rating(
+            $cm,
+            $context,
+            $component,
+            $ratingarea,
+            $itemid,
+            $scaleid,
+            $userrating,
+            $rateduserid,
+            $aggregationmethod
+        );
+    } catch (moodle_exception $e) {
+        // The component validation callback (forum_rating_validate) reports
+        // window, group, scale and visibility failures as rating_exception.
+        $result->error = (string) $e->errorcode;
         return $result;
-    }
-
-    // Rating options used to update the rating.
-    $ratingoptions = new stdClass();
-    $ratingoptions->context = $context;
-    $ratingoptions->ratingarea = $ratingarea;
-    $ratingoptions->component = $component;
-    $ratingoptions->itemid  = $itemid;
-    $ratingoptions->scaleid = $scaleid;
-    $ratingoptions->userid  = $rateruserid;
-
-    if ($userrating != RATING_UNSET_RATING) {
-        $time = time();
-
-        $existingrating = $DB->get_record('rating', [
-            'contextid' => $context->id,
-            'component' => $component,
-            'ratingarea' => $ratingarea,
-            'itemid' => $itemid,
-            'userid' => $rateruserid,
-        ]);
-
-        if ($existingrating) {
-            $existingrating->rating = $userrating;
-            $existingrating->timemodified = $time;
-            $DB->update_record('rating', $existingrating);
-        } else {
-            $data = new stdClass();
-            $data->contextid = $context->id;
-            $data->component = $component;
-            $data->ratingarea = $ratingarea;
-            $data->rating = $userrating;
-            $data->scaleid = $scaleid;
-            $data->userid = $rateruserid;
-            $data->itemid = $itemid;
-            $data->timecreated = $time;
-            $data->timemodified = $time;
-            $DB->insert_record('rating', $data);
-        }
-    } else {
-        // Delete the rating if unset.
-        $options = new stdClass();
-        $options->contextid = $context->id;
-        $options->component = $component;
-        $options->ratingarea = $ratingarea;
-        $options->userid = $rateruserid;
-        $options->itemid = $itemid;
-
-        $rm->delete_ratings($options);
-    }
-
-    // Update grades if in module context.
-    if ($context->contextlevel == CONTEXT_MODULE) {
-        $modinstance = $DB->get_record($cm->modname, ['id' => $cm->instance]);
-        if ($modinstance) {
-            $modinstance->cmidnumber = $cm->id;
-            $functionname = $cm->modname . '_update_grades';
-            require_once($CFG->dirroot . "/mod/{$cm->modname}/lib.php");
-            if (function_exists($functionname)) {
-                $functionname($modinstance, $rateduserid);
-            }
+    } finally {
+        if ($originaluser !== null) {
+            \core\cron::setup_user($originaluser);
         }
     }
-
-    $result->success = true;
-
-    // Retrieve the updated aggregate.
-    $item = new stdClass();
-    $item->id = $itemid;
-
-    $ratingoptions->items = [$item];
-    $ratingoptions->aggregate = $aggregationmethod;
-
-    $items = $rm->get_ratings($ratingoptions);
-    $firstrating = $items[0]->rating;
-
-    $canview = has_capability('moodle/rating:view', $context, $rateruserid) ||
-               has_capability('moodle/rating:viewany', $context, $rateruserid) ||
-               has_capability('moodle/rating:viewall', $context, $rateruserid);
-
-    if ($canview && $firstrating) {
-        $scalearray = null;
-        $aggregatetoreturn = round($firstrating->aggregate, 1);
-
-        if (
-            $firstrating->settings->aggregationmethod == RATING_AGGREGATE_COUNT ||
-            $firstrating->count == 0
-        ) {
-            $aggregatetoreturn = ' - ';
-        } else if ($firstrating->settings->scale->id < 0) {
-            if ($firstrating->settings->aggregationmethod != RATING_AGGREGATE_SUM) {
-                $scalerecord = $DB->get_record('scale', ['id' => -$firstrating->settings->scale->id]);
-                if ($scalerecord) {
-                    $scalearray = explode(',', $scalerecord->scale);
-                    $aggregatetoreturn = $scalearray[$aggregatetoreturn - 1];
-                }
-            }
-        }
-
-        $result->aggregate = $aggregatetoreturn;
-        $result->count = $firstrating->count;
-        $result->itemid = $itemid;
-    }
-
-    return $result;
 }

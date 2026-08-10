@@ -151,8 +151,6 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $rawdefaultreplymessage = get_config('local_forum_ai', 'default_reply_message');
     $rawdefaultinitconversation = get_config('local_forum_ai', 'default_enablediainitconversation');
     $rawdefaultusedelay = get_config('local_forum_ai', 'default_usedelay');
-    $rawdefaultdelayminutes = get_config('local_forum_ai', 'default_delayminutes');
-
     $defaultenabled = ($rawdefaultenabled === false || $rawdefaultenabled === '') ? 1 : (int)$rawdefaultenabled;
     $defaultrequireapproval =
         ($rawdefaultrequireapproval === false || $rawdefaultrequireapproval === '') ? 1 : (int)$rawdefaultrequireapproval;
@@ -163,9 +161,8 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $defaultinitconversation =
         ($rawdefaultinitconversation === false || $rawdefaultinitconversation === '') ? 0 : (int)$rawdefaultinitconversation;
     $defaultusedelay = ($rawdefaultusedelay === false || $rawdefaultusedelay === '') ? 0 : (int)$rawdefaultusedelay;
-    $defaultdelayminutes = ($rawdefaultdelayminutes === false || $rawdefaultdelayminutes === '')
-        ? 60
-        : max(1, (int)$rawdefaultdelayminutes);
+    $defaultdelayminutes = \local_forum_ai\utils::get_default_delay_minutes();
+    $defaultreplyinlocked = \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
     $defaultquestionturns = \local_forum_ai\utils::get_default_question_turns();
     $globalenabled = \local_forum_ai\utils::is_global_ai_enabled();
 
@@ -180,6 +177,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
         'graderid' => null,
         'usedelay' => $defaultusedelay,
         'delayminutes' => $defaultdelayminutes,
+        'replyinlocked' => $defaultreplyinlocked,
         'questionturns' => $defaultquestionturns,
     ];
 
@@ -195,6 +193,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
         $defaults->allowedroles_saved = true;
         $defaults->usedelay = $record->usedelay ?? 0;
         $defaults->delayminutes = max(1, (int)($record->delayminutes ?? 60));
+        $defaults->replyinlocked = $record->replyinlocked ?? \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
         $defaults->questionturns = \local_forum_ai\utils::normalize_question_turns(
             $record->questionturns ?? $defaultquestionturns
         );
@@ -306,6 +305,21 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->addHelpButton('local_forum_ai_delayminutes', 'delayminutes', 'local_forum_ai');
     $mform->setDefault('local_forum_ai_delayminutes', $defaults->delayminutes);
 
+    $replyinlockedoptions = [
+        \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT => get_string('default', 'core'),
+        0 => get_string('no'),
+        1 => get_string('yes'),
+    ];
+    $mform->addElement(
+        'select',
+        'local_forum_ai_replyinlocked',
+        get_string('replyinlocked', 'local_forum_ai'),
+        $replyinlockedoptions
+    );
+    $mform->setType('local_forum_ai_replyinlocked', PARAM_INT);
+    $mform->addHelpButton('local_forum_ai_replyinlocked', 'replyinlocked', 'local_forum_ai');
+    $mform->setDefault('local_forum_ai_replyinlocked', $defaults->replyinlocked);
+
     // Hide unless delay enabled.
     $mform->hideIf('local_forum_ai_usedelay', 'local_forum_ai_enabled', 'neq', 1);
     $mform->hideIf('local_forum_ai_usedelay', 'local_forum_ai_require_approval', 'eq', 1);
@@ -313,6 +327,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->hideIf('local_forum_ai_delayminutes', 'local_forum_ai_usedelay', 'neq', 1);
     $mform->hideIf('local_forum_ai_delayminutes', 'local_forum_ai_enabled', 'neq', 1);
     $mform->hideIf('local_forum_ai_delayminutes', 'local_forum_ai_require_approval', 'eq', 1);
+    $mform->hideIf('local_forum_ai_replyinlocked', 'local_forum_ai_enabled', 'neq', 1);
     $mform->hideIf('local_forum_ai_questionturns', 'local_forum_ai_enabled', 'neq', 1);
 
     // Users enrolled who can either rate or grade.
@@ -389,7 +404,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
  * @return stdClass
  */
 function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
-    global $DB;
+    global $DB, $USER;
 
     if ($data->modulename !== 'forum') {
         return $data;
@@ -399,29 +414,110 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         return $data;
     }
 
+    $context = context_course::instance($course->id);
+
+    if (!has_capability('local/forum_ai:approveresponses', $context, $USER)) {
+        return $data;
+    }
+
+    $aifields = [
+        'local_forum_ai_enabled',
+        'local_forum_ai_require_approval',
+        'local_forum_ai_reply_message',
+        'enablediainitconversation',
+        'local_forum_ai_grader',
+        'local_forum_ai_usedelay',
+        'local_forum_ai_delayminutes',
+        'local_forum_ai_replyinlocked',
+        'local_forum_ai_questionturns',
+        'allowedroles',
+    ];
+
+    $hasaidata = false;
+    foreach ($aifields as $fieldname) {
+        if (property_exists($data, $fieldname)) {
+            $hasaidata = true;
+            break;
+        }
+    }
+
+    if (!$hasaidata) {
+        return $data;
+    }
+
     $record = $DB->get_record('local_forum_ai_config', ['forumid' => $data->instance]);
 
-    $config = new stdClass();
+    $config = $record ?: new stdClass();
     $config->forumid = $data->instance;
-    $config->enabled = $data->local_forum_ai_enabled ?? 0;
-    $config->require_approval = $data->local_forum_ai_require_approval ?? 1;
-    $config->reply_message = $data->local_forum_ai_reply_message ?? '';
-    $config->enablediainitconversation = $data->enablediainitconversation ?? 0;
-    $config->graderid = $data->local_forum_ai_grader ?? null;
-    $config->usedelay = $data->local_forum_ai_usedelay ?? 0;
-    $config->delayminutes = max(1, (int)($data->local_forum_ai_delayminutes ?? 60));
-    $config->questionturns = \local_forum_ai\utils::normalize_question_turns(
-        $data->local_forum_ai_questionturns ?? \local_forum_ai\utils::get_default_question_turns()
-    );
+    if (property_exists($data, 'local_forum_ai_enabled')) {
+        $config->enabled = (int) $data->local_forum_ai_enabled;
+    } else if (!isset($config->enabled)) {
+        $config->enabled = 0;
+    }
+
+    if (property_exists($data, 'local_forum_ai_require_approval')) {
+        $config->require_approval = (int) $data->local_forum_ai_require_approval;
+    } else if (!isset($config->require_approval)) {
+        $config->require_approval = 1;
+    }
+
+    if (property_exists($data, 'local_forum_ai_reply_message')) {
+        $config->reply_message = (string) $data->local_forum_ai_reply_message;
+    } else if (!isset($config->reply_message)) {
+        $config->reply_message = '';
+    }
+
+    if (property_exists($data, 'enablediainitconversation')) {
+        $config->enablediainitconversation = (int) $data->enablediainitconversation;
+    } else if (!isset($config->enablediainitconversation)) {
+        $config->enablediainitconversation = 0;
+    }
+
+    if (property_exists($data, 'local_forum_ai_grader')) {
+        $config->graderid = !empty($data->local_forum_ai_grader) ? (int) $data->local_forum_ai_grader : null;
+    } else if (!isset($config->graderid)) {
+        $config->graderid = null;
+    }
+
+    if (property_exists($data, 'local_forum_ai_usedelay')) {
+        $config->usedelay = (int) $data->local_forum_ai_usedelay;
+    } else if (!isset($config->usedelay)) {
+        $config->usedelay = 0;
+    }
+
+    if (property_exists($data, 'local_forum_ai_delayminutes')) {
+        $config->delayminutes = max(1, (int) $data->local_forum_ai_delayminutes);
+    } else if (!isset($config->delayminutes)) {
+        $config->delayminutes = 60;
+    }
+
+    // The column may not exist yet when the code is deployed ahead of the DB upgrade.
+    if ($DB->get_manager()->field_exists('local_forum_ai_config', 'replyinlocked')) {
+        if (property_exists($data, 'local_forum_ai_replyinlocked')) {
+            $config->replyinlocked = (int) $data->local_forum_ai_replyinlocked;
+        } else if (!isset($config->replyinlocked)) {
+            $config->replyinlocked = \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
+        }
+    }
+
+    if (property_exists($data, 'local_forum_ai_questionturns')) {
+        $config->questionturns = \local_forum_ai\utils::normalize_question_turns($data->local_forum_ai_questionturns);
+    } else if (!isset($config->questionturns)) {
+        $config->questionturns = \local_forum_ai\utils::get_default_question_turns();
+    }
 
     if (!\local_forum_ai\utils::is_global_ai_enabled()) {
         $config->enabled = 0;
     }
 
-    // Save null if not selected roles.
-    if (!empty($data->allowedroles) && is_array($data->allowedroles)) {
-        $config->allowedroles = implode(',', $data->allowedroles);
-    } else {
+    // Save the roles only when the field was submitted; otherwise keep the stored value.
+    if (property_exists($data, 'allowedroles')) {
+        if (!empty($data->allowedroles) && is_array($data->allowedroles)) {
+            $config->allowedroles = implode(',', $data->allowedroles);
+        } else {
+            $config->allowedroles = null;
+        }
+    } else if (!isset($config->allowedroles)) {
         $config->allowedroles = null;
     }
 

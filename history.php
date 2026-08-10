@@ -59,6 +59,7 @@ $statusmap = [
     'approved' => get_string('statusapproved', 'local_forum_ai'),
     'rejected' => get_string('statusrejected', 'local_forum_ai'),
     'pending'  => get_string('statuspending', 'local_forum_ai'),
+    'expired'  => get_string('statusexpired', 'local_forum_ai'),
 ];
 
 $renderer = $PAGE->get_renderer('core');
@@ -72,6 +73,7 @@ $templatecontext = [
     'col_message' => get_string('discussionmsg', 'local_forum_ai'),
     'col_grade' => get_string('grade', 'local_forum_ai'),
     'col_user' => get_string('username', 'local_forum_ai'),
+    'col_managedby' => get_string('managedby', 'local_forum_ai'),
     'col_status' => get_string('status', 'local_forum_ai'),
     'col_actions' => get_string('actions', 'local_forum_ai'),
     'noresponses' => get_string('nohistory', 'local_forum_ai'),
@@ -82,7 +84,14 @@ $templatecontext = [
 
 
 foreach ($records as $r) {
-    $user = (object)['id' => $r->creator_userid, 'firstname' => $r->firstname, 'lastname' => $r->lastname];
+    $user = username_load_fields_from_object((object)['id' => $r->creator_userid], $r);
+
+    // The action user is null on legacy/expired rows: show a dash then.
+    $managedby = '-';
+    if (!empty($r->action_userid)) {
+        $actionuser = username_load_fields_from_object((object)['id' => $r->action_userid], $r, 'action');
+        $managedby = fullname($actionuser);
+    }
 
     $templatecontext['responses'][] = [
         'coursename' => format_string($r->coursename),
@@ -91,6 +100,7 @@ foreach ($records as $r) {
         'discussionmsg' => shorten_text(strip_tags($r->message), 100),
         'grade' => (isset($r->grade) && $r->grade !== '' ? format_string($r->grade) : '-'),
         'userfullname' => fullname($user),
+        'managedby' => $managedby,
         'status' => $statusmap[$r->status] ?? $r->status,
         'viewdetails' => get_string('viewdetails', 'local_forum_ai'),
         'token' => $r->approval_token,

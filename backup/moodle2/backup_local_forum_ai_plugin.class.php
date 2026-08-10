@@ -40,7 +40,7 @@ class backup_local_forum_ai_plugin extends backup_local_plugin {
         $config = new backup_nested_element('forum_ai_config', ['id'], [
             'forumid', 'enabled', 'reply_message', 'require_approval',
             'allowedroles', 'enablediainitconversation', 'questionturns',
-            'graderid', 'usedelay', 'delayminutes',
+            'graderid', 'usedelay', 'delayminutes', 'replyinlocked',
             'timecreated', 'timemodified',
         ]);
         $configs->add_child($config);
@@ -50,8 +50,9 @@ class backup_local_forum_ai_plugin extends backup_local_plugin {
         $pluginwrapper->add_child($pendings);
 
         $pending = new backup_nested_element('forum_ai_pending', ['id'], [
-            'discussionid', 'forumid', 'creator_userid', 'subject', 'message',
-            'status', 'approval_token', 'timecreated', 'timemodified', 'approved_at',
+            'discussionid', 'forumid', 'parentpostid', 'postid', 'creator_userid',
+            'action_userid', 'subject', 'message', 'grade', 'status', 'approval_token',
+            'timecreated', 'timemodified', 'approved_at',
         ]);
         $pendings->add_child($pending);
 
@@ -63,12 +64,23 @@ class backup_local_forum_ai_plugin extends backup_local_plugin {
              WHERE f.course = ?
         ', [backup::VAR_COURSEID]);
 
-        $pending->set_source_sql('
-            SELECT p.*
-              FROM {local_forum_ai_pending} p
-              JOIN {forum} f ON f.id = p.forumid
-             WHERE f.course = ?
-        ', [backup::VAR_COURSEID]);
+        // Pending/history rows carry per-student personal data: they belong to
+        // the backup only when user information is included.
+        if ($this->get_setting_value('users')) {
+            $pending->set_source_sql('
+                SELECT p.*
+                  FROM {local_forum_ai_pending} p
+                  JOIN {forum} f ON f.id = p.forumid
+                 WHERE f.course = ?
+            ', [backup::VAR_COURSEID]);
+        }
+
+        // Annotations: every user id the restore remaps must be annotated here,
+        // otherwise no mapping exists and the restore falls back to raw source
+        // ids (mis-attributed responses) or to null (grading disabled).
+        $config->annotate_ids('user', 'graderid');
+        $pending->annotate_ids('user', 'creator_userid');
+        $pending->annotate_ids('user', 'action_userid');
 
         return $plugin;
     }
