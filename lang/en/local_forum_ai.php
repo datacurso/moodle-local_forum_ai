@@ -76,6 +76,8 @@ $string['error_usernotincourse'] = 'The selected user is not enrolled in this co
 $string['error_usernotingroup'] = 'You cannot request an AI review for a user outside your groups.';
 $string['evaluatingwithai'] = 'Evaluating with AI...';
 $string['eventaireviewrequested'] = 'AI review requested';
+$string['eventresponseapproved'] = 'AI response approved';
+$string['eventresponserejected'] = 'AI response rejected';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Approve or reject AI-generated forum responses';
 $string['forum_ai:useaireview'] = 'Use AI review functionality for forum grading';
@@ -101,11 +103,7 @@ An AI-generated response has been created for the discussion "{$a->discussion}" 
 Preview: {$a->preview}...
 
 To review the complete message and decide whether to approve or reject it, please visit:
-{$a->reviewurl}
-
-Quick actions:
-- Approve: {$a->approveurl}
-- Reject: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Hello {$a->firstname},';
 $string['notification_intro'] = 'An automatic response has been generated for the discussion "{$a->discussion}" in the forum "{$a->forum}" of the course "{$a->course}".';
 $string['notification_preview'] = 'Preview:';

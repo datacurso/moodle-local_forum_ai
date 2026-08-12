@@ -76,6 +76,8 @@ $string['error_usernotincourse'] = 'Die ausgewählte Person ist nicht in diesem 
 $string['error_usernotingroup'] = 'Sie können keine KI-Überprüfung für einen Nutzer außerhalb Ihrer Gruppen anfordern.';
 $string['evaluatingwithai'] = 'Auswertung mit KI...';
 $string['eventaireviewrequested'] = 'KI-Überprüfung angefordert';
+$string['eventresponseapproved'] = 'KI-Antwort genehmigt';
+$string['eventresponserejected'] = 'KI-Antwort abgelehnt';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'KI-generierte Forenantworten genehmigen oder ablehnen';
 $string['forum_ai:useaireview'] = 'Verwenden Sie die KI-Überprüfungsfunktion, um das Forum zu bewerten';
@@ -101,11 +103,7 @@ Für die Diskussion "{$a->discussion}" im Forum "{$a->forum}" (Kurs: {$a->course
 Vorschau: {$a->preview}...
 
 Um die vollständige Nachricht zu überprüfen und zu entscheiden, ob sie genehmigt oder abgelehnt werden soll, besuche bitte:
-{$a->reviewurl}
-
-Schnellaktionen:
-- Genehmigen: {$a->approveurl}
-- Ablehnen: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Hallo {$a->firstname},';
 $string['notification_intro'] = 'Eine automatische Antwort wurde für die Diskussion "{$a->discussion}" im Forum "{$a->forum}" des Kurses "{$a->course}" generiert.';
 $string['notification_preview'] = 'Vorschau:';

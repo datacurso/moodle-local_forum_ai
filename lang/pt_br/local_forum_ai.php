@@ -76,6 +76,8 @@ $string['error_usernotincourse'] = 'O usuário selecionado não está inscrito n
 $string['error_usernotingroup'] = 'Você não pode solicitar uma revisão com IA para um usuário fora dos seus grupos.';
 $string['evaluatingwithai'] = 'Avaliando com IA...';
 $string['eventaireviewrequested'] = 'Revisão com IA solicitada';
+$string['eventresponseapproved'] = 'Resposta de IA aprovada';
+$string['eventresponserejected'] = 'Resposta de IA rejeitada';
 $string['forum'] = 'Fórum';
 $string['forum_ai:approveresponses'] = 'Aprovar ou rejeitar respostas do fórum geradas por IA';
 $string['forum_ai:useaireview'] = 'Utilize a função de revisão por IA para avaliar o fórum';
@@ -101,11 +103,7 @@ Uma resposta gerada por IA foi criada para a discussão "{$a->discussion}" no f�
 Pré-visualização: {$a->preview}...
 
 Para revisar a mensagem completa e decidir se deve aprová-la ou rejeitá-la, por favor visite:
-{$a->reviewurl}
-
-Ações rápidas:
-- Aprovar: {$a->approveurl}
-- Rejeitar: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Olá {$a->firstname},';
 $string['notification_intro'] = 'Uma resposta automática foi gerada para a discussão "{$a->discussion}" no fórum "{$a->forum}" do curso "{$a->course}".';
 $string['notification_preview'] = 'Pré-visualização:';

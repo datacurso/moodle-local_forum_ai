@@ -76,6 +76,8 @@ $string['error_usernotincourse'] = 'Выбранный пользователь 
 $string['error_usernotingroup'] = 'Вы не можете запросить проверку с помощью ИИ для пользователя вне ваших групп.';
 $string['evaluatingwithai'] = 'Оценка с помощью ИИ...';
 $string['eventaireviewrequested'] = 'Запрошена проверка с помощью ИИ';
+$string['eventresponseapproved'] = 'Ответ ИИ одобрен';
+$string['eventresponserejected'] = 'Ответ ИИ отклонён';
 $string['forum'] = 'Форум';
 $string['forum_ai:approveresponses'] = 'Одобрить или отклонить ответы форума, сгенерированные ИИ';
 $string['forum_ai:useaireview'] = 'Используйте функцию проверки ИИ для оценки форума';
@@ -101,11 +103,7 @@ $string['notification_fullmessage'] = 'Здравствуйте, {$a->firstname}
 Предварительный просмотр: {$a->preview}...
 
 Чтобы просмотреть полное сообщение и решить, одобрить его или отклонить, пожалуйста, перейдите по ссылке:
-{$a->reviewurl}
-
-Быстрые действия:
-- Одобрить: {$a->approveurl}
-- Отклонить: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Здравствуйте, {$a->firstname},';
 $string['notification_intro'] = 'Автоматический ответ был сгенерирован для обсуждения "{$a->discussion}" на форуме "{$a->forum}" курса "{$a->course}".';
 $string['notification_preview'] = 'Предпросмотр:';
