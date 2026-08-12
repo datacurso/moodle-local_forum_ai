@@ -86,8 +86,8 @@ class process_review extends external_api {
         // In separate groups mode, callers without accessallgroups may only
         // review users who share at least one group with them.
         $cm = get_coursemodule_from_id('forum', $params['cmid'], 0, false, MUST_EXIST);
-        if (groups_get_activity_groupmode($cm) == SEPARATEGROUPS
-                && !has_capability('moodle/site:accessallgroups', $context)) {
+        $separategroups = groups_get_activity_groupmode($cm) == SEPARATEGROUPS;
+        if ($separategroups && !has_capability('moodle/site:accessallgroups', $context)) {
             $callergroups = groups_get_activity_allowed_groups($cm);
             $targetgroups = groups_get_all_groups($cm->course, $targetuser->id, $cm->groupingid);
             if (empty(array_intersect_key($callergroups, $targetgroups))) {
