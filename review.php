@@ -93,7 +93,9 @@ try {
         'originaldate' => userdate($originalpost->created),
         'aisubject' => format_string($pending->subject),
         'aimessage' => format_text($pending->message, FORMAT_HTML),
-        'aiformatted' => s($pending->message),
+        // The template escapes {{aiformatted}} once (textarea source), so no s() here — it would
+        // double-escape; clean_text() defends against legacy dirty rows stored before sanitization.
+        'aiformatted' => clean_text($pending->message, FORMAT_HTML),
         'token' => $token,
         'forumurl' => $forumurl->out(),
         'headerlogo' => $logocontext,

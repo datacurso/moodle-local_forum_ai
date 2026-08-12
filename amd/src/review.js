@@ -80,6 +80,9 @@ export const init = async () => {
                 args: { token: token, message: newMessage },
             }])[0].done(response => {
                 if (response.status === "ok") {
+                    // Contract: response.message is server-side purified/formatted HTML
+                    // (clean_text/format_text with HTMLPurifier), so direct HTML injection
+                    // is the reviewed transformation here.
                     viewDiv.querySelector(".card-text").innerHTML = response.message;
 
                     Notification.addNotification({

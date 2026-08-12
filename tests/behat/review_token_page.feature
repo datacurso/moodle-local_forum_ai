@@ -45,6 +45,17 @@ Feature: Review an AI response through the token review page
     And "Reject" "button" should exist
     And "Back to discussion" "link" should exist
 
+  @MDL-INT-022
+  Scenario: The edit textarea shows the HTML source of the response escaped exactly once
+    # Regression pin: the textarea value is entity-decoded by the driver, so under the old
+    # double-escape bug (s() over the source) this assertion would read literal
+    # '&lt;p&gt;...' entities instead of the HTML source and fail.
+    Given the following "local_forum_ai > pending responses" exist:
+      | forum     | discussion   | user     | subject          | message                            | approval_token                   |
+      | Forum one | Discussion A | student1 | Re: Discussion A | <p>Hola <strong>mundo</strong></p> | behattoken0000000000000000000002 |
+    When I am on the "behattoken0000000000000000000002" "local_forum_ai > review" page logged in as "teacher1"
+    Then the field "message" matches value "<p>Hola <strong>mundo</strong></p>"
+
   @javascript @MDL-INT-022 @SYS-E2E-003
   Scenario: Approving from the review page publishes the response and invalidates the token
     Given I am on the "behattoken0000000000000000000001" "local_forum_ai > review" page logged in as "teacher1"

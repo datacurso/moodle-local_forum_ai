@@ -54,7 +54,7 @@ class update_response extends external_api {
      *
      * @param string $token Approval token
      * @param string $message New AI message
-     * @return array Result with status and updated message
+     * @return array Result with status and the updated message rendered as display-ready HTML
      * @throws \required_capability_exception If the caller does not hold local/forum_ai:approveresponses.
      * @throws \moodle_exception If the response is no longer pending.
      */
@@ -90,7 +90,9 @@ class update_response extends external_api {
 
         return [
             'status'  => 'ok',
-            'message' => $pending->message,
+            // Return display-ready HTML (same contract as get_details airesponse); the stored
+            // value stays the pure clean_text() source so no-op round-trips remain byte-identical.
+            'message' => format_text($pending->message, FORMAT_HTML),
         ];
     }
 
@@ -102,7 +104,9 @@ class update_response extends external_api {
     public static function execute_returns() {
         return new external_single_structure([
             'status'  => new external_value(PARAM_TEXT, 'Operation status'),
-            'message' => new external_value(PARAM_RAW, 'Updated message'),
+            // PARAM_RAW: carries server-formatted safe HTML (format_text over the purified
+            // stored source), the same display contract as get_details airesponse.
+            'message' => new external_value(PARAM_RAW, 'Updated message as server-formatted safe HTML'),
         ]);
     }
 }
