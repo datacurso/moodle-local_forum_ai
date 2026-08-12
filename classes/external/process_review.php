@@ -64,7 +64,9 @@ class process_review extends external_api {
      * @param int $userid User ID to be evaluated.
      * @return array Structured result containing evaluation type and serialized data.
      * @throws \required_capability_exception If the caller does not hold local/forum_ai:useaireview.
-     * @throws \moodle_exception If the target user is not enrolled in the course
+     * @throws \moodle_exception If the target user is not enrolled in the course,
+     *                           the forum uses separate groups and the caller does not
+     *                           share a group with the target user,
      *                           or the AI response format is not recognized.
      */
     public static function execute($cmid, $userid) {
@@ -81,8 +83,28 @@ class process_review extends external_api {
             throw new moodle_exception('error_usernotincourse', 'local_forum_ai');
         }
 
+        // In separate groups mode, callers without accessallgroups may only
+        // review users who share at least one group with them.
+        $cm = get_coursemodule_from_id('forum', $params['cmid'], 0, false, MUST_EXIST);
+        if (groups_get_activity_groupmode($cm) == SEPARATEGROUPS
+                && !has_capability('moodle/site:accessallgroups', $context)) {
+            $callergroups = groups_get_activity_allowed_groups($cm);
+            $targetgroups = groups_get_all_groups($cm->course, $targetuser->id, $cm->groupingid);
+            if (empty(array_intersect_key($callergroups, $targetgroups))) {
+                throw new moodle_exception('error_usernotingroup', 'local_forum_ai');
+            }
+        }
+
         $payload = utils::build_forum_ai_payload($params['cmid'], $params['userid']);
         $scale = $payload['forum_participations'][0]['participation']['scale'] ?? null;
+
+        // Audit the transfer attempt before any data leaves the site, so the
+        // request is recorded even if the AI service call fails.
+        \local_forum_ai\event\ai_review_requested::create([
+            'context' => $context,
+            'relateduserid' => $targetuser->id,
+            'other' => ['forumid' => (int) $cm->instance],
+        ])->trigger();
 
         $response = ai_service::call_ai_service_global($payload);
 
