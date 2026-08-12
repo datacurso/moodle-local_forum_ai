@@ -181,12 +181,36 @@ class approve_response extends external_api {
             $pending->approved_at  = time();
             $pending->timemodified = time();
             $DB->update_record('local_forum_ai_pending', $pending);
+
+            // Audit trail: record who approved the response in the standard log store.
+            $event = \local_forum_ai\event\response_approved::create([
+                'context' => $context,
+                'objectid' => (int) $pending->id,
+                'relateduserid' => (int) $pending->creator_userid,
+                'other' => [
+                    'forumid' => (int) $pending->forumid,
+                    'discussionid' => (int) $pending->discussionid,
+                ],
+            ]);
+            $event->trigger();
         } else if ($params['action'] === 'reject') {
             $pending->status       = 'rejected';
             // Same traceability rule as on approval: keep the creator, record the actor.
             $pending->action_userid = $USER->id;
             $pending->timemodified = time();
             $DB->update_record('local_forum_ai_pending', $pending);
+
+            // Audit trail: a rejection leaves no post behind, so the event is its only trace.
+            $event = \local_forum_ai\event\response_rejected::create([
+                'context' => $context,
+                'objectid' => (int) $pending->id,
+                'relateduserid' => (int) $pending->creator_userid,
+                'other' => [
+                    'forumid' => (int) $pending->forumid,
+                    'discussionid' => (int) $pending->discussionid,
+                ],
+            ]);
+            $event->trigger();
         } else {
             throw new moodle_exception('invalidaction', 'local_forum_ai');
         }

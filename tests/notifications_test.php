@@ -127,14 +127,39 @@ final class notifications_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-INT-023 (step 5): the plain-text quick approve/reject links must work.
+     * MDL-INT-023 (step 5, updated by FORUMAI-SEC-002): the plain-text body must
+     * only offer the review.php link. The former quick approve/reject links pointed
+     * to a non-existent approve.php endpoint and leaked the approval token, so they
+     * were removed from the notification.
      */
-    public function test_plain_text_quick_action_links(): void {
-        $this->markTestSkipped(
-            'MDL-INT-023 NOTA [Pendiente:skip]: los enlaces de aprobacion rapida del texto ' .
-            'plano apuntan a approve.php, un archivo que no existe en el plugin, y generan ' .
-            'error 404 — funcionalidad rota no critica.'
+    public function test_plain_text_body_offers_only_review_link(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $setup = $this->create_setup();
+        $editingteacher = $this->getDataGenerator()->create_and_enrol($setup->course, 'editingteacher');
+
+        $sink = $this->redirectMessages();
+        $pendingid = approval::create_approval_request(
+            $setup->discussion,
+            $setup->forum,
+            '<p>Body under review</p>',
+            'pending',
+            (int) $setup->discussion->firstpost
         );
+        $messages = $sink->get_messages();
+        $sink->close();
+
+        $this->assertGreaterThan(0, $pendingid);
+
+        $teachermessages = array_values(array_filter($messages, static function (stdClass $message) use ($editingteacher): bool {
+            return (int) $message->useridto === (int) $editingteacher->id;
+        }));
+        $this->assertNotEmpty($teachermessages);
+
+        $body = $teachermessages[0]->fullmessage;
+        $this->assertStringContainsString('review.php', $body);
+        $this->assertStringNotContainsString('approve.php', $body);
     }
 
     /**

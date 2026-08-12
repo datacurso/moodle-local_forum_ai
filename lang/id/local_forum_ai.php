@@ -76,6 +76,8 @@ $string['error_usernotincourse'] = 'Pengguna yang dipilih tidak terdaftar di kur
 $string['error_usernotingroup'] = 'Anda tidak dapat meminta tinjauan AI untuk pengguna di luar grup Anda.';
 $string['evaluatingwithai'] = 'Sedang mengevaluasi dengan AI...';
 $string['eventaireviewrequested'] = 'Tinjauan AI diminta';
+$string['eventresponseapproved'] = 'Respon AI disetujui';
+$string['eventresponserejected'] = 'Respon AI ditolak';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Setujui atau tolak respons forum yang dihasilkan oleh AI';
 $string['forum_ai:useaireview'] = 'Gunakan fitur peninjauan AI untuk menilai forum';
@@ -101,11 +103,7 @@ Jawaban yang dihasilkan AI telah dibuat untuk diskusi "{$a->discussion}" di foru
 Pratinjau: {$a->preview}...
 
 Untuk meninjau pesan lengkap dan memutuskan apakah akan menyetujuinya atau menolaknya, silakan kunjungi:
-{$a->reviewurl}
-
-Tindakan cepat:
-- Setujui: {$a->approveurl}
-- Tolak: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Halo {$a->firstname},';
 $string['notification_intro'] = 'Respon otomatis telah dihasilkan untuk diskusi "{$a->discussion}" di forum "{$a->forum}" dalam kursus "{$a->course}".';
 $string['notification_preview'] = 'Pratinjau:';
