@@ -79,8 +79,9 @@ class behat_local_forum_ai extends behat_base {
      * Visit the token review page expecting the access-denied error, then leave the error page.
      *
      * The final navigation to the site home is required because Moodle's Behat hooks fail any
-     * step that finishes on a fatal error page, and review.php throws a moodle_exception when
-     * the user lacks the local/forum_ai:approveresponses capability.
+     * step that finishes on a fatal error page, and review.php throws the standard
+     * required_capability_exception (not a wrapped moodle_exception) when the user lacks the
+     * local/forum_ai:approveresponses capability.
      *
      * @Then /^the review page for token "(?P<token_string>(?:[^"]|\\")*)" should deny access$/
      *
@@ -98,6 +99,55 @@ class behat_local_forum_ai extends behat_base {
             get_string('forum_ai:approveresponses', 'local_forum_ai')
         );
         $this->assertSession()->pageTextContains($expected);
+        // The standard 403 must not be masked by the generic AI request error.
+        $this->assertSession()->pageTextNotContains(get_string('error_airequest', 'local_forum_ai'));
+
+        // Leave the error page so the automatic exception check does not flag this scenario.
+        $this->getSession()->visit($this->locate_path('/'));
+    }
+
+    /**
+     * Delete the forum discussion referenced by a pending response so that review.php can
+     * no longer resolve its records.
+     *
+     * @Given /^the forum discussion of the pending response with token "(?P<token_string>(?:[^"]|\\")*)" no longer exists$/
+     *
+     * @param string $token The approval token of the pending response.
+     */
+    public function pending_response_discussion_no_longer_exists(string $token): void {
+        global $DB;
+
+        $pending = $DB->get_record('local_forum_ai_pending', ['approval_token' => $token], '*', MUST_EXIST);
+        $DB->delete_records('forum_discussions', ['id' => $pending->discussionid]);
+    }
+
+    /**
+     * Visit the token review page expecting the generic AI request error and assert that no
+     * internal exception details are exposed, then leave the error page.
+     *
+     * Asserting directly through Mink (not via execute()) skips the chained exception check:
+     * any Moodle error page carries div[data-rel=fatalerror] and review.php emits a
+     * debugging() message before throwing, both of which would otherwise fail the step.
+     * The Behat site forces debugdisplay on, so the developer debugging() notice (never shown
+     * to real users) does appear on the page; the internal-detail assertions therefore target
+     * the user-facing error box only. FORUMAI-SEC-006.
+     *
+     * @Then /^the review page for token "(?P<token_string>(?:[^"]|\\")*)" should show the generic error$/
+     *
+     * @param string $token The approval token of the pending response.
+     */
+    public function review_page_should_show_generic_error(string $token): void {
+        $url = new moodle_url('/local/forum_ai/review.php', ['token' => $token]);
+        $this->getSession()->visit($this->locate_path($url->out_as_local_url(false)));
+
+        $errorbox = 'div[data-rel=fatalerror]';
+        $this->assertSession()->elementTextContains('css', $errorbox, get_string('error_airequest', 'local_forum_ai'));
+        $this->assertSession()->elementTextNotContains('css', $errorbox, 'forum_discussions');
+        $this->assertSession()->elementTextNotContains(
+            'css',
+            $errorbox,
+            get_string('invalidrecord', 'error', 'forum_discussions')
+        );
 
         // Leave the error page so the automatic exception check does not flag this scenario.
         $this->getSession()->visit($this->locate_path('/'));

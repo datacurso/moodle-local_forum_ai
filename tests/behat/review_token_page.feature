@@ -82,6 +82,12 @@ Feature: Review an AI response through the token review page
     Given I log in as "teacher1"
     Then the review page for token "doesnotexist0000000000000000000x" should show the already submitted notice
 
+  @MDL-INT-022
+  Scenario: An unrecoverable pending response shows a generic error without internal details
+    Given the forum discussion of the pending response with token "behattoken0000000000000000000001" no longer exists
+    And I log in as "teacher1"
+    Then the review page for token "behattoken0000000000000000000001" should show the generic error
+
   @MDL-INT-022 @SYS-E2E-003
   Scenario: A student opening the review URL is denied access
     Given I log in as "student1"

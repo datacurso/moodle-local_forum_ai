@@ -110,11 +110,35 @@ final class lang_strings_test extends \advanced_testcase {
      * strings, in particular the "AI replies with guiding question" label and help.
      */
     public function test_all_packs_contain_every_required_string(): void {
-        $this->markTestSkipped(
-            'MDL-INT-031 NOTA [Pendiente:skip]: el campo de pregunta guia (questionturns y ' .
-            'questionturns_help) no esta traducido en siete idiomas (de, es_mx, es_mx_kids, ' .
-            'fr, id, pt_br, ru) — gap de i18n no critico.'
-        );
+        $enkeys = $this->load_pack_keys('en');
+        $this->assertNotEmpty($enkeys);
+
+        foreach (self::SHIPPED_PACKS as $pack) {
+            $packkeys = $this->load_pack_keys($pack);
+            $missing = array_diff($enkeys, $packkeys);
+            $this->assertSame(
+                [],
+                array_values($missing),
+                "Pack {$pack} is missing strings declared in en: " . implode(', ', $missing)
+            );
+        }
+    }
+
+    /**
+     * FORUMAI-SEC-006: the generic AI request error shown by review.php must never
+     * interpolate internal exception details, so no shipped pack may declare the
+     * placeholder in that string.
+     */
+    public function test_error_airequest_never_interpolates_exception_details(): void {
+        foreach (self::SHIPPED_PACKS as $pack) {
+            $strings = $this->load_pack_strings($pack);
+            $this->assertArrayHasKey('error_airequest', $strings, "Pack {$pack} must declare error_airequest.");
+            $this->assertStringNotContainsString(
+                '{$a}',
+                $strings['error_airequest'],
+                "Pack {$pack} must not interpolate exception details into error_airequest."
+            );
+        }
     }
 
     /**
@@ -160,12 +184,22 @@ final class lang_strings_test extends \advanced_testcase {
      * @return string[] Declared string keys.
      */
     private function load_pack_keys(string $pack): array {
+        return array_keys($this->load_pack_strings($pack));
+    }
+
+    /**
+     * Loads the strings declared by one language pack file.
+     *
+     * @param string $pack Language pack code.
+     * @return string[] Declared strings indexed by key.
+     */
+    private function load_pack_strings(string $pack): array {
         $file = $this->lang_dir() . '/' . $pack . '/local_forum_ai.php';
         $this->assertFileExists($file);
 
         $string = [];
         include($file);
 
-        return array_keys($string);
+        return $string;
     }
 }
