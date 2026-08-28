@@ -78,6 +78,7 @@ $string['evaluatingwithai'] = 'Оценка с помощью ИИ...';
 $string['eventaireviewrequested'] = 'Запрошена проверка с помощью ИИ';
 $string['eventresponseapproved'] = 'Ответ ИИ одобрен';
 $string['eventresponserejected'] = 'Ответ ИИ отклонён';
+$string['eventresponseupdated'] = 'Ответ ИИ отредактирован';
 $string['forum'] = 'Форум';
 $string['forum_ai:approveresponses'] = 'Одобрить или отклонить ответы форума, сгенерированные ИИ';
 $string['forum_ai:useaireview'] = 'Используйте функцию проверки ИИ для оценки форума';

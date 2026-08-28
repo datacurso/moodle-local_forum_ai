@@ -78,6 +78,7 @@ $string['evaluatingwithai'] = 'Sedang mengevaluasi dengan AI...';
 $string['eventaireviewrequested'] = 'Tinjauan AI diminta';
 $string['eventresponseapproved'] = 'Respon AI disetujui';
 $string['eventresponserejected'] = 'Respon AI ditolak';
+$string['eventresponseupdated'] = 'Respon AI diedit';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Setujui atau tolak respons forum yang dihasilkan oleh AI';
 $string['forum_ai:useaireview'] = 'Gunakan fitur peninjauan AI untuk menilai forum';

@@ -78,6 +78,7 @@ $string['evaluatingwithai'] = 'Evaluating with AI...';
 $string['eventaireviewrequested'] = 'AI review requested';
 $string['eventresponseapproved'] = 'AI response approved';
 $string['eventresponserejected'] = 'AI response rejected';
+$string['eventresponseupdated'] = 'AI response edited';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Approve or reject AI-generated forum responses';
 $string['forum_ai:useaireview'] = 'Use AI review functionality for forum grading';

@@ -52,6 +52,8 @@ class update_response extends external_api {
     /**
      * Executes the update of a pending AI message.
      *
+     * Stores the purified message and triggers a response_updated audit event.
+     *
      * @param string $token Approval token
      * @param string $message New AI message
      * @return array Result with status and the updated message rendered as display-ready HTML
@@ -87,6 +89,18 @@ class update_response extends external_api {
         $pending->message = clean_text($params['message'], FORMAT_HTML);
         $pending->timemodified = time();
         $DB->update_record('local_forum_ai_pending', $pending);
+
+        // Audit trail: edits of a pending response must be traceable in the standard log store.
+        $event = \local_forum_ai\event\response_updated::create([
+            'context' => $context,
+            'objectid' => (int) $pending->id,
+            'relateduserid' => (int) $pending->creator_userid,
+            'other' => [
+                'forumid' => (int) $pending->forumid,
+                'discussionid' => (int) $pending->discussionid,
+            ],
+        ]);
+        $event->trigger();
 
         return [
             'status'  => 'ok',

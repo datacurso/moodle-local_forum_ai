@@ -78,6 +78,7 @@ $string['evaluatingwithai'] = 'Evaluando con IA...';
 $string['eventaireviewrequested'] = 'Revisión con IA solicitada';
 $string['eventresponseapproved'] = 'Respuesta de IA aprobada';
 $string['eventresponserejected'] = 'Respuesta de IA rechazada';
+$string['eventresponseupdated'] = 'Respuesta de IA editada';
 $string['forum'] = 'Foro';
 $string['forum_ai:approveresponses'] = 'Aprobar o rechazar respuestas generadas por IA en los foros';
 $string['forum_ai:useaireview'] = 'Utilice la función de revisión de IA para calificar el foro';

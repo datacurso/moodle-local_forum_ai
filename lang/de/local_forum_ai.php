@@ -78,6 +78,7 @@ $string['evaluatingwithai'] = 'Auswertung mit KI...';
 $string['eventaireviewrequested'] = 'KI-Überprüfung angefordert';
 $string['eventresponseapproved'] = 'KI-Antwort genehmigt';
 $string['eventresponserejected'] = 'KI-Antwort abgelehnt';
+$string['eventresponseupdated'] = 'KI-Antwort bearbeitet';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'KI-generierte Forenantworten genehmigen oder ablehnen';
 $string['forum_ai:useaireview'] = 'Verwenden Sie die KI-Überprüfungsfunktion, um das Forum zu bewerten';
