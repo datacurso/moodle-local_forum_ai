@@ -197,6 +197,34 @@ final class token_services_permissions_test extends externallib_advanced_testcas
     }
 
     /**
+     * get_details must neutralize a legacy dirty stored row in every returned variant.
+     */
+    public function test_get_details_sanitizes_legacy_dirty_row(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$pending, $student, $teacher] = $this->create_pending_response();
+
+        // Simulate a legacy row stored before sanitization existed.
+        $DB->set_field('local_forum_ai_pending', 'message', xss_payload_fixture::PAYLOAD, ['id' => $pending->id]);
+
+        $this->setUser($teacher);
+
+        $result = get_details::execute($pending->approval_token);
+        // Same pre-existing missing-name-fields debugging notices as in the other get_details cases.
+        $this->assertDebuggingCalledCount(2);
+        $result = external_api::clean_returnvalue(get_details::execute_returns(), $result);
+
+        foreach (['airesponse', 'airesponseraw'] as $field) {
+            $this->assertStringNotContainsString('<script', $result[$field]);
+            $this->assertStringNotContainsString('onerror', $result[$field]);
+            $this->assertStringContainsString('<p>', $result[$field]);
+            $this->assertStringContainsString('<strong>', $result[$field]);
+        }
+    }
+
+    /**
      * A get_details/update_response round-trip must not mutate an already-clean message.
      *
      * This pins the no-op-save contract of the pending modal: the edit textarea
@@ -400,7 +428,7 @@ final class token_services_permissions_test extends externallib_advanced_testcas
     }
 
     /**
-     * The edit service must store and return purified HTML.
+     * The edit service must store purified HTML and return it rendered for display.
      */
     public function test_update_response_sanitizes_message(): void {
         global $DB;
@@ -416,12 +444,20 @@ final class token_services_permissions_test extends externallib_advanced_testcas
 
         $this->assertSame('ok', $result['status']);
 
+        // The stored value stays the pure purified source, untouched by output formatting.
         $stored = $DB->get_field('local_forum_ai_pending', 'message', ['id' => $pending->id], MUST_EXIST);
+        $this->assertSame(clean_text(xss_payload_fixture::PAYLOAD, FORMAT_HTML), $stored);
         $this->assertStringNotContainsString('<script', $stored);
         $this->assertStringNotContainsString('onerror', $stored);
         $this->assertStringContainsString('<p>', $stored);
         $this->assertStringContainsString('<strong>', $stored);
-        $this->assertSame($stored, $result['message']);
+
+        // The service returns display-ready HTML, same contract as get_details airesponse.
+        $this->assertSame(format_text($stored, FORMAT_HTML), $result['message']);
+        $this->assertStringNotContainsString('<script', $result['message']);
+        $this->assertStringNotContainsString('onerror', $result['message']);
+        $this->assertStringContainsString('<p>', $result['message']);
+        $this->assertStringContainsString('<strong>', $result['message']);
     }
 
     /**
