@@ -66,14 +66,19 @@ $string['enablediainitconversation'] = 'Ativar resposta de IA ao tópico de disc
 $string['enablediainitconversation_help'] = 'Ativar esta opção permitirá que a IA responda à mensagem inicial que inicia a discussão. Também é recomendável selecionar o papel de Professor no campo a seguir.';
 $string['enableforumai'] = 'Habilitar Fórum IA';
 $string['enableforumai_desc'] = 'Se desabilitado, a seção "Datacurso Fórum IA" é ocultada nas configurações da atividade fórum e o processamento automático é pausado.';
-$string['error_airequest'] = 'Erro ao comunicar-se com o serviço de IA: {$a}';
+$string['error_airequest'] = 'Não foi possível carregar a resposta de IA. Tente novamente mais tarde ou entre em contato com o administrador.';
 $string['error_discussionlocked'] = 'Esta discussão está bloqueada, portanto a resposta da IA não pode ser publicada. Desbloqueie a discussão e tente novamente.';
 $string['error_forumclosed'] = 'A data limite deste fórum já passou, portanto a resposta da IA não pode ser publicada.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'A postagem que está sendo respondida é uma resposta privada, portanto uma resposta da IA não pode ser publicada.';
 $string['error_responsenotpending'] = 'Esta resposta já foi aprovada ou rejeitada e não pode mais ser editada.';
 $string['error_usernotincourse'] = 'O usuário selecionado não está inscrito neste curso.';
+$string['error_usernotingroup'] = 'Você não pode solicitar uma revisão com IA para um usuário fora dos seus grupos.';
 $string['evaluatingwithai'] = 'Avaliando com IA...';
+$string['eventaireviewrequested'] = 'Revisão com IA solicitada';
+$string['eventresponseapproved'] = 'Resposta de IA aprovada';
+$string['eventresponserejected'] = 'Resposta de IA rejeitada';
+$string['eventresponseupdated'] = 'Resposta de IA editada';
 $string['forum'] = 'Fórum';
 $string['forum_ai:approveresponses'] = 'Aprovar ou rejeitar respostas do fórum geradas por IA';
 $string['forum_ai:useaireview'] = 'Utilize a função de revisão por IA para avaliar o fórum';
@@ -99,11 +104,7 @@ Uma resposta gerada por IA foi criada para a discussão "{$a->discussion}" no f�
 Pré-visualização: {$a->preview}...
 
 Para revisar a mensagem completa e decidir se deve aprová-la ou rejeitá-la, por favor visite:
-{$a->reviewurl}
-
-Ações rápidas:
-- Aprovar: {$a->approveurl}
-- Rejeitar: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Olá {$a->firstname},';
 $string['notification_intro'] = 'Uma resposta automática foi gerada para a discussão "{$a->discussion}" no fórum "{$a->forum}" do curso "{$a->course}".';
 $string['notification_preview'] = 'Pré-visualização:';
@@ -155,6 +156,8 @@ $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Indica se a solici
 $string['privacy:metadata:local_forum_ai_queue:timecreated'] = 'Data em que a solicitação na fila foi criada.';
 $string['privacy:metadata:local_forum_ai_queue:timetoprocess'] = 'Data em que a solicitação na fila deve ser processada.';
 $string['privacy:metadata:local_forum_ai_queue:type'] = 'Tipo de solicitação na fila (postagem ou discussão).';
+$string['questionturns'] = 'Respostas da IA com pergunta orientadora (por sequência de respostas)';
+$string['questionturns_help'] = 'Escolha quantas respostas da IA na mesma sequência de respostas devem incluir feedback e uma pergunta orientadora. Ao atingir esse limite, a IA continuará apenas com feedback. Use 0 para desativar as perguntas orientadoras.';
 $string['reject'] = 'Rejeitar';
 $string['reply_message'] = 'Dê instruções à IA';
 $string['replyinlocked'] = 'Responder em discussões bloqueadas';

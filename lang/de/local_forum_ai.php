@@ -66,14 +66,19 @@ $string['enablediainitconversation'] = 'KI-Antworten auf das Diskussionsthema ak
 $string['enablediainitconversation_help'] = 'Wenn diese Option aktiviert ist, kann die KI auf die erste Nachricht antworten, die die Diskussion startet. Es wird außerdem empfohlen, im folgenden Feld die Rolle „Lehrer“ auszuwählen.';
 $string['enableforumai'] = 'Forum-KI aktivieren';
 $string['enableforumai_desc'] = 'Wenn deaktiviert, wird der Abschnitt "Datacurso Forum KI" in den Foren-Einstellungen ausgeblendet und die automatische Verarbeitung pausiert.';
-$string['error_airequest'] = 'Fehler bei der Kommunikation mit dem KI-Dienst: {$a}';
+$string['error_airequest'] = 'Die KI-Antwort konnte nicht geladen werden. Bitte versuchen Sie es später erneut oder wenden Sie sich an Ihren Administrator.';
 $string['error_discussionlocked'] = 'Diese Diskussion ist gesperrt, daher kann die KI-Antwort nicht veröffentlicht werden. Entsperren Sie die Diskussion und versuchen Sie es erneut.';
 $string['error_forumclosed'] = 'Der Stichtag dieses Forums ist abgelaufen, daher kann die KI-Antwort nicht veröffentlicht werden.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Der Beitrag, auf den geantwortet wird, ist eine private Antwort, daher kann keine KI-Antwort veröffentlicht werden.';
 $string['error_responsenotpending'] = 'Diese Antwort wurde bereits genehmigt oder abgelehnt und kann nicht mehr bearbeitet werden.';
 $string['error_usernotincourse'] = 'Die ausgewählte Person ist nicht in diesem Kurs eingeschrieben.';
+$string['error_usernotingroup'] = 'Sie können keine KI-Überprüfung für einen Nutzer außerhalb Ihrer Gruppen anfordern.';
 $string['evaluatingwithai'] = 'Auswertung mit KI...';
+$string['eventaireviewrequested'] = 'KI-Überprüfung angefordert';
+$string['eventresponseapproved'] = 'KI-Antwort genehmigt';
+$string['eventresponserejected'] = 'KI-Antwort abgelehnt';
+$string['eventresponseupdated'] = 'KI-Antwort bearbeitet';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'KI-generierte Forenantworten genehmigen oder ablehnen';
 $string['forum_ai:useaireview'] = 'Verwenden Sie die KI-Überprüfungsfunktion, um das Forum zu bewerten';
@@ -99,11 +104,7 @@ Für die Diskussion "{$a->discussion}" im Forum "{$a->forum}" (Kurs: {$a->course
 Vorschau: {$a->preview}...
 
 Um die vollständige Nachricht zu überprüfen und zu entscheiden, ob sie genehmigt oder abgelehnt werden soll, besuche bitte:
-{$a->reviewurl}
-
-Schnellaktionen:
-- Genehmigen: {$a->approveurl}
-- Ablehnen: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Hallo {$a->firstname},';
 $string['notification_intro'] = 'Eine automatische Antwort wurde für die Diskussion "{$a->discussion}" im Forum "{$a->forum}" des Kurses "{$a->course}" generiert.';
 $string['notification_preview'] = 'Vorschau:';
@@ -155,6 +156,8 @@ $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Gibt an, ob die An
 $string['privacy:metadata:local_forum_ai_queue:timecreated'] = 'Datum, an dem die Anfrage in der Warteschlange erstellt wurde.';
 $string['privacy:metadata:local_forum_ai_queue:timetoprocess'] = 'Datum, an dem die Anfrage in der Warteschlange verarbeitet werden soll.';
 $string['privacy:metadata:local_forum_ai_queue:type'] = 'Typ der Anfrage in der Warteschlange (Beitrag oder Diskussion).';
+$string['questionturns'] = 'KI-Antworten mit Leitfrage (pro Antwortstrang)';
+$string['questionturns_help'] = 'Wählen Sie, wie viele KI-Antworten im selben Antwortstrang sowohl Feedback als auch eine Leitfrage enthalten sollen. Nach Erreichen dieses Limits antwortet die KI nur noch mit Feedback. Verwenden Sie 0, um Leitfragen zu deaktivieren.';
 $string['reject'] = 'Ablehnen';
 $string['reply_message'] = 'Anweisungen an die KI geben';
 $string['replyinlocked'] = 'In gesperrten Diskussionen antworten';

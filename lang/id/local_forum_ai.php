@@ -66,14 +66,19 @@ $string['enablediainitconversation'] = 'Aktifkan respons AI terhadap topik disku
 $string['enablediainitconversation_help'] = 'Mengaktifkan opsi ini akan memungkinkan AI merespons pesan awal yang memulai diskusi. Disarankan juga untuk memilih peran Guru pada kolom berikutnya.';
 $string['enableforumai'] = 'Aktifkan Forum AI';
 $string['enableforumai_desc'] = 'Jika dinonaktifkan, bagian "Datacurso Forum AI" disembunyikan dari pengaturan aktivitas forum dan pemrosesan otomatis dijeda.';
-$string['error_airequest'] = 'Kesalahan komunikasi dengan layanan AI: {$a}';
+$string['error_airequest'] = 'Respon AI tidak dapat dimuat. Silakan coba lagi nanti atau hubungi administrator Anda.';
 $string['error_discussionlocked'] = 'Diskusi ini terkunci, sehingga respon AI tidak dapat dipublikasikan. Buka kunci diskusi lalu coba lagi.';
 $string['error_forumclosed'] = 'Tanggal batas akhir forum ini sudah lewat, sehingga respon AI tidak dapat dipublikasikan.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Posting yang dibalas adalah balasan pribadi, sehingga respon AI tidak dapat dipublikasikan.';
 $string['error_responsenotpending'] = 'Respon ini sudah disetujui atau ditolak dan tidak dapat diedit lagi.';
 $string['error_usernotincourse'] = 'Pengguna yang dipilih tidak terdaftar di kursus ini.';
+$string['error_usernotingroup'] = 'Anda tidak dapat meminta tinjauan AI untuk pengguna di luar grup Anda.';
 $string['evaluatingwithai'] = 'Sedang mengevaluasi dengan AI...';
+$string['eventaireviewrequested'] = 'Tinjauan AI diminta';
+$string['eventresponseapproved'] = 'Respon AI disetujui';
+$string['eventresponserejected'] = 'Respon AI ditolak';
+$string['eventresponseupdated'] = 'Respon AI diedit';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Setujui atau tolak respons forum yang dihasilkan oleh AI';
 $string['forum_ai:useaireview'] = 'Gunakan fitur peninjauan AI untuk menilai forum';
@@ -99,11 +104,7 @@ Jawaban yang dihasilkan AI telah dibuat untuk diskusi "{$a->discussion}" di foru
 Pratinjau: {$a->preview}...
 
 Untuk meninjau pesan lengkap dan memutuskan apakah akan menyetujuinya atau menolaknya, silakan kunjungi:
-{$a->reviewurl}
-
-Tindakan cepat:
-- Setujui: {$a->approveurl}
-- Tolak: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Halo {$a->firstname},';
 $string['notification_intro'] = 'Respon otomatis telah dihasilkan untuk diskusi "{$a->discussion}" di forum "{$a->forum}" dalam kursus "{$a->course}".';
 $string['notification_preview'] = 'Pratinjau:';
@@ -155,6 +156,8 @@ $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Menunjukkan apakah
 $string['privacy:metadata:local_forum_ai_queue:timecreated'] = 'Tanggal permintaan dalam antrean dibuat.';
 $string['privacy:metadata:local_forum_ai_queue:timetoprocess'] = 'Tanggal permintaan dalam antrean harus diproses.';
 $string['privacy:metadata:local_forum_ai_queue:type'] = 'Jenis permintaan dalam antrean (posting atau diskusi).';
+$string['questionturns'] = 'Respon AI dengan pertanyaan pemandu (per utas balasan)';
+$string['questionturns_help'] = 'Pilih berapa banyak respon AI dalam utas balasan yang sama yang harus menyertakan umpan balik dan pertanyaan pemandu. Setelah batas ini tercapai, AI akan melanjutkan dengan umpan balik saja. Gunakan 0 untuk menonaktifkan pertanyaan pemandu.';
 $string['reject'] = 'Tolak';
 $string['reply_message'] = 'Berikan instruksi kepada AI';
 $string['replyinlocked'] = 'Balas di diskusi yang terkunci';

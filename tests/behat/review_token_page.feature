@@ -45,6 +45,17 @@ Feature: Review an AI response through the token review page
     And "Reject" "button" should exist
     And "Back to discussion" "link" should exist
 
+  @MDL-INT-022
+  Scenario: The edit textarea shows the HTML source of the response escaped exactly once
+    # Regression pin: the textarea value is entity-decoded by the driver, so under the old
+    # double-escape bug (s() over the source) this assertion would read literal
+    # '&lt;p&gt;...' entities instead of the HTML source and fail.
+    Given the following "local_forum_ai > pending responses" exist:
+      | forum     | discussion   | user     | subject          | message                            | approval_token                   |
+      | Forum one | Discussion A | student1 | Re: Discussion A | <p>Hola <strong>mundo</strong></p> | behattoken0000000000000000000002 |
+    When I am on the "behattoken0000000000000000000002" "local_forum_ai > review" page logged in as "teacher1"
+    Then the field "message" matches value "<p>Hola <strong>mundo</strong></p>"
+
   @javascript @MDL-INT-022 @SYS-E2E-003
   Scenario: Approving from the review page publishes the response and invalidates the token
     Given I am on the "behattoken0000000000000000000001" "local_forum_ai > review" page logged in as "teacher1"
@@ -70,6 +81,12 @@ Feature: Review an AI response through the token review page
     # any core navigation step fail on that page (Behat fails scenarios on debugging).
     Given I log in as "teacher1"
     Then the review page for token "doesnotexist0000000000000000000x" should show the already submitted notice
+
+  @MDL-INT-022
+  Scenario: An unrecoverable pending response shows a generic error without internal details
+    Given the forum discussion of the pending response with token "behattoken0000000000000000000001" no longer exists
+    And I log in as "teacher1"
+    Then the review page for token "behattoken0000000000000000000001" should show the generic error
 
   @MDL-INT-022 @SYS-E2E-003
   Scenario: A student opening the review URL is denied access

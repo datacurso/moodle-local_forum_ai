@@ -66,14 +66,19 @@ $string['enablediainitconversation'] = 'Включить ИИ-ответ на т
 $string['enablediainitconversation_help'] = 'Если включить эту опцию, ИИ сможет отвечать на первое сообщение, которое начинает обсуждение. Также рекомендуется выбрать роль «Преподаватель» в следующем поле.';
 $string['enableforumai'] = 'Включить Forum AI';
 $string['enableforumai_desc'] = 'Если отключено, раздел "Datacurso Forum AI" скрывается в настройках активности форума, а автоматическая обработка приостанавливается.';
-$string['error_airequest'] = 'Ошибка при связи со службой ИИ: {$a}';
+$string['error_airequest'] = 'Не удалось загрузить ответ ИИ. Повторите попытку позже или обратитесь к администратору.';
 $string['error_discussionlocked'] = 'Это обсуждение заблокировано, поэтому ответ ИИ не может быть опубликован. Разблокируйте обсуждение и попробуйте снова.';
 $string['error_forumclosed'] = 'Крайний срок этого форума истёк, поэтому ответ ИИ не может быть опубликован.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Сообщение, на которое даётся ответ, является личным ответом, поэтому ответ ИИ не может быть опубликован.';
 $string['error_responsenotpending'] = 'Этот ответ уже был одобрен или отклонён и больше не может быть отредактирован.';
 $string['error_usernotincourse'] = 'Выбранный пользователь не записан на этот курс.';
+$string['error_usernotingroup'] = 'Вы не можете запросить проверку с помощью ИИ для пользователя вне ваших групп.';
 $string['evaluatingwithai'] = 'Оценка с помощью ИИ...';
+$string['eventaireviewrequested'] = 'Запрошена проверка с помощью ИИ';
+$string['eventresponseapproved'] = 'Ответ ИИ одобрен';
+$string['eventresponserejected'] = 'Ответ ИИ отклонён';
+$string['eventresponseupdated'] = 'Ответ ИИ отредактирован';
 $string['forum'] = 'Форум';
 $string['forum_ai:approveresponses'] = 'Одобрить или отклонить ответы форума, сгенерированные ИИ';
 $string['forum_ai:useaireview'] = 'Используйте функцию проверки ИИ для оценки форума';
@@ -99,11 +104,7 @@ $string['notification_fullmessage'] = 'Здравствуйте, {$a->firstname}
 Предварительный просмотр: {$a->preview}...
 
 Чтобы просмотреть полное сообщение и решить, одобрить его или отклонить, пожалуйста, перейдите по ссылке:
-{$a->reviewurl}
-
-Быстрые действия:
-- Одобрить: {$a->approveurl}
-- Отклонить: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Здравствуйте, {$a->firstname},';
 $string['notification_intro'] = 'Автоматический ответ был сгенерирован для обсуждения "{$a->discussion}" на форуме "{$a->forum}" курса "{$a->course}".';
 $string['notification_preview'] = 'Предпросмотр:';
@@ -155,6 +156,8 @@ $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Указывает
 $string['privacy:metadata:local_forum_ai_queue:timecreated'] = 'Дата создания запроса в очереди.';
 $string['privacy:metadata:local_forum_ai_queue:timetoprocess'] = 'Дата, когда запрос в очереди должен быть обработан.';
 $string['privacy:metadata:local_forum_ai_queue:type'] = 'Тип запроса в очереди (сообщение или обсуждение).';
+$string['questionturns'] = 'Ответы ИИ с наводящим вопросом (на ветку ответов)';
+$string['questionturns_help'] = 'Выберите, сколько ответов ИИ в одной ветке ответов должны включать обратную связь и наводящий вопрос. После достижения этого лимита ИИ продолжит отвечать только с обратной связью. Используйте 0, чтобы отключить наводящие вопросы.';
 $string['reject'] = 'Отклонить';
 $string['reply_message'] = 'Дайте указания ИИ';
 $string['replyinlocked'] = 'Отвечать в заблокированных обсуждениях';

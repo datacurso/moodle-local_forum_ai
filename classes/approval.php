@@ -126,8 +126,6 @@ class approval {
             }
 
             $reviewurl = new \moodle_url('/local/forum_ai/review.php', ['token' => $approvaltoken]);
-            $approveurl = new \moodle_url('/local/forum_ai/approve.php', ['token' => $approvaltoken, 'action' => 'approve']);
-            $rejecturl = new \moodle_url('/local/forum_ai/approve.php', ['token' => $approvaltoken, 'action' => 'reject']);
 
             $renderer = null;
             try {
@@ -167,8 +165,6 @@ class approval {
                     'course' => $course->fullname,
                     'preview' => $preview,
                     'reviewurl' => $reviewurl->out(false),
-                    'approveurl' => $approveurl->out(false),
-                    'rejecturl' => $rejecturl->out(false),
                 ]);
 
                 $message->fullmessageformat = FORMAT_PLAIN;

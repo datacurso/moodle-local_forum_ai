@@ -160,6 +160,9 @@ function initAiEditHandlers(root, token) {
             methodname: 'local_forum_ai_update_response',
             args: { token: token, message: newMessage },
         }])[0].done(response => {
+            // Contract: response.message is server-side purified/formatted HTML
+            // (clean_text/format_text with HTMLPurifier), so direct HTML injection
+            // is the reviewed transformation here.
             root.find('#airesponse-content').html(response.message);
             location.reload();
         }).fail(Notification.exception);

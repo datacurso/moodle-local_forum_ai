@@ -66,14 +66,19 @@ $string['enablediainitconversation'] = 'Enable AI response to the discussion top
 $string['enablediainitconversation_help'] = 'Enabling this option will allow the AI ​​to respond to the initial message that starts the discussion. It is also recommended to select the Teacher role in the following field.';
 $string['enableforumai'] = 'Enable Forum AI';
 $string['enableforumai_desc'] = 'If disabled, the "Datacurso Forum AI" section is hidden from forum activity settings and automatic processing is paused.';
-$string['error_airequest'] = 'Error communicating with AI service: {$a}';
+$string['error_airequest'] = 'The AI response could not be loaded. Please try again later or contact your administrator.';
 $string['error_discussionlocked'] = 'This discussion is locked, so the AI response cannot be published. Unlock the discussion and try again.';
 $string['error_forumclosed'] = 'The cut-off date of this forum has passed, so the AI response cannot be published.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'The post being replied to is a private reply, so an AI response cannot be published.';
 $string['error_responsenotpending'] = 'This response has already been approved or rejected and can no longer be edited.';
 $string['error_usernotincourse'] = 'The selected user is not enrolled in this course.';
+$string['error_usernotingroup'] = 'You cannot request an AI review for a user outside your groups.';
 $string['evaluatingwithai'] = 'Evaluating with AI...';
+$string['eventaireviewrequested'] = 'AI review requested';
+$string['eventresponseapproved'] = 'AI response approved';
+$string['eventresponserejected'] = 'AI response rejected';
+$string['eventresponseupdated'] = 'AI response edited';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Approve or reject AI-generated forum responses';
 $string['forum_ai:useaireview'] = 'Use AI review functionality for forum grading';
@@ -99,11 +104,7 @@ An AI-generated response has been created for the discussion "{$a->discussion}" 
 Preview: {$a->preview}...
 
 To review the complete message and decide whether to approve or reject it, please visit:
-{$a->reviewurl}
-
-Quick actions:
-- Approve: {$a->approveurl}
-- Reject: {$a->rejecturl}';
+{$a->reviewurl}';
 $string['notification_greeting'] = 'Hello {$a->firstname},';
 $string['notification_intro'] = 'An automatic response has been generated for the discussion "{$a->discussion}" in the forum "{$a->forum}" of the course "{$a->course}".';
 $string['notification_preview'] = 'Preview:';
