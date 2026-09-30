@@ -297,8 +297,9 @@ class utils {
      *
      * Deliberately a date check, NOT a capability check: graders and admins
      * hold mod/forum:canoverridecutoff, so a capability gate would never
-     * fire for the users who publish AI responses. Only cutoffdate gates;
-     * duedate is advisory in core and does not block posting.
+     * fire for the users who publish AI responses. This helper checks only the
+     * cut-off date; the plugin-wide deadline rule, which falls back to the due
+     * date, is is_forum_deadline_reached().
      *
      * @param \stdClass $forum Forum record.
      * @return bool
@@ -309,6 +310,31 @@ class utils {
         require_once($CFG->dirroot . '/mod/forum/lib.php');
 
         return forum_is_cutoff_date_reached($forum);
+    }
+
+    /**
+     * Checks whether the forum deadline for AI responses has passed.
+     *
+     * The single deadline rule of the plugin (decision D4): the cut-off date
+     * when one is set, otherwise the due date. It gates every path (automatic
+     * generation tasks, approval from the list and from the review page) and it
+     * is exactly the criterion of local_forum_ai_cleanup_expired(), so a row
+     * expires if and only if this barrier would block its publication. Like
+     * is_forum_cutoff_reached(), it is a date check, not a capability check.
+     *
+     * @param \stdClass $forum Forum record.
+     * @return bool
+     */
+    public static function is_forum_deadline_reached(\stdClass $forum): bool {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        if (!empty($forum->cutoffdate)) {
+            return self::is_forum_cutoff_reached($forum);
+        }
+
+        return forum_is_due_date_reached($forum);
     }
 
     /**
