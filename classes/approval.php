@@ -39,6 +39,7 @@ class approval {
      * @param int|null $parentpostid The ID of the parent post to reply to, or null if top-level.
      * @param int|null $grade AI-generated grade, if applicable.
      * @param int|null $creatoruserid User ID to attribute as creator in pending/history.
+     * @param int|null $actionuserid User ID that managed the response (the grader in automatic mode).
      * @return int The new pending row id, or 0 on failure.
      */
     public static function create_approval_request(
@@ -48,7 +49,8 @@ class approval {
         string $status = 'pending',
         ?int $parentpostid = null,
         ?int $grade = null,
-        ?int $creatoruserid = null
+        ?int $creatoruserid = null,
+        ?int $actionuserid = null
     ): int {
         global $DB;
 
@@ -66,6 +68,14 @@ class approval {
             $pending->approval_token = $approvaltoken;
             $pending->parentpostid = $parentpostid;
             $pending->timecreated = time();
+
+            // Automatic mode: record the grader as manager, never as creator.
+            if ($actionuserid !== null) {
+                $pending->action_userid = $actionuserid;
+                if ($status === 'approved') {
+                    $pending->approved_at = $pending->timecreated;
+                }
+            }
 
             if ($forum->assessed != 0 && $grade !== null) {
                 $pending->grade = $grade;

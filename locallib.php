@@ -269,3 +269,42 @@ function local_forum_ai_add_rating(
         }
     }
 }
+
+/**
+ * Repairs history rows that stored the managing user as creator.
+ *
+ * Automatic mode used to store the grader in creator_userid (and left
+ * action_userid empty); rows managed before the action_userid column existed
+ * had the approving teacher there too. For approved rows with no manager whose
+ * creator is the author of the published AI post, the creator is moved to
+ * action_userid and the author of the parent post (the originating student)
+ * becomes the creator. Rows whose parent post no longer exists are skipped.
+ *
+ * @package local_forum_ai
+ * @return int Number of repaired rows.
+ */
+function local_forum_ai_repair_auto_mode_identities(): int {
+    global $DB;
+
+    $sql = "SELECT p.id, p.creator_userid, pp.userid AS parentauthorid
+              FROM {local_forum_ai_pending} p
+              JOIN {forum_posts} ap ON ap.id = p.postid AND ap.userid = p.creator_userid
+              JOIN {forum_posts} pp ON pp.id = p.parentpostid
+             WHERE p.status = :status
+               AND p.action_userid IS NULL
+               AND p.postid IS NOT NULL";
+
+    $repaired = 0;
+    $rows = $DB->get_recordset_sql($sql, ['status' => 'approved']);
+    foreach ($rows as $row) {
+        $DB->update_record('local_forum_ai_pending', (object) [
+            'id' => $row->id,
+            'creator_userid' => $row->parentauthorid,
+            'action_userid' => $row->creator_userid,
+        ]);
+        $repaired++;
+    }
+    $rows->close();
+
+    return $repaired;
+}
