@@ -100,9 +100,9 @@ $data = [
     'originaldate' => userdate($originalpost->created),
     'aisubject' => format_string($pending->subject),
     'aimessage' => format_text($pending->message, FORMAT_HTML),
-    // The template escapes {{aiformatted}} once (textarea source), so no s() here — it would
-    // double-escape; clean_text() defends against legacy dirty rows stored before sanitization.
-    'aiformatted' => clean_text($pending->message, FORMAT_HTML),
+    // Plain text for the edit box; the template escapes {{aitext}} once, so no s() here.
+    // from_html() purifies first, which also neutralises legacy dirty rows.
+    'aitext' => \local_forum_ai\local\editable_text::from_html($pending->message),
     'token' => $token,
     'forumurl' => $forumurl->out(),
     'headerlogo' => $logocontext,

@@ -37,7 +37,7 @@
       "straiproposed": "AI proposed response",
       "aisubject": "AI subject",
       "aimessage": "<p>AI generated message</p>",
-      "aiformatted": "AI editable text",
+      "aitext": "AI editable text",
       "strsave": "Save",
       "strcancel": "Cancel",
       "strapprove": "Approve",
@@ -93,7 +93,7 @@
 
         <!-- Edit view -->
         <form id="airesponse-edit" method="post" data-token="{{token}}" style="display:none;">
-          <textarea name="message" class="form-control" rows="6">{{aiformatted}}</textarea>
+          <textarea name="message" class="form-control" rows="6">{{aitext}}</textarea>
           <button type="submit" class="btn btn-success btn-sm mt-2">
             <i class="fa fa-save"></i> {{strsave}}
           </button>
