@@ -43,9 +43,9 @@ require_once($CFG->dirroot . '/mod/forum/lib.php');
  */
 final class notifications_test extends \advanced_testcase {
     /**
-     * MDL-INT-023 (steps 1-2): creating a pending response notifies the predefined
-     * roles (editing teacher) with the context names, a truncated preview and a
-     * working review link; users outside the predefined roles receive nothing.
+     * MDL-INT-023 (steps 1-2): creating a pending response notifies the users
+     * holding the approval capability (editing teacher) with the context names, a
+     * truncated preview and a working review link; users without it receive nothing.
      */
     public function test_pending_creation_notifies_editing_teacher_with_review_link(): void {
         $this->resetAfterTest();
@@ -53,7 +53,7 @@ final class notifications_test extends \advanced_testcase {
 
         $setup = $this->create_setup();
         $editingteacher = $this->getDataGenerator()->create_and_enrol($setup->course, 'editingteacher');
-        // A non-editing teacher can reply in the forum but is not a predefined recipient role.
+        // A non-editing teacher can reply in the forum but lacks the approval capability.
         $nonediting = $this->getDataGenerator()->create_and_enrol($setup->course, 'teacher');
 
         $longtext = str_repeat('A', 400);
@@ -118,12 +118,102 @@ final class notifications_test extends \advanced_testcase {
      * must also receive the notification.
      */
     public function test_custom_role_with_capability_receives_notification(): void {
-        $this->markTestSkipped(
-            'MDL-INT-023 NOTA [Pendiente:skip]: los destinatarios se filtran por el nombre ' .
-            'interno de tres roles predefinidos; los roles personalizados con el permiso no ' .
-            'reciben nada y, si ningun usuario coincide, la pendiente queda sin notificacion ' .
-            'alguna en silencio — debe filtrarse por capacidad.'
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $setup = $this->create_setup();
+        $roleid = $this->getDataGenerator()->create_role([
+            'shortname' => 'aireviewer',
+            'name' => 'AI reviewer',
+            'archetype' => 'teacher',
+        ]);
+        assign_capability(
+            'local/forum_ai:approveresponses',
+            CAP_ALLOW,
+            $roleid,
+            \context_system::instance()->id,
+            true
         );
+        $reviewer = $this->getDataGenerator()->create_and_enrol($setup->course, 'aireviewer');
+
+        $byrecipient = $this->create_pending_and_collect_messages($setup);
+
+        $this->assertArrayHasKey(
+            (int) $reviewer->id,
+            $byrecipient,
+            'A custom role holding local/forum_ai:approveresponses must be notified.'
+        );
+        $this->assertSame('ai_approval_request', $byrecipient[(int) $reviewer->id][0]->eventtype);
+    }
+
+    /**
+     * MDL-INT-023 (step 1): a standard non-editing teacher can reply in the forum
+     * but does not hold the approval capability, so it is not notified.
+     */
+    public function test_non_editing_teacher_without_capability_is_not_notified(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $setup = $this->create_setup();
+        $nonediting = $this->getDataGenerator()->create_and_enrol($setup->course, 'teacher');
+        $editingteacher = $this->getDataGenerator()->create_and_enrol($setup->course, 'editingteacher');
+
+        $byrecipient = $this->create_pending_and_collect_messages($setup);
+
+        $this->assertArrayHasKey((int) $editingteacher->id, $byrecipient);
+        $this->assertArrayNotHasKey((int) $nonediting->id, $byrecipient);
+    }
+
+    /**
+     * MDL-INT-023 (step 4): a predefined role whose approval capability is
+     * prohibited in the course must not be notified.
+     */
+    public function test_capability_prohibited_for_role_is_not_notified(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $setup = $this->create_setup();
+        $editingteacher = $this->getDataGenerator()->create_and_enrol($setup->course, 'editingteacher');
+        $roleid = (int) $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
+        assign_capability(
+            'local/forum_ai:approveresponses',
+            CAP_PROHIBIT,
+            $roleid,
+            \context_course::instance($setup->course->id)->id,
+            true
+        );
+
+        $byrecipient = $this->create_pending_and_collect_messages($setup);
+
+        $this->assertArrayNotHasKey(
+            (int) $editingteacher->id,
+            $byrecipient,
+            'A role with the approval capability prohibited must not be notified.'
+        );
+    }
+
+    /**
+     * MDL-INT-023 (step 1): suspended user accounts are never notified, even when
+     * their role holds the approval capability.
+     */
+    public function test_suspended_approver_is_not_notified(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $setup = $this->create_setup();
+        $active = $this->getDataGenerator()->create_and_enrol($setup->course, 'editingteacher');
+        $suspended = $this->getDataGenerator()->create_and_enrol(
+            $setup->course,
+            'editingteacher',
+            ['suspended' => 1]
+        );
+
+        $byrecipient = $this->create_pending_and_collect_messages($setup);
+
+        $this->assertArrayHasKey((int) $active->id, $byrecipient);
+        $this->assertArrayNotHasKey((int) $suspended->id, $byrecipient);
     }
 
     /**
@@ -243,6 +333,37 @@ final class notifications_test extends \advanced_testcase {
         $messagesink->close();
 
         $this->assertCount(0, $studentmessages, 'No subscription mail may be sent when subscriptions are disabled.');
+    }
+
+    /**
+     * Creates a pending approval request for the setup discussion and groups the
+     * resulting notifications by recipient.
+     *
+     * @param stdClass $setup Setup holder.
+     * @return array Messages keyed by recipient user id.
+     */
+    private function create_pending_and_collect_messages(stdClass $setup): array {
+        $sink = $this->redirectMessages();
+        $pendingid = approval::create_approval_request(
+            $setup->discussion,
+            $setup->forum,
+            '<p>Body under review</p>',
+            'pending',
+            (int) $setup->discussion->firstpost
+        );
+        $messages = $sink->get_messages();
+        $sink->close();
+
+        $this->assertGreaterThan(0, $pendingid);
+
+        $byrecipient = [];
+        foreach ($messages as $message) {
+            if ($message->component === 'local_forum_ai') {
+                $byrecipient[(int) $message->useridto][] = $message;
+            }
+        }
+
+        return $byrecipient;
     }
 
     /**
