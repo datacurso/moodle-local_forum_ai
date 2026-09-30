@@ -330,43 +330,14 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->hideIf('local_forum_ai_replyinlocked', 'local_forum_ai_enabled', 'neq', 1);
     $mform->hideIf('local_forum_ai_questionturns', 'local_forum_ai_enabled', 'neq', 1);
 
-    // Users enrolled who can either rate or grade.
-    $eligibleusers = [];
-
-    // Users with mod/forum:rate.
-    $rators = get_enrolled_users($context, 'mod/forum:rate');
-    foreach ($rators as $u) {
-        $eligibleusers[$u->id] = fullname($u);
-    }
-
-    // Users with mod/forum:grade.
-    $graders = get_enrolled_users($context, 'mod/forum:grade');
-    foreach ($graders as $u) {
-        $eligibleusers[$u->id] = fullname($u);
-    }
-
-    // Sort list.
-    if (!empty($eligibleusers)) {
-        \core_collator::asort($eligibleusers);
-    }
-
-    // Ensure saved grader appears even if not enrolled (past config).
-    if ($defaults->graderid && !isset($eligibleusers[$defaults->graderid])) {
-        $saveduser = $DB->get_record(
-            'user',
-            ['id' => $defaults->graderid],
-            'id, firstname, lastname, firstnamephonetic, lastnamephonetic, middlename, alternatename'
-        );
-        if ($saveduser) {
-            $eligibleusers[$saveduser->id] = fullname($saveduser);
-        }
-    }
+    $graderid = $defaults->graderid ? (int) $defaults->graderid : null;
+    $graderoptions = local_forum_ai_get_grader_options($context, $graderid);
 
     $mform->addElement(
         'autocomplete',
         'local_forum_ai_grader',
         get_string('autogradegrader', 'local_forum_ai'),
-        $eligibleusers,
+        $graderoptions,
         [
             'multiple' => false,
             'tags' => false,
@@ -377,9 +348,8 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->setType('local_forum_ai_grader', PARAM_INT);
     $mform->addHelpButton('local_forum_ai_grader', 'autogradegrader', 'local_forum_ai');
 
-    if ($defaults->graderid) {
-        $mform->setDefault('local_forum_ai_grader', (int)$defaults->graderid);
-    }
+    // Always set a default so "None" (0) is selected when no grader is stored.
+    $mform->setDefault('local_forum_ai_grader', $graderid ?? 0);
 
     // Hide unless AI is enabled.
     $mform->hideIf('local_forum_ai_grader', 'local_forum_ai_enabled', 'neq', 1);
@@ -394,6 +364,48 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     );
     $mform->setType('local_forum_ai_reply_message', PARAM_RAW);
     $mform->setDefault('local_forum_ai_reply_message', $defaults->reply_message);
+}
+
+/**
+ * Returns the options for the "Recorded grader for auto approvals" field.
+ *
+ * The first option is a real "None" entry (key 0) so the single select never
+ * falls back to the first user. It is followed by the enrolled users who can
+ * rate or grade forums, sorted by name, plus the saved grader when they are no
+ * longer enrolled.
+ *
+ * @param \context $context Context used to find enrolled users.
+ * @param int|null $savedgraderid Grader currently stored for the forum, if any.
+ * @return array<int, string> Options keyed by user id, with 0 meaning no grader.
+ */
+function local_forum_ai_get_grader_options(\context $context, ?int $savedgraderid): array {
+    global $DB;
+
+    $eligibleusers = [];
+
+    // Users with mod/forum:rate or mod/forum:grade.
+    foreach (['mod/forum:rate', 'mod/forum:grade'] as $capability) {
+        foreach (get_enrolled_users($context, $capability) as $user) {
+            $eligibleusers[$user->id] = fullname($user);
+        }
+    }
+
+    if (!empty($eligibleusers)) {
+        \core_collator::asort($eligibleusers);
+    }
+
+    // Ensure the saved grader appears even if no longer enrolled (past config).
+    if ($savedgraderid && !isset($eligibleusers[$savedgraderid])) {
+        $saveduser = $DB->get_record('user', ['id' => $savedgraderid], implode(', ', array_merge(
+            ['id'],
+            \core_user\fields::get_name_fields()
+        )));
+        if ($saveduser) {
+            $eligibleusers[$saveduser->id] = fullname($saveduser);
+        }
+    }
+
+    return [0 => get_string('none')] + $eligibleusers;
 }
 
 /**
@@ -446,6 +458,8 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
     }
 
     $record = $DB->get_record('local_forum_ai_config', ['forumid' => $data->instance]);
+
+    $storedenabled = $record ? (int) $record->enabled : 0;
 
     $config = $record ?: new stdClass();
     $config->forumid = $data->instance;
@@ -506,8 +520,10 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         $config->questionturns = \local_forum_ai\utils::get_default_question_turns();
     }
 
+    // With global AI disabled the form shows a forced "No"; never persist it.
+    // Existing rows keep their stored value and new rows are created disabled.
     if (!\local_forum_ai\utils::is_global_ai_enabled()) {
-        $config->enabled = 0;
+        $config->enabled = $storedenabled;
     }
 
     // Save the roles only when the field was submitted; otherwise keep the stored value.
