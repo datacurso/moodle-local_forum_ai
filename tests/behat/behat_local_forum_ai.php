@@ -185,6 +185,33 @@ class behat_local_forum_ai extends behat_base {
     }
 
     /**
+     * Show a Review with AI notice in the grading panel, as the button does after an evaluation.
+     *
+     * Behat has no AI service (the mocked client only exists in PHPUnit), so the notice is
+     * rendered straight into the messages container with the same markup the button uses
+     * (local_forum_ai/notification_message). Unlike the real notice it is never auto-hidden,
+     * so a later assertion cannot pass because of the 10 second timer.
+     *
+     * @Given /^the Forum AI review notice "(?P<text_string>(?:[^"]|\\")*)" is shown$/
+     *
+     * @param string $text The notice text.
+     */
+    public function the_forum_ai_review_notice_is_shown(string $text): void {
+        global $OUTPUT;
+
+        $html = $OUTPUT->render_from_template('local_forum_ai/notification_message', [
+            'message' => s($text),
+            'type' => 'success',
+            'icon' => 'fa-check-circle',
+        ]);
+        $this->execute_script(
+            'var container = document.getElementById("forum-ai-review-messages");' .
+            'container.innerHTML = ' . json_encode($html) . ';' .
+            'container.style.display = "";'
+        );
+    }
+
+    /**
      * Get a forum record (id and course) from the activity idnumber.
      *
      * @param string $idnumber The activity idnumber.
