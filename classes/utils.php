@@ -363,6 +363,43 @@ class utils {
     }
 
     /**
+     * Determines whether a given user may reply in the group of a discussion.
+     *
+     * Mirrors the group rules of forum_user_can_post() for an arbitrary user
+     * (core only evaluates them for $USER): without group mode, or with
+     * moodle/site:accessallgroups, the user can always reply; discussions for
+     * all participants accept replies only in visible groups mode; otherwise
+     * the user must be a member of the discussion group.
+     *
+     * @param \stdClass $cm Course module record.
+     * @param \stdClass $course Course record.
+     * @param \stdClass $discussion Discussion record (only groupid is used).
+     * @param int $userid User who would publish the reply.
+     * @return bool
+     */
+    public static function can_user_reply_in_discussion_group(
+        \stdClass $cm,
+        \stdClass $course,
+        \stdClass $discussion,
+        int $userid
+    ): bool {
+        $groupmode = groups_get_activity_groupmode($cm, $course);
+        if (!$groupmode) {
+            return true;
+        }
+
+        if (has_capability('moodle/site:accessallgroups', \context_module::instance($cm->id), $userid)) {
+            return true;
+        }
+
+        if ((int) $discussion->groupid === -1) {
+            return $groupmode == VISIBLEGROUPS;
+        }
+
+        return groups_is_member((int) $discussion->groupid, $userid);
+    }
+
+    /**
      * Returns ancestor post IDs for a post within the same discussion.
      *
      * The returned list is ordered from direct parent to root post.
