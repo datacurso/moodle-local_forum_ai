@@ -262,6 +262,85 @@ final class token_services_permissions_test extends externallib_advanced_testcas
     }
 
     /**
+     * get_details returns the editable response as plain text, without HTML tags.
+     */
+    public function test_details_return_editable_text_without_tags(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$pending, $student, $teacher] = $this->create_pending_response();
+        $DB->set_field(
+            'local_forum_ai_pending',
+            'message',
+            '<p>Hola <strong>mundo</strong></p><p>5 &lt; 7</p>',
+            ['id' => $pending->id]
+        );
+
+        $this->setUser($teacher);
+
+        $details = get_details::execute($pending->approval_token);
+        // Same pre-existing missing-name-fields debugging notices as in the other get_details cases.
+        $this->assertDebuggingCalledCount(2);
+        $details = external_api::clean_returnvalue(get_details::execute_returns(), $details);
+
+        $this->assertSame("Hola mundo\n\n5 < 7", $details['airesponsetext']);
+    }
+
+    /**
+     * Plain text saved from the edit box is stored as escaped, purified paragraphs.
+     */
+    public function test_plaintext_update_stores_escaped_paragraphs(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$pending, $student, $teacher] = $this->create_pending_response();
+
+        $this->setUser($teacher);
+
+        $result = update_response::execute($pending->approval_token, "5 < 7\n\nOtro <b>x</b>", true);
+        $result = external_api::clean_returnvalue(update_response::execute_returns(), $result);
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame(
+            '<p>5 &lt; 7</p><p>Otro &lt;b&gt;x&lt;/b&gt;</p>',
+            $DB->get_field('local_forum_ai_pending', 'message', ['id' => $pending->id], MUST_EXIST)
+        );
+    }
+
+    /**
+     * Saving the unchanged plain text keeps the stored formatted HTML byte-identical.
+     */
+    public function test_plaintext_noop_keeps_stored_html(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$pending, $student, $teacher] = $this->create_pending_response();
+
+        $clean = clean_text('<p>Hola <strong>mundo</strong></p><ul><li>a</li><li>b</li></ul>', FORMAT_HTML);
+        $DB->set_field('local_forum_ai_pending', 'message', $clean, ['id' => $pending->id]);
+
+        $this->setUser($teacher);
+
+        $details = get_details::execute($pending->approval_token);
+        $this->assertDebuggingCalledCount(2);
+        $details = external_api::clean_returnvalue(get_details::execute_returns(), $details);
+
+        // Browsers may submit textarea content with CRLF line endings.
+        $submitted = str_replace("\n", "\r\n", $details['airesponsetext']);
+        $result = update_response::execute($pending->approval_token, $submitted, true);
+        $result = external_api::clean_returnvalue(update_response::execute_returns(), $result);
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertSame(
+            $clean,
+            $DB->get_field('local_forum_ai_pending', 'message', ['id' => $pending->id], MUST_EXIST)
+        );
+    }
+
+    /**
      * A teacher with the approval capability can read the discussion data for a token.
      */
     public function test_teacher_can_get_discussion_data(): void {

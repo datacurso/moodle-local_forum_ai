@@ -137,7 +137,7 @@ async function renderDiscussion(data, editMode = false, strings) {
         token: data.token,
         editmode: editMode,
         airesponse: data.airesponse,
-        airesponseraw: data.airesponseraw,
+        airesponsetext: data.airesponsetext,
         savelabel: strings.saveLabel,
         saveapprovelabel: strings.saveApproveLabel,
         rejectlabel: strings.rejectLabel,
@@ -158,7 +158,7 @@ function initAiEditHandlers(root, token) {
 
         Ajax.call([{
             methodname: 'local_forum_ai_update_response',
-            args: { token: token, message: newMessage },
+            args: { token: token, message: newMessage, plaintext: true },
         }])[0].done(response => {
             // Contract: response.message is server-side purified/formatted HTML
             // (clean_text/format_text with HTMLPurifier), so direct HTML injection
@@ -174,7 +174,7 @@ function initAiEditHandlers(root, token) {
 
         Ajax.call([{
             methodname: 'local_forum_ai_update_response',
-            args: { token: token, message: newMessage },
+            args: { token: token, message: newMessage, plaintext: true },
         }])[0].done(() => {
             Ajax.call([{
                 methodname: 'local_forum_ai_approve_response',
