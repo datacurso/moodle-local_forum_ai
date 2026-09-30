@@ -107,18 +107,17 @@ class approval {
 
             $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
             $context = \context_module::instance($cm->id);
-            $recipients = get_users_by_capability($context, 'mod/forum:replypost');
+            // Recipients are chosen by capability, never by role shortname, so custom or
+            // renamed roles holding the approval permission are notified as well.
+            $approvers = get_users_by_capability($context, 'local/forum_ai:approveresponses', 'u.*');
+            $repliers = get_users_by_capability($context, 'mod/forum:replypost', 'u.id');
 
-            $allowedroles = ['manager', 'editingteacher', 'coursecreator'];
             $finalrecipients = [];
-
-            foreach ($recipients as $recipient) {
-                $roles = get_user_roles($context, $recipient->id);
-                foreach ($roles as $role) {
-                    if (in_array($role->shortname, $allowedroles)) {
-                        $finalrecipients[$recipient->id] = $recipient;
-                    }
+            foreach ($approvers as $approver) {
+                if (!empty($approver->suspended) || !isset($repliers[$approver->id])) {
+                    continue;
                 }
+                $finalrecipients[$approver->id] = $approver;
             }
 
             if (empty($finalrecipients)) {
