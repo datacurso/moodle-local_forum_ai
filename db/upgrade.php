@@ -35,7 +35,7 @@ require_once($CFG->libdir . '/upgradelib.php');
  * @return bool
  */
 function xmldb_local_forum_ai_upgrade($oldversion) {
-    global $DB;
+    global $CFG, $DB;
 
     $dbman = $DB->get_manager();
 
@@ -373,6 +373,16 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
 
         // Forum_ai savepoint reached.
         upgrade_plugin_savepoint(true, 2026080700, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026093000) {
+        // Automatic mode stored the grader as creator of the history rows. Move the grader to
+        // action_userid and restore the originating student as creator.
+        require_once($CFG->dirroot . '/local/forum_ai/locallib.php');
+        local_forum_ai_repair_auto_mode_identities();
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026093000, 'local', 'forum_ai');
     }
 
     return true;
