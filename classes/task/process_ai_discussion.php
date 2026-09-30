@@ -88,6 +88,17 @@ class process_ai_discussion extends adhoc_task {
                 $requireapproval = 1;
             }
 
+            // A grader who cannot reply in the discussion group must not publish: degrade to manual approval.
+            if (!$requireapproval) {
+                $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
+                if (!utils::can_user_reply_in_discussion_group($cm, $course, $discussion, (int) $effectivegraderid)) {
+                    mtrace("local_forum_ai: discussion {$discussionid} requires approval — grader {$effectivegraderid} " .
+                        "cannot reply in its group.");
+                    $requireapproval = 1;
+                    $effectivegraderid = null;
+                }
+            }
+
             if (!$enabled || empty($enablediainitconversation)) {
                 mtrace("local_forum_ai: skipping discussion {$discussionid} — AI disabled or initial replies " .
                     "not enabled for forum {$forum->id}.");

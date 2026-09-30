@@ -220,7 +220,8 @@ class approval {
      * @param int $authorid User the published post is attributed to.
      * @return int|false The new post id, or false when publication is not possible.
      *                   False is only returned BEFORE any post is created (private
-     *                   parent, or missing/suspended/deleted author). Once
+     *                   parent, missing/suspended/deleted author, or an author who
+     *                   cannot reply in the discussion group). Once
      *                   forum_add_new_post() succeeds this method always returns the
      *                   new post id and no exception escapes: follow-up failures
      *                   (linking, event, completion) are logged and swallowed so
@@ -285,6 +286,15 @@ class approval {
                 // unbounded adhoc retries that re-call the paid AI service.
                 debugging(
                     'Cannot publish AI reply: author user ' . $authorid . ' is missing or inactive',
+                    DEBUG_DEVELOPER
+                );
+                return false;
+            }
+            if (!utils::can_user_reply_in_discussion_group($cm, $course, $discussion, $authorid)) {
+                // Core would forbid this user from replying in the discussion group.
+                debugging(
+                    'Cannot publish AI reply: author user ' . $authorid . ' cannot reply in the group of discussion ' .
+                        $discussion->id,
                     DEBUG_DEVELOPER
                 );
                 return false;
