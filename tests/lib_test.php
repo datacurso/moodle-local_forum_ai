@@ -293,6 +293,79 @@ final class lib_test extends \advanced_testcase {
     }
 
     /**
+     * The grader options start with a real "None" option followed by the sorted eligible users.
+     *
+     * Covers: MDL-INT-002 — defect 2 (the first user must not be preselected).
+     *
+     * @covers \local_forum_ai_get_grader_options
+     */
+    public function test_grader_options_start_with_none(): void {
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher', ['firstname' => 'Zed', 'lastname' => 'Teacher']);
+        $assistant = $generator->create_and_enrol($course, 'teacher', ['firstname' => 'Ann', 'lastname' => 'Assistant']);
+        $generator->create_and_enrol($course, 'student', ['firstname' => 'Bob', 'lastname' => 'Student']);
+
+        $options = local_forum_ai_get_grader_options(\context_course::instance($course->id), null);
+
+        $this->assertSame([
+            0 => get_string('none'),
+            (int) $assistant->id => fullname($assistant),
+            (int) $teacher->id => fullname($teacher),
+        ], $options);
+        $this->assertSame(0, array_key_first($options));
+    }
+
+    /**
+     * A saved grader who is no longer enrolled still appears in the grader options.
+     *
+     * Covers: MDL-INT-002 — defect 2.
+     *
+     * @covers \local_forum_ai_get_grader_options
+     */
+    public function test_grader_options_include_saved_grader_not_enrolled(): void {
+        $this->resetAfterTest();
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $teacher = $generator->create_and_enrol($course, 'editingteacher');
+        $formergrader = $generator->create_user();
+
+        $options = local_forum_ai_get_grader_options(\context_course::instance($course->id), (int) $formergrader->id);
+
+        $this->assertSame(0, array_key_first($options));
+        $this->assertSame(get_string('none'), $options[0]);
+        $this->assertArrayHasKey((int) $teacher->id, $options);
+        $this->assertSame(fullname($formergrader), $options[(int) $formergrader->id]);
+        $this->assertCount(3, $options);
+    }
+
+    /**
+     * Submitting the "None" grader option clears the stored grader.
+     *
+     * Covers: MDL-INT-002 — defect 2.
+     */
+    public function test_save_with_grader_none_clears_grader(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$course, $forum] = $this->create_course_forum();
+        $this->seed_config($forum->id, ['graderid' => 1234]);
+
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $data = $this->build_form_data($course->id, $forum->id, ['local_forum_ai_grader' => 0]);
+        local_forum_ai_coursemodule_edit_post_actions($data, $course);
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id], '*', MUST_EXIST);
+        $this->assertNull($config->graderid);
+    }
+
+    /**
      * Creates a course with a forum.
      *
      * @return array{0: stdClass, 1: stdClass} [$course, $forum].
