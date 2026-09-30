@@ -95,6 +95,23 @@ Feature: Pending responses page and response history page
     And I follow "Discussion A"
     And I should not see "AI draft answer one"
 
+  @javascript @MDL-INT-019
+  Scenario: The edit box of the details modal shows plain text
+    Given the following "local_forum_ai > pending responses" exist:
+      | forum     | discussion   | user     | subject          | message                 |
+      | Forum one | Discussion A | student1 | Re: Discussion A | <p>Hello 5 &lt; 7</p>   |
+    And I am on the "Forum one" "forum activity" page logged in as "teacher1"
+    And I navigate to "Pending Forum AI Responses" in current page administration
+    When I click on "Details" "button" in the "Discussion A" "table_row"
+    Then I should see "Discussion Details" in the ".modal-title" "css_element"
+    And the field with xpath "//textarea[@id='airesponse-edit']" does not match value "<p>Hello 5 &lt; 7</p>"
+    And the field with xpath "//textarea[@id='airesponse-edit']" matches value "Hello 5 < 7"
+    When I set the field with xpath "//textarea[@id='airesponse-edit']" to "Edited plain answer 5 < 7"
+    And I click on "Save" "button" in the ".modal-body" "css_element"
+    Then I should see "Edited plain answer 5 < 7"
+    And I click on "Details" "button" in the "Discussion A" "table_row"
+    And the field with xpath "//textarea[@id='airesponse-edit']" matches value "Edited plain answer 5 < 7"
+
   @MDL-INT-021
   Scenario: The history page lists approved, rejected and expired responses with their status
     Given the following "local_forum_ai > pending responses" exist:
