@@ -169,7 +169,8 @@ class process_ai_discussion extends adhoc_task {
                 $requireapproval ? 'pending' : 'approved',
                 $discussion->firstpost,
                 $grade,
-                (!$requireapproval && $effectivegraderid) ? $effectivegraderid : $discussion->userid
+                $discussion->userid,
+                $requireapproval ? null : (int) $effectivegraderid
             );
 
             if (!$requireapproval && $pendingid) {

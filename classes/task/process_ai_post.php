@@ -178,7 +178,8 @@ class process_ai_post extends adhoc_task {
                 $requireapproval ? 'pending' : 'approved',
                 $post->id,
                 $grade,
-                (!$requireapproval && $effectivegraderid) ? $effectivegraderid : $post->userid
+                $post->userid,
+                $requireapproval ? null : (int) $effectivegraderid
             );
 
             if (!$requireapproval && $pendingid) {
