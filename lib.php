@@ -447,6 +447,8 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
 
     $record = $DB->get_record('local_forum_ai_config', ['forumid' => $data->instance]);
 
+    $storedenabled = $record ? (int) $record->enabled : 0;
+
     $config = $record ?: new stdClass();
     $config->forumid = $data->instance;
     if (property_exists($data, 'local_forum_ai_enabled')) {
@@ -506,8 +508,10 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         $config->questionturns = \local_forum_ai\utils::get_default_question_turns();
     }
 
+    // With global AI disabled the form shows a forced "No"; never persist it.
+    // Existing rows keep their stored value and new rows are created disabled.
     if (!\local_forum_ai\utils::is_global_ai_enabled()) {
-        $config->enabled = 0;
+        $config->enabled = $storedenabled;
     }
 
     // Save the roles only when the field was submitted; otherwise keep the stored value.
