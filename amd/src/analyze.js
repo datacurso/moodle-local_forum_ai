@@ -45,10 +45,22 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
             const $button = $('#forum-ai-review-btn');
             const $messagesContainer = $('#forum-ai-review-messages');
             let lastState = null;
+            // Student shown in the grader the last time the DOM changed.
+            let currentUserId = null;
 
             if ($button.length === 0) {
                 return;
             }
+
+            /**
+             * Returns the id of the student currently shown in the grader.
+             *
+             * @returns {string|null} The user id, or null when no grader is open.
+             */
+            const getCurrentUserId = function () {
+                const userNode = document.querySelector('[data-region="name"][data-userid]');
+                return userNode ? userNode.getAttribute('data-userid') : null;
+            };
 
             /**
              * Shows a notification message above the button.
@@ -158,7 +170,6 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
                 setTimeout(injectButtonIntoGrader, 300);
             });
 
-            observeUserChange();
             observeGradingPanel();
 
             // Initial injection attempt on load
@@ -186,8 +197,7 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
                 // Prefer the server-resolved cmid; the URL only carries it when
                 // the page was reached via ?id=<cmid> (not via ?f=<forumid>).
                 const resolvedCmid = cmid || new URLSearchParams(window.location.search).get('id');
-                const userNode = document.querySelector('[data-region="name"][data-userid]');
-                const userid = userNode ? userNode.getAttribute('data-userid') : null;
+                const userid = getCurrentUserId();
 
                 if (!resolvedCmid || !userid) {
                     resetLoading(button);
@@ -204,6 +214,13 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
                         userid: parseInt(userid, 10)
                     }
                 }])[0].done(async function (response) {
+
+                    // The teacher moved to another student while the AI was evaluating:
+                    // drop the result so it never lands on that student's form.
+                    if (getCurrentUserId() !== userid) {
+                        resetLoading(button);
+                        return;
+                    }
 
                     try {
                         const data = JSON.parse(response.data);
@@ -241,6 +258,11 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
                 }).fail(function (error) {
                     resetLoading(button);
 
+                    // The error belongs to a student that is no longer shown.
+                    if (getCurrentUserId() !== userid) {
+                        return;
+                    }
+
                     // Extract detailed error message
                     let errorMessage = '';
 
@@ -261,32 +283,11 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
             });
 
             /**
-             * Observes changes in the user selector to reinject the button
-             * when a different student is selected.
+             * Observes the grading panel DOM, reinjects the button and clears
+             * the previous notice when the grader shows a different student.
              *
-             * @returns {void}
-             */
-            function observeUserChange() {
-                const container = document.querySelector('[data-region="user_picker"]');
-
-                if (!container) {
-                    return;
-                }
-
-                const observer = new MutationObserver(function () {
-                    setTimeout(function () {
-                        injectButtonIntoGrader();
-                        // Clear notifications when changing users
-                        $messagesContainer.empty().hide();
-                    }, 300);
-                });
-
-                observer.observe(container, { childList: true, subtree: true });
-            }
-
-            /**
-             * Observes the grading panel DOM and reinjects the button
-             * only when real structural changes occur.
+             * The grader is built after this module loads, so the student is
+             * compared on every change instead of observing the user picker.
              *
              * @returns {void}
              */
@@ -294,6 +295,12 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
 
                 const observer = new MutationObserver(function () {
                     injectButtonIntoGrader();
+
+                    const userid = getCurrentUserId();
+                    if (userid !== currentUserId) {
+                        currentUserId = userid;
+                        $messagesContainer.empty().hide();
+                    }
                 });
 
                 // Observe the full document body as Moodle dynamically rebuilds graders
