@@ -211,6 +211,88 @@ final class lib_test extends \advanced_testcase {
     }
 
     /**
+     * Saving with global AI disabled keeps the stored per-forum enabled value and saves other fields.
+     *
+     * Covers: MDL-INT-002 — defect 1 (the forced "No" must not be persisted).
+     */
+    public function test_save_with_global_ai_disabled_keeps_stored_enabled_value(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        set_config('default_enabled', 0, 'local_forum_ai');
+
+        [$course, $forum] = $this->create_course_forum();
+        $this->seed_config($forum->id, [
+            'enabled' => 1,
+            'reply_message' => 'Old prompt',
+        ]);
+
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $data = $this->build_form_data($course->id, $forum->id, [
+            'local_forum_ai_enabled' => 0,
+            'local_forum_ai_reply_message' => 'New prompt',
+        ]);
+        local_forum_ai_coursemodule_edit_post_actions($data, $course);
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id], '*', MUST_EXIST);
+        $this->assertSame(1, (int) $config->enabled);
+        $this->assertSame('New prompt', $config->reply_message);
+    }
+
+    /**
+     * Saving with global AI disabled ignores a submitted "Yes" for the per-forum enabled value.
+     *
+     * Covers: MDL-INT-002 — defect 1.
+     */
+    public function test_save_with_global_ai_disabled_ignores_submitted_yes(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        set_config('default_enabled', 0, 'local_forum_ai');
+
+        [$course, $forum] = $this->create_course_forum();
+        $this->seed_config($forum->id, ['enabled' => 0]);
+
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $data = $this->build_form_data($course->id, $forum->id, ['local_forum_ai_enabled' => 1]);
+        local_forum_ai_coursemodule_edit_post_actions($data, $course);
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id], '*', MUST_EXIST);
+        $this->assertSame(0, (int) $config->enabled);
+    }
+
+    /**
+     * Saving with global AI disabled and no stored row creates the row disabled.
+     *
+     * Covers: MDL-INT-002 — defect 1.
+     */
+    public function test_save_with_global_ai_disabled_creates_new_row_disabled(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        set_config('default_enabled', 0, 'local_forum_ai');
+
+        [$course, $forum] = $this->create_course_forum();
+
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $this->setUser($teacher);
+
+        $data = $this->build_form_data($course->id, $forum->id, [
+            'local_forum_ai_enabled' => 1,
+            'local_forum_ai_reply_message' => 'New prompt',
+        ]);
+        local_forum_ai_coursemodule_edit_post_actions($data, $course);
+
+        $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id], '*', MUST_EXIST);
+        $this->assertSame(0, (int) $config->enabled);
+        $this->assertSame('New prompt', $config->reply_message);
+    }
+
+    /**
      * Creates a course with a forum.
      *
      * @return array{0: stdClass, 1: stdClass} [$course, $forum].
