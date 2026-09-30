@@ -74,6 +74,26 @@ Feature: Review an AI response through the token review page
     # Paso manual: requiere servicio de IA (verificar que la notificacion original del profesor
     # contiene este mismo enlace de revision generado por el flujo real).
 
+  @MDL-INT-020
+  Scenario: The review page expires a response whose forum due date has passed
+    Given the following "activity" exists:
+      | activity   | forum         |
+      | course     | C1            |
+      | idnumber   | forum2        |
+      | name       | Forum overdue |
+      | duedate    | ##yesterday## |
+      | cutoffdate | 0             |
+    And the following "mod_forum > discussions" exist:
+      | user     | forum  | name         | message            |
+      | student1 | forum2 | Discussion B | Student question B |
+    And the following "local_forum_ai > pending responses" exist:
+      | forum         | discussion   | user     | subject          | message             | approval_token                   |
+      | Forum overdue | Discussion B | student1 | Re: Discussion B | AI draft answer two | behattoken0000000000000000000003 |
+    When I am on the "behattoken0000000000000000000003" "local_forum_ai > review" page logged in as "teacher1"
+    Then I should see "This AI response has expired because the due date or the cut-off date of the forum has passed."
+    And I should not see "AI draft answer two"
+    And "Approve" "button" should not exist
+
   @MDL-INT-022
   Scenario: A non existing token shows the informative message with a continue button
     # A custom step is required: the invalid-token branch of review.php calls

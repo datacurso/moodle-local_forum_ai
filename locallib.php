@@ -123,8 +123,9 @@ function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
  * Scoped to one course (and optionally one forum): opening the pending list
  * of a course must never touch other courses. Rows are kept for traceability
  * with status 'expired' instead of being deleted, so they reach the history.
- * Expiry criterion (unchanged): the forum cut-off date has passed, or the due
- * date has passed when no cut-off date is set.
+ * Expiry criterion: the forum cut-off date has passed, or the due date has
+ * passed when no cut-off date is set. It must stay identical to
+ * \local_forum_ai\utils::is_forum_deadline_reached(), the publication barrier.
  *
  * @package local_forum_ai
  * @param int $courseid Course ID the cleanup is scoped to.
@@ -180,6 +181,27 @@ function local_forum_ai_cleanup_expired(int $courseid, int $forumid = 0): int {
     }
 
     return 0;
+}
+
+/**
+ * Marks one pending AI response as expired.
+ *
+ * Used when a single row is found past the forum deadline outside the bulk
+ * cleanup (approval attempt, review page). Only rows still pending change.
+ *
+ * @package local_forum_ai
+ * @param \stdClass $pending Pending response record.
+ * @return void
+ */
+function local_forum_ai_expire_pending(\stdClass $pending): void {
+    global $DB;
+
+    $DB->execute(
+        "UPDATE {local_forum_ai_pending}
+            SET status = 'expired', timemodified = :now
+          WHERE id = :id AND status = 'pending'",
+        ['now' => time(), 'id' => $pending->id]
+    );
 }
 
 /**

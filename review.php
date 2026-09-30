@@ -25,6 +25,7 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/mod/forum/lib.php');
+require_once(__DIR__ . '/locallib.php');
 
 $token = required_param('token', PARAM_ALPHANUMEXT);
 
@@ -79,10 +80,26 @@ $PAGE->set_context($context);
 $PAGE->set_pagelayout('incourse');
 $PAGE->set_title(get_string('reviewtitle', 'local_forum_ai'));
 $PAGE->set_heading($course->fullname);
-$PAGE->requires->js_call_amd('local_forum_ai/review', 'init');
-$PAGE->requires->css('/local/forum_ai/styles/review.css');
 
 $forumurl = new moodle_url('/mod/forum/discuss.php', ['d' => $discussion->id]);
+
+// Same deadline rule as the expiry cleanup and the publication barrier: a response
+// past the forum deadline is expired here instead of being offered for review.
+if (\local_forum_ai\utils::is_forum_deadline_reached($forum)) {
+    local_forum_ai_expire_pending($pending);
+
+    echo $OUTPUT->header();
+    echo $OUTPUT->notification(
+        get_string('error_responseexpired', 'local_forum_ai'),
+        \core\output\notification::NOTIFY_WARNING
+    );
+    echo $OUTPUT->continue_button($forumurl);
+    echo $OUTPUT->footer();
+    exit;
+}
+
+$PAGE->requires->js_call_amd('local_forum_ai/review', 'init');
+$PAGE->requires->css('/local/forum_ai/styles/review.css');
 
 $renderer = $PAGE->get_renderer('core');
 $headerlogo = new \local_forum_ai\output\header_logo();
