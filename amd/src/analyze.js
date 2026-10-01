@@ -319,12 +319,15 @@ define(['jquery', 'core/pubsub', 'core/ajax', 'core/str', 'core/templates'],
          */
         async function setLoading(button) {
 
-            const loadingText = await Str.get_string('evaluatingwithai', 'local_forum_ai');
-
+            // Mark the button busy synchronously, before awaiting the string, so a
+            // second click during the wait is rejected by the busy check.
             button.dataset.originalText = button.innerHTML;
             button.classList.add('forum-ai-btnloading');
             button.setAttribute('aria-disabled', 'true');
             button.style.pointerEvents = 'none';
+
+            const loadingText = await Str.get_string('evaluatingwithai', 'local_forum_ai');
+
             button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> ' + loadingText;
         }
 
