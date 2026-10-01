@@ -69,6 +69,7 @@ $string['enableforumai_desc'] = 'Wenn deaktiviert, wird der Abschnitt "Datacurso
 $string['error_airequest'] = 'Die KI-Antwort konnte nicht geladen werden. Bitte versuchen Sie es später erneut oder wenden Sie sich an Ihren Administrator.';
 $string['error_discussionlocked'] = 'Diese Diskussion ist gesperrt, daher kann die KI-Antwort nicht veröffentlicht werden. Entsperren Sie die Diskussion und versuchen Sie es erneut.';
 $string['error_forumclosed'] = 'Das Fälligkeitsdatum oder der Stichtag dieses Forums ist abgelaufen, daher kann die KI-Antwort nicht veröffentlicht werden.';
+$string['error_graderrequired'] = 'Wählen Sie eine bewertende Person aus: Die automatische Genehmigung veröffentlicht die KI-Antwort im Namen dieser Person.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Der Beitrag, auf den geantwortet wird, ist eine private Antwort, daher kann keine KI-Antwort veröffentlicht werden.';
 $string['error_responseexpired'] = 'Diese KI-Antwort ist abgelaufen, weil das Fälligkeitsdatum oder der Stichtag des Forums überschritten ist.';

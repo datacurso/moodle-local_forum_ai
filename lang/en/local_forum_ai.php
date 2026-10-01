@@ -69,6 +69,7 @@ $string['enableforumai_desc'] = 'If disabled, the "Datacurso Forum AI" section i
 $string['error_airequest'] = 'The AI response could not be loaded. Please try again later or contact your administrator.';
 $string['error_discussionlocked'] = 'This discussion is locked, so the AI response cannot be published. Unlock the discussion and try again.';
 $string['error_forumclosed'] = 'The due date or the cut-off date of this forum has passed, so the AI response cannot be published.';
+$string['error_graderrequired'] = 'Select a grader: automatic approval publishes the AI response on behalf of this user.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'The post being replied to is a private reply, so an AI response cannot be published.';
 $string['error_responseexpired'] = 'This AI response has expired because the due date or the cut-off date of the forum has passed.';
