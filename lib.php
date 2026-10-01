@@ -409,6 +409,30 @@ function local_forum_ai_get_grader_options(\context $context, ?int $savedgraderi
 }
 
 /**
+ * Validates the forum AI fields of the forum settings form.
+ *
+ * Automatic mode (no review) publishes as the configured grader, so it cannot be
+ * saved without one; otherwise every reply would silently fall back to manual approval.
+ *
+ * @param moodleform_mod|null $fromform The forum settings form.
+ * @param array $fields The submitted form data.
+ * @return array Errors keyed by element name.
+ */
+function local_forum_ai_coursemodule_validation($fromform, $fields) {
+    if (!array_key_exists('local_forum_ai_enabled', $fields) || !\local_forum_ai\utils::is_global_ai_enabled()) {
+        return [];
+    }
+
+    $enabled = !empty($fields['local_forum_ai_enabled']);
+    $automatic = isset($fields['local_forum_ai_require_approval']) && empty($fields['local_forum_ai_require_approval']);
+    if ($enabled && $automatic && empty($fields['local_forum_ai_grader'])) {
+        return ['local_forum_ai_grader' => get_string('error_graderrequired', 'local_forum_ai')];
+    }
+
+    return [];
+}
+
+/**
  * Saves or updates forum AI configuration when editing a forum.
  *
  * @param stdClass $data

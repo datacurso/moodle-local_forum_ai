@@ -69,6 +69,7 @@ $string['enableforumai_desc'] = 'Si se deshabilita, la sección "Datacurso Foro 
 $string['error_airequest'] = 'No se pudo cargar la respuesta de IA. Inténtelo de nuevo más tarde o contacte a su administrador.';
 $string['error_discussionlocked'] = 'Este debate está bloqueado, por lo que la respuesta de la IA no se puede publicar. Desbloquea el debate e inténtalo de nuevo.';
 $string['error_forumclosed'] = 'La fecha de entrega o la fecha límite de este foro ya pasó, por lo que la respuesta de la IA no se puede publicar.';
+$string['error_graderrequired'] = 'Selecciona un calificador: la aprobación automática publica la respuesta de la IA a nombre de este usuario.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'La publicación a la que se responde es una respuesta privada, por lo que no se puede publicar una respuesta de la IA.';
 $string['error_responseexpired'] = 'Esta respuesta de la IA venció porque pasó la fecha de entrega o la fecha límite del foro.';
