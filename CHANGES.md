@@ -1,3 +1,15 @@
+## [1.1.3-502] - 2026-10-01
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.2**.
+
+### Changed
+
+- Declared support for Moodle 4.5 to 5.2 (`supported = [405, 502]`, `requires` unchanged at Moodle 4.5); the Jenkins and GitHub CI matrices now also run on Moodle 5.2 (`MOODLE_502_STABLE`, MariaDB)
+
+### Fixed
+
+- The pending responses list and the history page work again on Moodle 5.2: their windows are now created with `core/modal` instead of the removed `core/modal_factory`, so the "Details", "Approve" and "Reject" buttons respond again
+
 ## [1.1.2] - 2026-10-01
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.0**.
