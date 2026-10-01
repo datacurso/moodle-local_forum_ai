@@ -57,6 +57,122 @@ final class utils_cutoff_test extends \advanced_testcase {
     }
 
     /**
+     * Forum date combinations and whether the deadline counts as reached.
+     *
+     * Offsets are relative to now in seconds; null means the date is not set.
+     *
+     * @return array
+     */
+    public static function deadline_provider(): array {
+        return [
+            'cut-off date passed' => [-DAYSECS, null, true],
+            'cut-off date in the future' => [DAYSECS, null, false],
+            'no cut-off date, due date passed' => [null, -DAYSECS, true],
+            'no cut-off date, due date in the future' => [null, DAYSECS, false],
+            'future cut-off date wins over a past due date' => [DAYSECS, -DAYSECS, false],
+            'no dates' => [null, null, false],
+        ];
+    }
+
+    /**
+     * The deadline is the cut-off date or, without it, the due date.
+     *
+     * Covers: MDL-INT-020 — Expiracion automatica de respuestas pendientes vencidas
+     *
+     * @dataProvider deadline_provider
+     * @param int|null $cutoffoffset Cut-off date offset from now, null for none.
+     * @param int|null $duedateoffset Due date offset from now, null for none.
+     * @param bool $expected Whether the deadline is reached.
+     */
+    public function test_is_forum_deadline_reached(?int $cutoffoffset, ?int $duedateoffset, bool $expected): void {
+        $this->resetAfterTest();
+        // A due date creates a calendar event, which needs a user allowed to manage it.
+        $this->setAdminUser();
+
+        [$forum] = $this->create_forum_and_discussion([
+            'cutoffdate' => $cutoffoffset === null ? 0 : time() + $cutoffoffset,
+            'duedate' => $duedateoffset === null ? 0 : time() + $duedateoffset,
+        ]);
+
+        $this->assertSame($expected, utils::is_forum_deadline_reached($forum));
+    }
+
+    /**
+     * The post task must bail out when the due date has passed and no cut-off date is set (D4).
+     *
+     * Covers: MDL-INT-020 — Expiracion automatica de respuestas pendientes vencidas
+     *
+     * @covers \local_forum_ai\task\process_ai_post
+     */
+    public function test_process_ai_post_skips_forum_with_past_due_date(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        // A due date creates a calendar event, which needs a user allowed to manage it.
+        $this->setAdminUser();
+
+        [$forum, $discussion, $course, $cm, $student] =
+            $this->create_forum_and_discussion(['cutoffdate' => 0, 'duedate' => time() - DAYSECS], true);
+
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $reply = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $student->id,
+        ]);
+
+        $this->set_forum_config($forum->id);
+
+        $postcount = $DB->count_records('forum_posts');
+
+        $task = new task\process_ai_post();
+        $task->set_custom_data([
+            'postid' => $reply->id,
+            'cmid' => $cm->id,
+        ]);
+
+        $this->expectOutputRegex('/due date/');
+        $task->execute();
+
+        $this->assertSame(0, $DB->count_records('local_forum_ai_pending'));
+        $this->assertSame($postcount, $DB->count_records('forum_posts'));
+    }
+
+    /**
+     * The discussion task must bail out when the due date has passed and no cut-off date is set (D4).
+     *
+     * Covers: MDL-INT-020 — Expiracion automatica de respuestas pendientes vencidas
+     *
+     * @covers \local_forum_ai\task\process_ai_discussion
+     */
+    public function test_process_ai_discussion_skips_forum_with_past_due_date(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        // A due date creates a calendar event, which needs a user allowed to manage it.
+        $this->setAdminUser();
+
+        [$forum, $discussion, $course, $cm, $student] =
+            $this->create_forum_and_discussion(['cutoffdate' => 0, 'duedate' => time() - DAYSECS], true);
+
+        $this->set_forum_config($forum->id, 1);
+
+        $postcount = $DB->count_records('forum_posts');
+
+        $task = new task\process_ai_discussion();
+        $task->set_custom_data([
+            'discussionid' => $discussion->id,
+            'cmid' => $cm->id,
+        ]);
+
+        $this->expectOutputRegex('/due date/');
+        $task->execute();
+
+        $this->assertSame(0, $DB->count_records('local_forum_ai_pending'));
+        $this->assertSame($postcount, $DB->count_records('forum_posts'));
+    }
+
+    /**
      * The post task must bail out when the forum cut-off date has passed.
      *
      * @covers \local_forum_ai\task\process_ai_post

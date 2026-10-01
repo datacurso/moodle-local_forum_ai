@@ -123,8 +123,9 @@ function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
  * Scoped to one course (and optionally one forum): opening the pending list
  * of a course must never touch other courses. Rows are kept for traceability
  * with status 'expired' instead of being deleted, so they reach the history.
- * Expiry criterion (unchanged): the forum cut-off date has passed, or the due
- * date has passed when no cut-off date is set.
+ * Expiry criterion: the forum cut-off date has passed, or the due date has
+ * passed when no cut-off date is set. It must stay identical to
+ * \local_forum_ai\utils::is_forum_deadline_reached(), the publication barrier.
  *
  * @package local_forum_ai
  * @param int $courseid Course ID the cleanup is scoped to.
@@ -180,6 +181,27 @@ function local_forum_ai_cleanup_expired(int $courseid, int $forumid = 0): int {
     }
 
     return 0;
+}
+
+/**
+ * Marks one pending AI response as expired.
+ *
+ * Used when a single row is found past the forum deadline outside the bulk
+ * cleanup (approval attempt, review page). Only rows still pending change.
+ *
+ * @package local_forum_ai
+ * @param \stdClass $pending Pending response record.
+ * @return void
+ */
+function local_forum_ai_expire_pending(\stdClass $pending): void {
+    global $DB;
+
+    $DB->execute(
+        "UPDATE {local_forum_ai_pending}
+            SET status = 'expired', timemodified = :now
+          WHERE id = :id AND status = 'pending'",
+        ['now' => time(), 'id' => $pending->id]
+    );
 }
 
 /**
@@ -268,4 +290,43 @@ function local_forum_ai_add_rating(
             \core\cron::setup_user($originaluser);
         }
     }
+}
+
+/**
+ * Repairs history rows that stored the managing user as creator.
+ *
+ * Automatic mode used to store the grader in creator_userid (and left
+ * action_userid empty); rows managed before the action_userid column existed
+ * had the approving teacher there too. For approved rows with no manager whose
+ * creator is the author of the published AI post, the creator is moved to
+ * action_userid and the author of the parent post (the originating student)
+ * becomes the creator. Rows whose parent post no longer exists are skipped.
+ *
+ * @package local_forum_ai
+ * @return int Number of repaired rows.
+ */
+function local_forum_ai_repair_auto_mode_identities(): int {
+    global $DB;
+
+    $sql = "SELECT p.id, p.creator_userid, pp.userid AS parentauthorid
+              FROM {local_forum_ai_pending} p
+              JOIN {forum_posts} ap ON ap.id = p.postid AND ap.userid = p.creator_userid
+              JOIN {forum_posts} pp ON pp.id = p.parentpostid
+             WHERE p.status = :status
+               AND p.action_userid IS NULL
+               AND p.postid IS NOT NULL";
+
+    $repaired = 0;
+    $rows = $DB->get_recordset_sql($sql, ['status' => 'approved']);
+    foreach ($rows as $row) {
+        $DB->update_record('local_forum_ai_pending', (object) [
+            'id' => $row->id,
+            'creator_userid' => $row->parentauthorid,
+            'action_userid' => $row->creator_userid,
+        ]);
+        $repaired++;
+    }
+    $rows->close();
+
+    return $repaired;
 }

@@ -39,6 +39,7 @@ class approval {
      * @param int|null $parentpostid The ID of the parent post to reply to, or null if top-level.
      * @param int|null $grade AI-generated grade, if applicable.
      * @param int|null $creatoruserid User ID to attribute as creator in pending/history.
+     * @param int|null $actionuserid User ID that managed the response (the grader in automatic mode).
      * @return int The new pending row id, or 0 on failure.
      */
     public static function create_approval_request(
@@ -48,7 +49,8 @@ class approval {
         string $status = 'pending',
         ?int $parentpostid = null,
         ?int $grade = null,
-        ?int $creatoruserid = null
+        ?int $creatoruserid = null,
+        ?int $actionuserid = null
     ): int {
         global $DB;
 
@@ -66,6 +68,14 @@ class approval {
             $pending->approval_token = $approvaltoken;
             $pending->parentpostid = $parentpostid;
             $pending->timecreated = time();
+
+            // Automatic mode: record the grader as manager, never as creator.
+            if ($actionuserid !== null) {
+                $pending->action_userid = $actionuserid;
+                if ($status === 'approved') {
+                    $pending->approved_at = $pending->timecreated;
+                }
+            }
 
             if ($forum->assessed != 0 && $grade !== null) {
                 $pending->grade = $grade;
@@ -107,18 +117,17 @@ class approval {
 
             $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
             $context = \context_module::instance($cm->id);
-            $recipients = get_users_by_capability($context, 'mod/forum:replypost');
+            // Recipients are chosen by capability, never by role shortname, so custom or
+            // renamed roles holding the approval permission are notified as well.
+            $approvers = get_users_by_capability($context, 'local/forum_ai:approveresponses', 'u.*');
+            $repliers = get_users_by_capability($context, 'mod/forum:replypost', 'u.id');
 
-            $allowedroles = ['manager', 'editingteacher', 'coursecreator'];
             $finalrecipients = [];
-
-            foreach ($recipients as $recipient) {
-                $roles = get_user_roles($context, $recipient->id);
-                foreach ($roles as $role) {
-                    if (in_array($role->shortname, $allowedroles)) {
-                        $finalrecipients[$recipient->id] = $recipient;
-                    }
+            foreach ($approvers as $approver) {
+                if (!empty($approver->suspended) || !isset($repliers[$approver->id])) {
+                    continue;
                 }
+                $finalrecipients[$approver->id] = $approver;
             }
 
             if (empty($finalrecipients)) {
@@ -220,7 +229,8 @@ class approval {
      * @param int $authorid User the published post is attributed to.
      * @return int|false The new post id, or false when publication is not possible.
      *                   False is only returned BEFORE any post is created (private
-     *                   parent, or missing/suspended/deleted author). Once
+     *                   parent, missing/suspended/deleted author, or an author who
+     *                   cannot reply in the discussion group). Once
      *                   forum_add_new_post() succeeds this method always returns the
      *                   new post id and no exception escapes: follow-up failures
      *                   (linking, event, completion) are logged and swallowed so
@@ -285,6 +295,15 @@ class approval {
                 // unbounded adhoc retries that re-call the paid AI service.
                 debugging(
                     'Cannot publish AI reply: author user ' . $authorid . ' is missing or inactive',
+                    DEBUG_DEVELOPER
+                );
+                return false;
+            }
+            if (!utils::can_user_reply_in_discussion_group($cm, $course, $discussion, $authorid)) {
+                // Core would forbid this user from replying in the discussion group.
+                debugging(
+                    'Cannot publish AI reply: author user ' . $authorid . ' cannot reply in the group of discussion ' .
+                        $discussion->id,
                     DEBUG_DEVELOPER
                 );
                 return false;

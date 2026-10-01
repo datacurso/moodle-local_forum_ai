@@ -83,6 +83,113 @@ final class settings_and_defaults_test extends \advanced_testcase {
     }
 
     /**
+     * MDL-INT-001 (step 4): saving "Enable AI" off through the admin settings page
+     * (the same path as admin/settings.php) runs the updated callback of the
+     * setting and mass-disables every forum configuration row.
+     */
+    public function test_saving_global_enable_ai_off_through_admin_settings_disables_all_forums(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $ids = $this->create_enabled_forum_configs(2);
+
+        $this->write_admin_settings(['s_local_forum_ai_default_enabled' => '0']);
+
+        $this->assertSame('0', (string) get_config('local_forum_ai', 'default_enabled'));
+        $this->assert_forum_configs_enabled_state($ids, 0);
+    }
+
+    /**
+     * MDL-INT-001 (step 4): enabling "Enable AI" again does not restore the
+     * previous per-forum state (the mass-disable is irreversible).
+     */
+    public function test_saving_global_enable_ai_on_does_not_restore_forums(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $ids = $this->create_enabled_forum_configs(2);
+
+        $this->write_admin_settings(['s_local_forum_ai_default_enabled' => '0']);
+        $this->write_admin_settings(['s_local_forum_ai_default_enabled' => '1']);
+
+        $this->assertSame('1', (string) get_config('local_forum_ai', 'default_enabled'));
+        $this->assert_forum_configs_enabled_state($ids, 0);
+    }
+
+    /**
+     * MDL-INT-001 (step 4): saving other plugin settings, without changing
+     * "Enable AI", leaves the forum configuration rows untouched.
+     */
+    public function test_saving_other_settings_does_not_disable_forums(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $ids = $this->create_enabled_forum_configs(2);
+
+        $this->write_admin_settings(['s_local_forum_ai_default_delayminutes' => '30']);
+
+        $this->assertSame('30', (string) get_config('local_forum_ai', 'default_delayminutes'));
+        $this->assertSame('1', (string) get_config('local_forum_ai', 'default_enabled'));
+        $this->assert_forum_configs_enabled_state($ids, 1);
+    }
+
+    /**
+     * Creates forums with an enabled AI configuration row each.
+     *
+     * @param int $count Number of forums to create.
+     * @return int[] Ids of the created local_forum_ai_config rows.
+     */
+    private function create_enabled_forum_configs(int $count): array {
+        global $DB;
+
+        $course = $this->getDataGenerator()->create_course();
+        $ids = [];
+        for ($i = 0; $i < $count; $i++) {
+            $forum = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
+            $ids[] = (int) $DB->insert_record('local_forum_ai_config', (object) [
+                'forumid' => $forum->id,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'reply_message' => 'Prompt ' . $i,
+                'timecreated' => time() - 100,
+                'timemodified' => time() - 100,
+            ]);
+        }
+
+        return $ids;
+    }
+
+    /**
+     * Saves admin settings through the same API used by admin/settings.php.
+     *
+     * @param array $formdata Full setting names ("s_<plugin>_<name>") mapped to values.
+     */
+    private function write_admin_settings(array $formdata): void {
+        global $CFG;
+
+        require_once($CFG->libdir . '/adminlib.php');
+
+        // Rebuild the admin tree so settings.php (and its callbacks) are loaded fresh.
+        admin_get_root(true, true);
+        admin_write_settings($formdata);
+    }
+
+    /**
+     * Asserts the enabled flag of the given forum configuration rows.
+     *
+     * @param int[] $ids Ids of local_forum_ai_config rows.
+     * @param int $expected Expected value of the enabled column.
+     */
+    private function assert_forum_configs_enabled_state(array $ids, int $expected): void {
+        global $DB;
+
+        foreach ($ids as $id) {
+            $row = $DB->get_record('local_forum_ai_config', ['id' => $id], '*', MUST_EXIST);
+            $this->assertSame($expected, (int) $row->enabled, "Config row {$id} must have enabled = {$expected}.");
+        }
+    }
+
+    /**
      * MDL-INT-001 (step 5): the documented default values are seeded on installation.
      */
     public function test_install_seeds_documented_defaults(): void {

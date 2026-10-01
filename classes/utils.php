@@ -297,8 +297,9 @@ class utils {
      *
      * Deliberately a date check, NOT a capability check: graders and admins
      * hold mod/forum:canoverridecutoff, so a capability gate would never
-     * fire for the users who publish AI responses. Only cutoffdate gates;
-     * duedate is advisory in core and does not block posting.
+     * fire for the users who publish AI responses. This helper checks only the
+     * cut-off date; the plugin-wide deadline rule, which falls back to the due
+     * date, is is_forum_deadline_reached().
      *
      * @param \stdClass $forum Forum record.
      * @return bool
@@ -309,6 +310,31 @@ class utils {
         require_once($CFG->dirroot . '/mod/forum/lib.php');
 
         return forum_is_cutoff_date_reached($forum);
+    }
+
+    /**
+     * Checks whether the forum deadline for AI responses has passed.
+     *
+     * The single deadline rule of the plugin (decision D4): the cut-off date
+     * when one is set, otherwise the due date. It gates every path (automatic
+     * generation tasks, approval from the list and from the review page) and it
+     * is exactly the criterion of local_forum_ai_cleanup_expired(), so a row
+     * expires if and only if this barrier would block its publication. Like
+     * is_forum_cutoff_reached(), it is a date check, not a capability check.
+     *
+     * @param \stdClass $forum Forum record.
+     * @return bool
+     */
+    public static function is_forum_deadline_reached(\stdClass $forum): bool {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        if (!empty($forum->cutoffdate)) {
+            return self::is_forum_cutoff_reached($forum);
+        }
+
+        return forum_is_due_date_reached($forum);
     }
 
     /**
@@ -334,6 +360,43 @@ class utils {
         }
 
         return self::get_effective_reply_in_locked($config);
+    }
+
+    /**
+     * Determines whether a given user may reply in the group of a discussion.
+     *
+     * Mirrors the group rules of forum_user_can_post() for an arbitrary user
+     * (core only evaluates them for $USER): without group mode, or with
+     * moodle/site:accessallgroups, the user can always reply; discussions for
+     * all participants accept replies only in visible groups mode; otherwise
+     * the user must be a member of the discussion group.
+     *
+     * @param \stdClass $cm Course module record.
+     * @param \stdClass $course Course record.
+     * @param \stdClass $discussion Discussion record (only groupid is used).
+     * @param int $userid User who would publish the reply.
+     * @return bool
+     */
+    public static function can_user_reply_in_discussion_group(
+        \stdClass $cm,
+        \stdClass $course,
+        \stdClass $discussion,
+        int $userid
+    ): bool {
+        $groupmode = groups_get_activity_groupmode($cm, $course);
+        if (!$groupmode) {
+            return true;
+        }
+
+        if (has_capability('moodle/site:accessallgroups', \context_module::instance($cm->id), $userid)) {
+            return true;
+        }
+
+        if ((int) $discussion->groupid === -1) {
+            return $groupmode == VISIBLEGROUPS;
+        }
+
+        return groups_is_member((int) $discussion->groupid, $userid);
     }
 
     /**

@@ -134,6 +134,53 @@ final class cleanup_expired_test extends \advanced_testcase {
     }
 
     /**
+     * Forum date combinations for the expiry/publication-barrier coherence check.
+     *
+     * Offsets are relative to now in seconds; null means the date is not set.
+     *
+     * @return array
+     */
+    public static function deadline_provider(): array {
+        return [
+            'cut-off date passed' => [-DAYSECS, null],
+            'cut-off date in the future' => [DAYSECS, null],
+            'no cut-off date, due date passed' => [null, -DAYSECS],
+            'no cut-off date, due date in the future' => [null, DAYSECS],
+            'future cut-off date wins over a past due date' => [DAYSECS, -DAYSECS],
+            'no dates' => [null, null],
+        ];
+    }
+
+    /**
+     * A row expires if and only if the publication barrier would block it.
+     *
+     * @dataProvider deadline_provider
+     * @covers \local_forum_ai\utils::is_forum_deadline_reached
+     * @param int|null $cutoffoffset Cut-off date offset from now, null for none.
+     * @param int|null $duedateoffset Due date offset from now, null for none.
+     */
+    public function test_expiry_matches_publication_barrier(?int $cutoffoffset, ?int $duedateoffset): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $setup = $this->create_setup([
+            'cutoffdate' => $cutoffoffset === null ? 0 : time() + $cutoffoffset,
+            'duedate' => $duedateoffset === null ? 0 : time() + $duedateoffset,
+        ]);
+
+        $barrier = utils::is_forum_deadline_reached($setup->forum);
+
+        local_forum_ai_cleanup_expired($setup->course->id);
+
+        $this->assertSame(
+            $barrier ? 'expired' : 'pending',
+            $DB->get_field('local_forum_ai_pending', 'status', ['id' => $setup->pendingid], MUST_EXIST)
+        );
+    }
+
+    /**
      * Expired rows leave the pending list and appear in the history.
      */
     public function test_expired_rows_reach_history(): void {
