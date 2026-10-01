@@ -84,6 +84,15 @@ Feature: Forum AI settings in the admin page and the forum edit form
     Then I should see "Datacurso Forum AI"
     And the field "Enable AI" matches value "No"
 
+  @MDL-INT-002
+  Scenario: The grader field defaults to None and can be cleared
+    Given I am on the "Test forum" "forum activity editing" page logged in as "teacher1"
+    And I set the field "Review AI Response" to "No"
+    And the field "Recorded grader for auto approvals" matches value "None"
+    When I press "Save and display"
+    And I am on the "Test forum" "forum activity editing" page
+    Then the field "Recorded grader for auto approvals" matches value "None"
+
   @javascript @MDL-INT-004
   Scenario: Disabling AI in the forum form hides the dependent fields
     Given I am on the "Test forum" "forum activity editing" page logged in as "teacher1"

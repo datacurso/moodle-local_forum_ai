@@ -93,13 +93,24 @@ class process_ai_post extends adhoc_task {
                 $requireapproval = 1;
             }
 
+            // A grader who cannot reply in the discussion group must not publish: degrade to manual approval.
+            if (!$requireapproval) {
+                $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
+                if (!utils::can_user_reply_in_discussion_group($cm, $course, $discussion, (int) $effectivegraderid)) {
+                    mtrace("local_forum_ai: post {$post->id} requires approval — grader {$effectivegraderid} " .
+                        "cannot reply in the group of discussion {$discussion->id}.");
+                    $requireapproval = 1;
+                    $effectivegraderid = null;
+                }
+            }
+
             if (!$enabled) {
                 mtrace("local_forum_ai: skipping post {$post->id} — AI disabled for forum {$forum->id}.");
                 return;
             }
 
-            if (utils::is_forum_cutoff_reached($forum)) {
-                mtrace("local_forum_ai: skipping post {$post->id} — forum {$forum->id} cut-off date has passed.");
+            if (utils::is_forum_deadline_reached($forum)) {
+                mtrace("local_forum_ai: skipping post {$post->id} — forum {$forum->id} due date or cut-off date has passed.");
                 return;
             }
 
@@ -178,7 +189,8 @@ class process_ai_post extends adhoc_task {
                 $requireapproval ? 'pending' : 'approved',
                 $post->id,
                 $grade,
-                (!$requireapproval && $effectivegraderid) ? $effectivegraderid : $post->userid
+                $post->userid,
+                $requireapproval ? null : (int) $effectivegraderid
             );
 
             if (!$requireapproval && $pendingid) {

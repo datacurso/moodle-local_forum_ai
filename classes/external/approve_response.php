@@ -95,7 +95,9 @@ class approve_response extends external_api {
         if ($params['action'] === 'approve') {
             require_once($CFG->dirroot . '/mod/forum/lib.php');
 
-            if (\local_forum_ai\utils::is_forum_cutoff_reached($forum)) {
+            // Same deadline rule as the expiry cleanup: a response past it is never published.
+            if (\local_forum_ai\utils::is_forum_deadline_reached($forum)) {
+                local_forum_ai_expire_pending($pending);
                 throw new moodle_exception('error_forumclosed', 'local_forum_ai');
             }
 
