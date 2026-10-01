@@ -21,7 +21,7 @@
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import ModalFactory from 'core/modal_factory';
+import Modal from 'core/modal';
 import Ajax from 'core/ajax';
 import Notification from 'core/notification';
 import { get_string as getString } from 'core/str';
@@ -69,12 +69,14 @@ export const init = () => {
                     aiResponseExpired
                 });
 
-                ModalFactory.create({
-                    type: ModalFactory.types.DEFAULT,
+                Modal.create({
                     title: modalTitle,
                     body: body,
                     large: true,
-                }).done(modal => modal.show());
+                }).then(modal => {
+                    modal.show();
+                    return modal;
+                }).catch(Notification.exception);
             }).fail(Notification.exception);
         });
     });

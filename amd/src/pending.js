@@ -21,7 +21,7 @@
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-import ModalFactory from 'core/modal_factory';
+import Modal from 'core/modal';
 import Ajax from 'core/ajax';
 import Notification from 'core/notification';
 import Templates from 'core/templates';
@@ -70,15 +70,15 @@ export const init = () => {
                     rejectLabel
                 });
 
-                ModalFactory.create({
-                    type: ModalFactory.types.DEFAULT,
+                Modal.create({
                     title: modalTitle,
                     body: body,
                     large: true,
-                }).done(modal => {
+                }).then(modal => {
                     modal.show();
                     initAiEditHandlers(modal.getRoot(), data.token);
-                });
+                    return modal;
+                }).catch(Notification.exception);
             }).fail(Notification.exception);
         });
     });
