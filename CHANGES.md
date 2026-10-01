@@ -1,4 +1,4 @@
-## [1.1.2] - 2026-09-30
+## [1.1.2] - 2026-10-01
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.0**.
 
