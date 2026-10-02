@@ -85,13 +85,15 @@ Feature: Forum AI settings in the admin page and the forum edit form
     And the field "Enable AI" matches value "No"
 
   @MDL-INT-002
-  Scenario: The grader field defaults to None and can be cleared
+  Scenario: The grader field defaults to None and automatic mode requires a grader
     Given I am on the "Test forum" "forum activity editing" page logged in as "teacher1"
-    And I set the field "Review AI Response" to "No"
-    And the field "Recorded grader for auto approvals" matches value "None"
-    When I press "Save and display"
+    # Without JavaScript the autocomplete reports the value of the "None" option.
+    And the field "Recorded grader for auto approvals" matches value "0"
+    When I set the field "Review AI Response" to "No"
+    And I press "Save and display"
+    Then I should see "Select a grader: automatic approval publishes the AI response on behalf of this user."
     And I am on the "Test forum" "forum activity editing" page
-    Then the field "Recorded grader for auto approvals" matches value "None"
+    And the field "Recorded grader for auto approvals" matches value "0"
 
   @javascript @MDL-INT-004
   Scenario: Disabling AI in the forum form hides the dependent fields

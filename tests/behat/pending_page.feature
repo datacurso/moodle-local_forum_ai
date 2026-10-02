@@ -108,7 +108,8 @@ Feature: Pending responses page and response history page
     And the field with xpath "//textarea[@id='airesponse-edit']" matches value "Hello 5 < 7"
     When I set the field with xpath "//textarea[@id='airesponse-edit']" to "Edited plain answer 5 < 7"
     And I click on "Save" "button" in the ".modal-body" "css_element"
-    Then I should see "Edited plain answer 5 < 7"
+    # Saving reloads the page; wait for the modal to go away before reopening it.
+    And I wait until ".modal-dialog" "css_element" does not exist
     And I click on "Details" "button" in the "Discussion A" "table_row"
     And the field with xpath "//textarea[@id='airesponse-edit']" matches value "Edited plain answer 5 < 7"
 

@@ -34,6 +34,8 @@ Feature: Visibility of the Review with AI button in the forum grading interface
   Scenario: The button appears for a teacher in the grading panel of a point graded forum
     Given I am on the "Graded forum" "forum activity" page logged in as "teacher1"
     When I press "Grade users"
+    # The button is moved into the grading form asynchronously after the drawer opens.
+    And I wait until "[data-region='grade'] form #forum-ai-review-btn" "css_element" exists
     Then "#forum-ai-review-btn" "css_element" should be visible
     And I should see "Review with AI"
     # Paso manual: requiere servicio de IA (SYS-E2E-004 pasos 2-5: estado de carga al pulsar,
@@ -44,6 +46,8 @@ Feature: Visibility of the Review with AI button in the forum grading interface
   Scenario: The previous AI notice is cleared when the grader moves to another student
     Given I am on the "Graded forum" "forum activity" page logged in as "teacher1"
     And I press "Grade users"
+    # The button is moved into the grading form asynchronously after the drawer opens.
+    And I wait until "[data-region='grade'] form #forum-ai-review-btn" "css_element" exists
     And "#forum-ai-review-btn" "css_element" should be visible
     And the Forum AI review notice "Previous student notice" is shown
     And I should see "Previous student notice"
