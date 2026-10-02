@@ -37,12 +37,13 @@ global $CFG;
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 
 /**
- * Tests for approve_response behaviour when the forum cut-off date has passed.
+ * Tests for approve_response behaviour when the forum cut-off or due date has passed.
  *
  * The tests run as admin, which also proves the gate is date-based: admins
  * hold mod/forum:canoverridecutoff, so a capability gate would never fire.
  *
  * Covers: MDL-INT-014 — Barreras de publicacion: fecha limite, bloqueo y respuestas privadas
+ * Covers: MDL-INT-020 — Expiracion automatica de respuestas pendientes vencidas
  * Covers: MDL-INT-024 — Permisos y validacion de contexto en los servicios web
  *
  * @group local_forum_ai
@@ -50,7 +51,7 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  */
 final class approve_response_cutoff_test extends externallib_advanced_testcase {
     /**
-     * Approving after the forum cut-off date must fail and keep the row pending.
+     * Approving after the forum cut-off date must fail and expire the row.
      */
     public function test_approve_fails_when_cutoff_passed(): void {
         global $DB;
@@ -69,7 +70,37 @@ final class approve_response_cutoff_test extends externallib_advanced_testcase {
         }
 
         $this->assertSame(
-            'pending',
+            'expired',
+            $DB->get_field('local_forum_ai_pending', 'status', ['id' => $pending->id], MUST_EXIST)
+        );
+    }
+
+    /**
+     * Approving after the due date (no cut-off date) must fail, publish nothing and expire the row.
+     *
+     * Covers: MDL-INT-020 — Expiracion automatica de respuestas pendientes vencidas
+     */
+    public function test_approve_rejected_and_row_expired_when_due_date_passed(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        // A due date creates a calendar event, which needs a user allowed to manage it.
+        $this->setAdminUser();
+
+        [$pending] = $this->create_pending_response(0, time() - DAYSECS);
+
+        $postcount = $DB->count_records('forum_posts');
+
+        try {
+            approve_response::execute($pending->approval_token, 'approve');
+            $this->fail('Expected moodle_exception was not thrown.');
+        } catch (moodle_exception $e) {
+            $this->assertSame('error_forumclosed', $e->errorcode);
+        }
+
+        $this->assertSame($postcount, $DB->count_records('forum_posts'));
+        $this->assertSame(
+            'expired',
             $DB->get_field('local_forum_ai_pending', 'status', ['id' => $pending->id], MUST_EXIST)
         );
     }
@@ -122,12 +153,13 @@ final class approve_response_cutoff_test extends externallib_advanced_testcase {
     }
 
     /**
-     * Creates a forum with the given cut-off date and a pending AI response.
+     * Creates a forum with the given cut-off and due dates and a pending AI response.
      *
      * @param int $cutoffdate Forum cut-off date timestamp (0 for none).
+     * @param int $duedate Forum due date timestamp (0 for none).
      * @return array [$pending, $forum, $discussion].
      */
-    private function create_pending_response(int $cutoffdate): array {
+    private function create_pending_response(int $cutoffdate, int $duedate = 0): array {
         global $DB;
 
         $course = $this->getDataGenerator()->create_course();
@@ -136,6 +168,7 @@ final class approve_response_cutoff_test extends externallib_advanced_testcase {
         $forummodule = $this->getDataGenerator()->create_module('forum', [
             'course' => $course->id,
             'cutoffdate' => $cutoffdate,
+            'duedate' => $duedate,
         ]);
         $forum = $DB->get_record('forum', ['id' => $forummodule->id], '*', MUST_EXIST);
 

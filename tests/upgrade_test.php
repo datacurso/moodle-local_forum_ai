@@ -103,6 +103,52 @@ final class upgrade_test extends \advanced_testcase {
     }
 
     /**
+     * MDL-INT-021 (D2): the 2026093000 step repairs automatic-mode rows that stored the grader as creator.
+     */
+    public function test_upgrade_repairs_auto_mode_identities(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $forum = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'userid' => $student->id,
+        ]);
+        $aipost = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $teacher->id,
+        ]);
+
+        $legacyid = $DB->insert_record('local_forum_ai_pending', (object) [
+            'discussionid' => $discussion->id,
+            'forumid' => $forum->id,
+            'parentpostid' => $discussion->firstpost,
+            'postid' => $aipost->id,
+            'creator_userid' => $teacher->id,
+            'subject' => 'Re: subject',
+            'message' => 'AI reply',
+            'status' => 'approved',
+            'approval_token' => sha1('token-legacy'),
+            'timecreated' => time(),
+        ]);
+
+        set_config('version', 2026080700, 'local_forum_ai');
+
+        xmldb_local_forum_ai_upgrade(2026080700);
+
+        $row = $DB->get_record('local_forum_ai_pending', ['id' => $legacyid], '*', MUST_EXIST);
+        $this->assertEquals((int) $student->id, (int) $row->creator_userid);
+        $this->assertEquals((int) $teacher->id, (int) $row->action_userid);
+    }
+
+    /**
      * Creates two forums for migration tests.
      *
      * @return array{0: \stdClass, 1: \stdClass}

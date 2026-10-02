@@ -77,7 +77,7 @@ export const init = async () => {
 
             Ajax.call([{
                 methodname: "local_forum_ai_update_response",
-                args: { token: token, message: newMessage },
+                args: { token: token, message: newMessage, plaintext: true },
             }])[0].done(response => {
                 if (response.status === "ok") {
                     // Contract: response.message is server-side purified/formatted HTML
