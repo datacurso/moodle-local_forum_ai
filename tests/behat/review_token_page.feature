@@ -46,15 +46,15 @@ Feature: Review an AI response through the token review page
     And "Back to discussion" "link" should exist
 
   @MDL-INT-022
-  Scenario: The edit textarea shows the HTML source of the response escaped exactly once
-    # Regression pin: the textarea value is entity-decoded by the driver, so under the old
-    # double-escape bug (s() over the source) this assertion would read literal
-    # '&lt;p&gt;...' entities instead of the HTML source and fail.
+  Scenario: The edit textarea shows the response as plain text escaped exactly once
+    # Regression pin: the textarea value is entity-decoded by the driver, so a double-escape
+    # bug would read literal '&lt;p&gt;...' entities, and the raw HTML source would read
+    # '<p>...' tags instead of the plain text shown to the reviewer (MDL-INT-019).
     Given the following "local_forum_ai > pending responses" exist:
       | forum     | discussion   | user     | subject          | message                            | approval_token                   |
       | Forum one | Discussion A | student1 | Re: Discussion A | <p>Hola <strong>mundo</strong></p> | behattoken0000000000000000000002 |
     When I am on the "behattoken0000000000000000000002" "local_forum_ai > review" page logged in as "teacher1"
-    Then the field "message" matches value "<p>Hola <strong>mundo</strong></p>"
+    Then the field "message" matches value "Hola mundo"
 
   @javascript @MDL-INT-022 @SYS-E2E-003
   Scenario: Approving from the review page publishes the response and invalidates the token
@@ -73,6 +73,26 @@ Feature: Review an AI response through the token review page
     Then the review page for token "behattoken0000000000000000000001" should show the already submitted notice
     # Paso manual: requiere servicio de IA (verificar que la notificacion original del profesor
     # contiene este mismo enlace de revision generado por el flujo real).
+
+  @MDL-INT-020
+  Scenario: The review page expires a response whose forum due date has passed
+    Given the following "activity" exists:
+      | activity   | forum         |
+      | course     | C1            |
+      | idnumber   | forum2        |
+      | name       | Forum overdue |
+      | duedate    | ##yesterday## |
+      | cutoffdate | 0             |
+    And the following "mod_forum > discussions" exist:
+      | user     | forum  | name         | message            |
+      | student1 | forum2 | Discussion B | Student question B |
+    And the following "local_forum_ai > pending responses" exist:
+      | forum         | discussion   | user     | subject          | message             | approval_token                   |
+      | Forum overdue | Discussion B | student1 | Re: Discussion B | AI draft answer two | behattoken0000000000000000000003 |
+    When I am on the "behattoken0000000000000000000003" "local_forum_ai > review" page logged in as "teacher1"
+    Then I should see "This AI response has expired because the due date or the cut-off date of the forum has passed."
+    And I should not see "AI draft answer two"
+    And "Approve" "button" should not exist
 
   @MDL-INT-022
   Scenario: A non existing token shows the informative message with a continue button

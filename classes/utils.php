@@ -18,6 +18,7 @@ namespace local_forum_ai;
 
 use local_forum_ai\helper\rubric;
 use local_forum_ai\helper\guide;
+use local_forum_ai\local\payload_pseudonymizer;
 use core_text;
 
 /**
@@ -168,6 +169,28 @@ class utils {
     }
 
     /**
+     * Checks whether AI features may run: both the Forum AI master switch
+     * and the global AI switch must be on.
+     *
+     * @return bool
+     */
+    public static function is_ai_available(): bool {
+        return self::is_feature_enabled() && self::is_global_ai_enabled();
+    }
+
+    /**
+     * Ensures AI features may run before any data is sent to the AI service.
+     *
+     * @return void
+     * @throws \moodle_exception When an AI switch is off.
+     */
+    public static function require_ai_available(): void {
+        if (!self::is_ai_available()) {
+            throw new \moodle_exception('error_aidisabled', 'local_forum_ai');
+        }
+    }
+
+    /**
      * Disables AI in all existing forum configurations.
      *
      * @return void
@@ -248,6 +271,39 @@ class utils {
     }
 
     /**
+     * Gets the ids of the roles with the student archetype (the default allowed roles).
+     *
+     * @return int[]
+     */
+    public static function get_student_archetype_role_ids(): array {
+        global $DB;
+
+        return array_map('intval', array_keys($DB->get_records('role', ['archetype' => 'student'], 'id', 'id')));
+    }
+
+    /**
+     * Gets the role ids the AI may respond to for a forum.
+     *
+     * Without a config row the student-archetype roles apply, matching the form default.
+     * An existing row keeps its explicit list; an empty list stays empty and denies every role.
+     *
+     * @param \stdClass|null $config Forum config row, or null/an empty object when there is none.
+     * @return int[]
+     */
+    public static function get_effective_allowed_roles(?\stdClass $config): array {
+        if ($config === null || !property_exists($config, 'allowedroles')) {
+            return self::get_student_archetype_role_ids();
+        }
+
+        $raw = trim((string) $config->allowedroles);
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_map('intval', explode(',', $raw));
+    }
+
+    /**
      * Gets global default for "reply in locked discussions".
      *
      * @return bool
@@ -297,8 +353,9 @@ class utils {
      *
      * Deliberately a date check, NOT a capability check: graders and admins
      * hold mod/forum:canoverridecutoff, so a capability gate would never
-     * fire for the users who publish AI responses. Only cutoffdate gates;
-     * duedate is advisory in core and does not block posting.
+     * fire for the users who publish AI responses. This helper checks only the
+     * cut-off date; the plugin-wide deadline rule, which falls back to the due
+     * date, is is_forum_deadline_reached().
      *
      * @param \stdClass $forum Forum record.
      * @return bool
@@ -309,6 +366,31 @@ class utils {
         require_once($CFG->dirroot . '/mod/forum/lib.php');
 
         return forum_is_cutoff_date_reached($forum);
+    }
+
+    /**
+     * Checks whether the forum deadline for AI responses has passed.
+     *
+     * The single deadline rule of the plugin (decision D4): the cut-off date
+     * when one is set, otherwise the due date. It gates every path (automatic
+     * generation tasks, approval from the list and from the review page) and it
+     * is exactly the criterion of local_forum_ai_cleanup_expired(), so a row
+     * expires if and only if this barrier would block its publication. Like
+     * is_forum_cutoff_reached(), it is a date check, not a capability check.
+     *
+     * @param \stdClass $forum Forum record.
+     * @return bool
+     */
+    public static function is_forum_deadline_reached(\stdClass $forum): bool {
+        global $CFG;
+
+        require_once($CFG->dirroot . '/mod/forum/lib.php');
+
+        if (!empty($forum->cutoffdate)) {
+            return self::is_forum_cutoff_reached($forum);
+        }
+
+        return forum_is_due_date_reached($forum);
     }
 
     /**
@@ -334,6 +416,43 @@ class utils {
         }
 
         return self::get_effective_reply_in_locked($config);
+    }
+
+    /**
+     * Determines whether a given user may reply in the group of a discussion.
+     *
+     * Mirrors the group rules of forum_user_can_post() for an arbitrary user
+     * (core only evaluates them for $USER): without group mode, or with
+     * moodle/site:accessallgroups, the user can always reply; discussions for
+     * all participants accept replies only in visible groups mode; otherwise
+     * the user must be a member of the discussion group.
+     *
+     * @param \stdClass $cm Course module record.
+     * @param \stdClass $course Course record.
+     * @param \stdClass $discussion Discussion record (only groupid is used).
+     * @param int $userid User who would publish the reply.
+     * @return bool
+     */
+    public static function can_user_reply_in_discussion_group(
+        \stdClass $cm,
+        \stdClass $course,
+        \stdClass $discussion,
+        int $userid
+    ): bool {
+        $groupmode = groups_get_activity_groupmode($cm, $course);
+        if (!$groupmode) {
+            return true;
+        }
+
+        if (has_capability('moodle/site:accessallgroups', \context_module::instance($cm->id), $userid)) {
+            return true;
+        }
+
+        if ((int) $discussion->groupid === -1) {
+            return $groupmode == VISIBLEGROUPS;
+        }
+
+        return groups_is_member((int) $discussion->groupid, $userid);
     }
 
     /**
@@ -450,18 +569,25 @@ class utils {
      * The list is capped to the root post (which defines the topic) plus
      * the most recent posts, to keep the payload bounded in long threads.
      *
-     * Each entry contains the post id, chronological order, author
-     * full name, and cleaned message text.
+     * Each entry contains the post id, chronological order, author label
+     * and cleaned message text. Authors are third parties: they travel only as
+     * pseudonymised labels, their names inside the texts are replaced and
+     * e-mail addresses are masked (FAI-PRIV-001-R1).
      *
      * @param int $discussionid Discussion ID.
      * @param int $postid Current post ID.
      * @param int $maxposts Maximum number of posts included in the context.
+     * @param payload_pseudonymizer|null $pseudonymizer Request pseudonymiser, so the labels stay
+     *                                                  consistent with the rest of the payload and
+     *                                                  can be restored in the reply. A private one
+     *                                                  is used when null.
      * @return array List of thread entries with id, order, author, message.
      */
     public static function build_thread_context(
         int $discussionid,
         int $postid,
         int $maxposts = 20,
+        ?payload_pseudonymizer $pseudonymizer = null,
     ): array {
         global $DB;
 
@@ -495,27 +621,28 @@ class utils {
             $posts = array_merge([$root], array_slice($posts, -($maxposts - 1)));
         }
 
-        $authornames = [];
-        $threadentries = [];
-        $order = 1;
+        $pseudonymizer = $pseudonymizer ?? new payload_pseudonymizer();
+
+        // Every author is labelled first, so the names of later authors are also
+        // replaced inside earlier messages.
+        $entries = [];
         foreach ($posts as $post) {
             $cleaned = trim(strip_tags($post->message));
             if ($cleaned === '') {
                 continue;
             }
+            // Never expose raw user ids or names to the AI: authors travel as labels.
+            $entries[] = [$post, $cleaned, $pseudonymizer->label_for((int)$post->userid)];
+        }
 
-            $authorid = (int)$post->userid;
-            if (!array_key_exists($authorid, $authornames)) {
-                $author = \core_user::get_user($authorid);
-                // Never expose raw user ids to the AI; use a neutral label as fallback.
-                $authornames[$authorid] = $author ? fullname($author) : 'Participant';
-            }
-
+        $threadentries = [];
+        $order = 1;
+        foreach ($entries as [$post, $cleaned, $label]) {
             $threadentries[] = [
                 'id' => (int)$post->id,
                 'order' => $order,
-                'author' => $authornames[$authorid],
-                'message' => $cleaned,
+                'author' => $label,
+                'message' => $pseudonymizer->pseudonymize_text($cleaned),
             ];
             $order++;
         }
@@ -557,9 +684,20 @@ class utils {
      *
      * @param int $cmid Course module ID of the forum.
      * @param int $userid User ID whose participation will be analyzed.
+     * @param int|null $viewerid User the payload is built for (the reviewing teacher): in
+     *                           separate groups mode only discussions of groups they can
+     *                           access are included. Null applies no group restriction.
+     * @param payload_pseudonymizer|null $pseudonymizer Request pseudonymiser, used afterwards to
+     *                                                  restore the student's name in the feedback.
+     *                                                  A private one is used when null.
      * @return array Structured payload ready to be sent to the AI service.
      */
-    public static function build_forum_ai_payload(int $cmid, int $userid): array {
+    public static function build_forum_ai_payload(
+        int $cmid,
+        int $userid,
+        ?int $viewerid = null,
+        ?payload_pseudonymizer $pseudonymizer = null
+    ): array {
         global $DB, $CFG;
 
         require_once($CFG->dirroot . '/grade/grading/lib.php');
@@ -583,6 +721,21 @@ class utils {
             $guidedata = guide::get($cmid);
         }
 
+        // Discussions of groups the viewer cannot access never leave the site.
+        $groupsql = '';
+        $groupparams = [];
+        if ($viewerid !== null) {
+            $allowedgroupids = \local_forum_ai\local\group_access::get_allowed_discussion_groupids(
+                $cm,
+                get_course($cm->course),
+                $viewerid
+            );
+            if ($allowedgroupids !== null) {
+                [$insql, $groupparams] = $DB->get_in_or_equal($allowedgroupids);
+                $groupsql = "AND d.groupid {$insql}";
+            }
+        }
+
         // Deleted posts and private replies are excluded: the payload must only
         // contain what a normal participant can see.
         $posts = $DB->get_records_sql("
@@ -593,15 +746,37 @@ class utils {
             AND d.forum = ?
             AND p.privatereplyto = 0
             AND p.deleted = 0
-        ", [$userid, $forum->id]);
+            {$groupsql}
+        ", array_merge([$userid, $forum->id], $groupparams));
+
+        // The evaluated student's names, those of the other authors of their discussions
+        // (third parties) and every e-mail address are hidden in the free text. Rubric and
+        // guide texts stay verbatim: the browser maps the result back by them.
+        $pseudonymizer = $pseudonymizer ?? new payload_pseudonymizer();
+        $pseudonymizer->set_student($userid);
+        if (!empty($posts)) {
+            [$dinsql, $dinparams] = $DB->get_in_or_equal(array_keys($posts));
+            $authors = $DB->get_recordset_sql("
+                SELECT p.id, p.userid
+                  FROM {forum_posts} p
+                 WHERE p.discussion {$dinsql}
+                   AND p.privatereplyto = 0
+                   AND p.deleted = 0
+              ORDER BY p.discussion, p.created, p.id
+            ", $dinparams);
+            foreach ($authors as $author) {
+                $pseudonymizer->label_for((int)$author->userid);
+            }
+            $authors->close();
+        }
 
         $discussions = [];
 
         foreach ($posts as $p) {
             $discussions[] = [
-                'discussion' => $p->name,
+                'discussion' => $pseudonymizer->pseudonymize_text($p->name),
                 'discussion_id' => $p->id,
-                'answer' => trim(strip_tags($p->message)),
+                'answer' => $pseudonymizer->pseudonymize_text(trim(strip_tags($p->message))),
             ];
         }
 

@@ -21,6 +21,7 @@ use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
 use local_forum_ai\ai_service;
+use local_forum_ai\local\payload_pseudonymizer;
 use local_forum_ai\utils;
 use moodle_exception;
 
@@ -64,17 +65,20 @@ class process_review extends external_api {
      * @param int $userid User ID to be evaluated.
      * @return array Structured result containing evaluation type and serialized data.
      * @throws \required_capability_exception If the caller does not hold local/forum_ai:useaireview.
-     * @throws \moodle_exception If the target user is not enrolled in the course,
+     * @throws \moodle_exception If an AI switch is off, the target user is not enrolled in the course,
      *                           the forum uses separate groups and the caller does not
      *                           share a group with the target user,
      *                           or the AI response format is not recognized.
      */
     public static function execute($cmid, $userid) {
+        global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), compact('cmid', 'userid'));
 
         $context = \context_module::instance($params['cmid']);
         self::validate_context($context);
+        // Refuse while AI is switched off, before any data is gathered or audited.
+        utils::require_ai_available();
         require_capability('local/forum_ai:useaireview', $context);
 
         // The target user must belong to the forum's course.
@@ -95,7 +99,10 @@ class process_review extends external_api {
             }
         }
 
-        $payload = utils::build_forum_ai_payload($params['cmid'], $params['userid']);
+        // Only discussions of groups the reviewer can access are sent to the AI service.
+        // FAI-PRIV-001-R1: the student's names travel pseudonymised and are restored in the feedback.
+        $pseudonymizer = new payload_pseudonymizer();
+        $payload = utils::build_forum_ai_payload($params['cmid'], $params['userid'], (int) $USER->id, $pseudonymizer);
         $scale = $payload['forum_participations'][0]['participation']['scale'] ?? null;
 
         // Audit the transfer attempt before any data leaves the site, so the
@@ -106,7 +113,8 @@ class process_review extends external_api {
             'other' => ['forumid' => (int) $cm->instance],
         ])->trigger();
 
-        $response = ai_service::call_ai_service_global($payload);
+        // Only the free-text 'reply' feedback is restored: criterion texts must stay as sent.
+        $response = $pseudonymizer->restore_replies(ai_service::call_ai_service_global($payload));
 
         // Simple grade.
         if (isset($response['grade'])) {

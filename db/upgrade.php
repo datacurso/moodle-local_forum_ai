@@ -35,7 +35,7 @@ require_once($CFG->libdir . '/upgradelib.php');
  * @return bool
  */
 function xmldb_local_forum_ai_upgrade($oldversion) {
-    global $DB;
+    global $CFG, $DB;
 
     $dbman = $DB->get_manager();
 
@@ -373,6 +373,35 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
 
         // Forum_ai savepoint reached.
         upgrade_plugin_savepoint(true, 2026080700, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026093000) {
+        // Automatic mode stored the grader as creator of the history rows. Move the grader to
+        // action_userid and restore the originating student as creator.
+        require_once($CFG->dirroot . '/local/forum_ai/locallib.php');
+        local_forum_ai_repair_auto_mode_identities();
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026093000, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026100600) {
+        // An empty allowed-roles list used to enable the AI for every role; it now denies every
+        // role. Keep existing forums working by migrating empty lists to the student-archetype
+        // roles, the same default the forum form offers. Rows with an explicit list are untouched.
+        $studentroleids = array_keys($DB->get_records('role', ['archetype' => 'student'], 'id', 'id'));
+        if ($studentroleids) {
+            $DB->set_field_select(
+                'local_forum_ai_config',
+                'allowedroles',
+                implode(',', $studentroleids),
+                'allowedroles IS NULL OR ' . $DB->sql_compare_text('allowedroles') . ' = :empty',
+                ['empty' => '']
+            );
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026100600, 'local', 'forum_ai');
     }
 
     return true;

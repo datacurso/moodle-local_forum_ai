@@ -62,9 +62,13 @@ class ai_service {
      *
      * @param array $payload Data to send to the AI service.
      * @return array The AI-generated reply.
-     * @throws \moodle_exception If the request fails.
+     * @throws \moodle_exception If an AI switch is off or the request fails.
      */
     public static function call_ai_service(array $payload): array {
+        // Every transfer to the AI provider goes through here, so this is
+        // the choke point that honours the site AI switches.
+        utils::require_ai_available();
+
         // The payload travels verbatim: the HTTP client sends UTF-8 JSON, so
         // accents and special characters must reach the AI service intact.
         $client = self::get_client();
@@ -96,9 +100,11 @@ class ai_service {
      *
      * @param array $payload Data to send to the AI service.
      * @return array The AI-generated reply.
-     * @throws \moodle_exception If the request fails.
+     * @throws \moodle_exception If an AI switch is off or the request fails.
      */
     public static function call_ai_service_global(array $payload): array {
+        utils::require_ai_available();
+
         // The payload travels verbatim: rubric and guide criteria must keep
         // their accents so the AI echoes them exactly as the form shows them.
         $client = self::get_client();

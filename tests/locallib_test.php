@@ -45,6 +45,7 @@ require_once($CFG->dirroot . '/rating/lib.php');
  *
  * @group local_forum_ai
  * @covers ::local_forum_ai_add_rating
+ * @covers ::local_forum_ai_repair_auto_mode_identities
  */
 final class locallib_test extends \advanced_testcase {
     /**
@@ -217,6 +218,8 @@ final class locallib_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $data = $this->setup_rated_forum();
+        // Listings only return rows the current user may manage.
+        $this->setAdminUser();
         $this->insert_pending($data);
 
         $records = local_forum_ai_get_pending($data['course']->id);
@@ -240,6 +243,8 @@ final class locallib_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $data = $this->setup_rated_forum();
+        // Listings only return rows the current user may manage.
+        $this->setAdminUser();
         $this->insert_pending($data);
 
         $records = local_forum_ai_get_pending($data['course']->id);
@@ -259,6 +264,8 @@ final class locallib_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $data = $this->setup_rated_forum();
+        // Listings only return rows the current user may manage.
+        $this->setAdminUser();
         $this->insert_pending($data, 'approved');
 
         $records = local_forum_ai_get_history($data['course']->id);
@@ -278,6 +285,8 @@ final class locallib_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $data = $this->setup_rated_forum();
+        // Listings only return rows the current user may manage.
+        $this->setAdminUser();
         $this->insert_pending($data, 'approved');
 
         $records = local_forum_ai_get_history($data['course']->id);
@@ -290,5 +299,66 @@ final class locallib_test extends \advanced_testcase {
                 "Missing user name field '{$namefield}' in history record."
             );
         }
+    }
+
+    /**
+     * MDL-INT-021 (D2): legacy rows that stored the grader as creator are repaired:
+     * the grader moves to action_userid and the author of the parent post becomes
+     * the creator. Correct rows are left untouched and the repair is idempotent.
+     */
+    public function test_repair_auto_mode_identities_moves_grader_to_action_user(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $data = $this->setup_rated_forum();
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $aipost = $forumgenerator->create_post([
+            'discussion' => $data['post']->discussion,
+            'parent' => $data['post']->id,
+            'userid' => $data['teacher']->id,
+        ]);
+
+        // Legacy automatic row: the grader (author of the AI post) stored as creator.
+        $legacyid = $this->insert_pending($data, 'approved');
+        $DB->update_record('local_forum_ai_pending', (object) [
+            'id' => $legacyid,
+            'creator_userid' => $data['teacher']->id,
+            'postid' => $aipost->id,
+        ]);
+
+        // Already correct row: student as creator, grader as manager.
+        $correctid = $DB->insert_record('local_forum_ai_pending', (object) [
+            'discussionid' => $data['post']->discussion,
+            'forumid' => $data['forum']->id,
+            'parentpostid' => $data['post']->id,
+            'postid' => $aipost->id,
+            'creator_userid' => $data['student']->id,
+            'action_userid' => $data['teacher']->id,
+            'subject' => 'Re: subject',
+            'message' => 'AI reply',
+            'status' => 'approved',
+            'approval_token' => sha1('token-correct'),
+            'timecreated' => time(),
+        ]);
+
+        // Pending row: never touched.
+        $pendingid = $this->insert_pending($data, 'pending');
+
+        $this->assertSame(1, local_forum_ai_repair_auto_mode_identities());
+
+        $legacy = $DB->get_record('local_forum_ai_pending', ['id' => $legacyid], '*', MUST_EXIST);
+        $this->assertEquals((int) $data['student']->id, (int) $legacy->creator_userid);
+        $this->assertEquals((int) $data['teacher']->id, (int) $legacy->action_userid);
+
+        $correct = $DB->get_record('local_forum_ai_pending', ['id' => $correctid], '*', MUST_EXIST);
+        $this->assertEquals((int) $data['student']->id, (int) $correct->creator_userid);
+        $this->assertEquals((int) $data['teacher']->id, (int) $correct->action_userid);
+
+        $pending = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
+        $this->assertEquals((int) $data['student']->id, (int) $pending->creator_userid);
+        $this->assertNull($pending->action_userid);
+
+        $this->assertSame(0, local_forum_ai_repair_auto_mode_identities());
     }
 }

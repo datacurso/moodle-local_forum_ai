@@ -21,7 +21,8 @@ use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
 use core_external\external_multiple_structure;
-use context_module;
+use local_forum_ai\approval;
+use local_forum_ai\local\editable_text;
 use local_forum_ai\utils;
 
 /**
@@ -52,23 +53,19 @@ class get_details extends external_api {
      *
      * @param string $token Approval token
      * @return array Course information, forum, discussion, and posts
-     * @throws \moodle_exception If the record is not found or permission is missing
+     * @throws \moodle_exception If the record is not found, permission is missing or the
+     *                           discussion belongs to a group the caller cannot access
      */
     public static function execute($token) {
-        global $DB;
-
         $params = self::validate_parameters(self::execute_parameters(), ['token' => $token]);
 
-        $pending = $DB->get_record('local_forum_ai_pending', ['approval_token' => $params['token']], '*', MUST_EXIST);
-        $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid], '*', MUST_EXIST);
-        $forum = $DB->get_record('forum', ['id' => $pending->forumid], '*', MUST_EXIST);
-        $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
-        $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-
-        $context = context_module::instance($cm->id);
-        self::validate_context($context);
-
-        require_capability('local/forum_ai:approveresponses', $context);
+        // Token, capability and discussion group are enforced in one place.
+        $loaded = approval::load_pending_for_user($params['token']);
+        $pending = $loaded->pending;
+        $discussion = $loaded->discussion;
+        $forum = $loaded->forum;
+        $course = $loaded->course;
+        self::validate_context($loaded->context);
 
         $posts = utils::get_visible_discussion_posts((int) $discussion->id);
 
@@ -80,6 +77,8 @@ class get_details extends external_api {
             'airesponse' => format_text($pending->message, FORMAT_HTML),
             // The edit textarea must receive the stored source, not filter-rendered output.
             'airesponseraw' => clean_text($pending->message, FORMAT_HTML),
+            // Plain text for the edit box: a textarea cannot show markup without exposing raw tags.
+            'airesponsetext' => editable_text::from_html($pending->message),
             'token' => $pending->approval_token,
             'status' => $pending->status,
         ];
@@ -197,6 +196,8 @@ class get_details extends external_api {
         ),
         'airesponse' => new external_value(PARAM_RAW, 'Proposed AI response'),
         'airesponseraw' => new external_value(PARAM_RAW, 'Purified stored source of the AI response, for editing'),
+        // PARAM_RAW: plain text may legitimately contain "<" typed as text; clients must escape it.
+        'airesponsetext' => new external_value(PARAM_RAW, 'AI response as plain text for the edit box (not HTML)'),
         'token' => new external_value(PARAM_ALPHANUMEXT, 'Approval token'),
         'status' => new external_value(PARAM_ALPHA, 'Message status (pending, approved, rejected, expired)'),
         ]);

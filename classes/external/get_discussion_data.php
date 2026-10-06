@@ -21,6 +21,7 @@ use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
 use core_external\external_multiple_structure;
+use local_forum_ai\approval;
 use local_forum_ai\utils;
 
 /**
@@ -52,6 +53,7 @@ class get_discussion_data extends external_api {
      * @throws \invalid_parameter_exception If parameters are invalid.
      * @throws \required_capability_exception If the user lacks permission to view the discussion.
      * @throws \dml_missing_record_exception If a required record is not found.
+     * @throws \moodle_exception If the discussion belongs to a group the caller cannot access.
      */
     public static function execute($token) {
         global $DB, $USER;
@@ -59,16 +61,13 @@ class get_discussion_data extends external_api {
         // Parameter validation.
         $params = self::validate_parameters(self::execute_parameters(), ['token' => $token]);
 
-        // Retrieve records.
-        $pending = $DB->get_record('local_forum_ai_pending', ['approval_token' => $params['token']], '*', MUST_EXIST);
-        $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid], '*', MUST_EXIST);
-        $forum = $DB->get_record('forum', ['id' => $pending->forumid], '*', MUST_EXIST);
-        $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
-        $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-
-        $context = \context_module::instance($cm->id);
-        self::validate_context($context);
-        require_capability('local/forum_ai:approveresponses', $context);
+        // Token, capability and discussion group are enforced in one place.
+        $loaded = approval::load_pending_for_user($params['token']);
+        $pending = $loaded->pending;
+        $discussion = $loaded->discussion;
+        $forum = $loaded->forum;
+        $course = $loaded->course;
+        self::validate_context($loaded->context);
 
         // Retrieve posts.
         $posts = utils::get_visible_discussion_posts((int) $discussion->id);

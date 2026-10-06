@@ -31,7 +31,7 @@ global $CFG;
 require_once($CFG->dirroot . '/local/forum_ai/db/upgrade.php');
 
 /**
- * Tests for migrating reply-in-locked forum AI settings.
+ * Tests for the forum AI upgrade steps.
  *
  * Covers: MDL-INT-033 — Persistencia de la configuracion global al actualizar el plugin
  *
@@ -103,6 +103,92 @@ final class upgrade_test extends \advanced_testcase {
     }
 
     /**
+     * MDL-INT-021 (D2): the 2026093000 step repairs automatic-mode rows that stored the grader as creator.
+     */
+    public function test_upgrade_repairs_auto_mode_identities(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $forum = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
+        $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
+        $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $course->id,
+            'forum' => $forum->id,
+            'userid' => $student->id,
+        ]);
+        $aipost = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $teacher->id,
+        ]);
+
+        $legacyid = $DB->insert_record('local_forum_ai_pending', (object) [
+            'discussionid' => $discussion->id,
+            'forumid' => $forum->id,
+            'parentpostid' => $discussion->firstpost,
+            'postid' => $aipost->id,
+            'creator_userid' => $teacher->id,
+            'subject' => 'Re: subject',
+            'message' => 'AI reply',
+            'status' => 'approved',
+            'approval_token' => sha1('token-legacy'),
+            'timecreated' => time(),
+        ]);
+
+        set_config('version', 2026080700, 'local_forum_ai');
+
+        xmldb_local_forum_ai_upgrade(2026080700);
+
+        $row = $DB->get_record('local_forum_ai_pending', ['id' => $legacyid], '*', MUST_EXIST);
+        $this->assertEquals((int) $student->id, (int) $row->creator_userid);
+        $this->assertEquals((int) $teacher->id, (int) $row->action_userid);
+    }
+
+    /**
+     * FAI-SEC-005: the 2026100600 step migrates rows with an empty or null role list to the
+     * student-archetype roles, keeps explicit lists untouched and is idempotent.
+     */
+    public function test_upgrade_migrates_empty_allowedroles_to_student_roles(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $studentroleids = array_keys($DB->get_records('role', ['archetype' => 'student'], 'id', 'id'));
+        $this->assertNotEmpty($studentroleids);
+        $expected = implode(',', $studentroleids);
+        $teacherroleid = (int) $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
+
+        $course = $this->getDataGenerator()->create_course();
+        $forumids = [];
+        foreach (['null', 'empty', 'explicit'] as $key) {
+            $forumids[$key] = (int) $this->getDataGenerator()->create_module('forum', ['course' => $course->id])->id;
+        }
+        $this->insert_config_row($forumids['null'], 0, null);
+        $this->insert_config_row($forumids['empty'], 0, '');
+        $this->insert_config_row($forumids['explicit'], 0, (string) $teacherroleid);
+
+        set_config('version', 2026100101, 'local_forum_ai');
+        xmldb_local_forum_ai_upgrade(2026100101);
+
+        $stored = function (int $forumid) use ($DB): ?string {
+            return $DB->get_field('local_forum_ai_config', 'allowedroles', ['forumid' => $forumid], MUST_EXIST);
+        };
+        $this->assertSame($expected, $stored($forumids['null']));
+        $this->assertSame($expected, $stored($forumids['empty']));
+        $this->assertSame((string) $teacherroleid, $stored($forumids['explicit']));
+
+        // Running the step again changes nothing.
+        set_config('version', 2026100101, 'local_forum_ai');
+        xmldb_local_forum_ai_upgrade(2026100101);
+        $this->assertSame($expected, $stored($forumids['null']));
+        $this->assertSame((string) $teacherroleid, $stored($forumids['explicit']));
+    }
+
+    /**
      * Creates two forums for migration tests.
      *
      * @return array{0: \stdClass, 1: \stdClass}
@@ -125,8 +211,9 @@ final class upgrade_test extends \advanced_testcase {
      *
      * @param int $forumid Forum id.
      * @param int $replyinlocked Stored reply-in-locked value.
+     * @param string|null $allowedroles Stored allowed-roles CSV.
      */
-    private function insert_config_row(int $forumid, int $replyinlocked): void {
+    private function insert_config_row(int $forumid, int $replyinlocked, ?string $allowedroles = null): void {
         global $DB;
 
         $now = time();
@@ -136,7 +223,7 @@ final class upgrade_test extends \advanced_testcase {
             'require_approval' => 1,
             'reply_message' => 'Prompt',
             'enablediainitconversation' => 0,
-            'allowedroles' => null,
+            'allowedroles' => $allowedroles,
             'graderid' => null,
             'usedelay' => 0,
             'delayminutes' => 60,

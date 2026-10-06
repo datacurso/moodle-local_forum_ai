@@ -25,21 +25,29 @@
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/mod/forum/lib.php');
+require_once(__DIR__ . '/locallib.php');
 
 $token = required_param('token', PARAM_ALPHANUMEXT);
 
 require_login();
 
-$pending = $DB->get_record(
-    'local_forum_ai_pending',
-    ['approval_token' => $token, 'status' => 'pending'],
-    '*',
-    IGNORE_MISSING
-);
+// Token, capability and discussion group are enforced in one place. Only data
+// errors are wrapped: the standard 403 (required_capability_exception) and the
+// group refusal must reach the user unwrapped.
+try {
+    $loaded = \local_forum_ai\approval::load_pending_for_user($token, 'pending', IGNORE_MISSING);
+} catch (dml_exception $e) {
+    debugging('Error in review.php: ' . $e->getMessage(), DEBUG_DEVELOPER);
+    // Never expose internal exception details to the user (FORUMAI-SEC-006).
+    throw new moodle_exception('error_airequest', 'local_forum_ai');
+}
 
-if (!$pending) {
+if (!$loaded) {
+    // The response is unknown or already managed: no module context can be trusted,
+    // so the notice is rendered in the system context.
+    $PAGE->set_context(context_system::instance());
     $PAGE->set_url('/local/forum_ai/review.php', ['token' => $token]);
-    $PAGE->set_pagelayout('incourse');
+    $PAGE->set_pagelayout('standard');
     $PAGE->set_title(get_string('reviewtitle', 'local_forum_ai'));
     $PAGE->set_heading(get_string('pluginname', 'local_forum_ai'));
 
@@ -54,11 +62,14 @@ if (!$pending) {
     exit;
 }
 
+$pending = $loaded->pending;
+$discussion = $loaded->discussion;
+$forum = $loaded->forum;
+$course = $loaded->course;
+$cm = $loaded->cm;
+$context = $loaded->context;
+
 try {
-    $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid], '*', MUST_EXIST);
-    $forum = $DB->get_record('forum', ['id' => $pending->forumid], '*', MUST_EXIST);
-    $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
-    $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
     $originalpost = $DB->get_record('forum_posts', ['id' => $discussion->firstpost], '*', MUST_EXIST);
     $author = $DB->get_record('user', ['id' => $originalpost->userid], '*', MUST_EXIST);
 } catch (Exception $e) {
@@ -67,11 +78,6 @@ try {
     throw new moodle_exception('error_airequest', 'local_forum_ai');
 }
 
-$context = context_module::instance($cm->id);
-
-// Outside any try block so the standard 403 (required_capability_exception) reaches the user unwrapped.
-require_capability('local/forum_ai:approveresponses', $context);
-
 $PAGE->set_url('/local/forum_ai/review.php', ['token' => $token]);
 // Bind the course module so the navigation can initialise in a module context.
 $PAGE->set_cm($cm, $course, $forum);
@@ -79,10 +85,26 @@ $PAGE->set_context($context);
 $PAGE->set_pagelayout('incourse');
 $PAGE->set_title(get_string('reviewtitle', 'local_forum_ai'));
 $PAGE->set_heading($course->fullname);
-$PAGE->requires->js_call_amd('local_forum_ai/review', 'init');
-$PAGE->requires->css('/local/forum_ai/styles/review.css');
 
 $forumurl = new moodle_url('/mod/forum/discuss.php', ['d' => $discussion->id]);
+
+// Same deadline rule as the expiry cleanup and the publication barrier: a response
+// past the forum deadline is expired here instead of being offered for review.
+if (\local_forum_ai\utils::is_forum_deadline_reached($forum)) {
+    local_forum_ai_expire_pending($pending);
+
+    echo $OUTPUT->header();
+    echo $OUTPUT->notification(
+        get_string('error_responseexpired', 'local_forum_ai'),
+        \core\output\notification::NOTIFY_WARNING
+    );
+    echo $OUTPUT->continue_button($forumurl);
+    echo $OUTPUT->footer();
+    exit;
+}
+
+$PAGE->requires->js_call_amd('local_forum_ai/review', 'init');
+$PAGE->requires->css('/local/forum_ai/styles/review.css');
 
 $renderer = $PAGE->get_renderer('core');
 $headerlogo = new \local_forum_ai\output\header_logo();
@@ -100,9 +122,9 @@ $data = [
     'originaldate' => userdate($originalpost->created),
     'aisubject' => format_string($pending->subject),
     'aimessage' => format_text($pending->message, FORMAT_HTML),
-    // The template escapes {{aiformatted}} once (textarea source), so no s() here — it would
-    // double-escape; clean_text() defends against legacy dirty rows stored before sanitization.
-    'aiformatted' => clean_text($pending->message, FORMAT_HTML),
+    // Plain text for the edit box; the template escapes {{aitext}} once, so no s() here.
+    // from_html() purifies first, which also neutralises legacy dirty rows.
+    'aitext' => \local_forum_ai\local\editable_text::from_html($pending->message),
     'token' => $token,
     'forumurl' => $forumurl->out(),
     'headerlogo' => $logocontext,

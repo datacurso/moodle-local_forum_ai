@@ -19,6 +19,7 @@ namespace local_forum_ai\task;
 use core\task\adhoc_task;
 use local_forum_ai\ai_service;
 use local_forum_ai\approval;
+use local_forum_ai\local\payload_pseudonymizer;
 use local_forum_ai\role_checker;
 use local_forum_ai\utils;
 
@@ -50,11 +51,7 @@ class process_ai_discussion extends adhoc_task {
     public function execute() {
         global $DB, $CFG;
 
-        if (!utils::is_feature_enabled()) {
-            return;
-        }
-
-        if (!utils::is_global_ai_enabled()) {
+        if (!utils::is_ai_available()) {
             return;
         }
 
@@ -73,7 +70,7 @@ class process_ai_discussion extends adhoc_task {
             $replymessage = $config->reply_message ?? get_config('local_forum_ai', 'default_reply_message');
             $requireapproval = $config->require_approval ?? 1;
             $enablediainitconversation = $config->enablediainitconversation ?? 0;
-            $allowedroles = $config->allowedroles ?? '';
+            $allowedroles = utils::get_effective_allowed_roles($config);
             $graderid = $config->graderid ?? null;
             $effectivegraderid = !$requireapproval ? $graderid : null;
             $questionturnslimit = utils::get_effective_question_turns($config);
@@ -88,14 +85,26 @@ class process_ai_discussion extends adhoc_task {
                 $requireapproval = 1;
             }
 
+            // A grader who cannot reply in the discussion group must not publish: degrade to manual approval.
+            if (!$requireapproval) {
+                $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
+                if (!utils::can_user_reply_in_discussion_group($cm, $course, $discussion, (int) $effectivegraderid)) {
+                    mtrace("local_forum_ai: discussion {$discussionid} requires approval — grader {$effectivegraderid} " .
+                        "cannot reply in its group.");
+                    $requireapproval = 1;
+                    $effectivegraderid = null;
+                }
+            }
+
             if (!$enabled || empty($enablediainitconversation)) {
                 mtrace("local_forum_ai: skipping discussion {$discussionid} — AI disabled or initial replies " .
                     "not enabled for forum {$forum->id}.");
                 return;
             }
 
-            if (utils::is_forum_cutoff_reached($forum)) {
-                mtrace("local_forum_ai: skipping discussion {$discussionid} — forum {$forum->id} cut-off date has passed.");
+            if (utils::is_forum_deadline_reached($forum)) {
+                mtrace("local_forum_ai: skipping discussion {$discussionid} — forum {$forum->id} " .
+                    "due date or cut-off date has passed.");
                 return;
             }
 
@@ -112,7 +121,7 @@ class process_ai_discussion extends adhoc_task {
 
             if (!role_checker::user_has_allowed_role($forum->id, $discussion->userid, $allowedroles)) {
                 mtrace("local_forum_ai: skipping discussion {$discussionid} — author {$discussion->userid} has " .
-                    "no allowed role (forum {$forum->id}, allowedroles='{$allowedroles}').");
+                    "no allowed role (forum {$forum->id}, allowedroles='" . implode(',', $allowedroles) . "').");
                 return;
             }
 
@@ -125,26 +134,32 @@ class process_ai_discussion extends adhoc_task {
             $postmessage = strip_tags($postmessage);
             $postmessage = trim($postmessage);
 
-            $postauthor = \core_user::get_user($discussion->userid);
-            $postauthorname = $postauthor ? fullname($postauthor) : '';
+            // FAI-PRIV-001-R1: names never leave the site. The author travels as
+            // [STUDENT_NAME], other thread authors as [PARTICIPANT_N], names inside the
+            // texts are replaced and e-mail addresses masked; the reply is restored below.
+            $pseudonymizer = new payload_pseudonymizer();
+            $authorlabel = $pseudonymizer->set_student((int)$discussion->userid);
+            // Thread context sent inline — no MCP needed. Built first so every author is labelled.
+            $threadhistory = utils::build_thread_context(
+                (int)$discussionid,
+                (int)$post->id,
+                20,
+                $pseudonymizer,
+            );
 
             $payload = [
                 'course' => $course->fullname,
                 'forum' => $forum->name,
-                'discussion' => $discussion->name,
+                'discussion' => $pseudonymizer->pseudonymize_text((string)$discussion->name),
                 'discussion_id' => $discussionid,
                 'postid' => $post->id,
                 'post' => [
-                    'subject' => $post->subject,
-                    'message' => $postmessage,
-                    // Display name of the post author so the AI never greets by numeric id.
-                    'author' => $postauthorname,
+                    'subject' => $pseudonymizer->pseudonymize_text((string)$post->subject),
+                    'message' => $pseudonymizer->pseudonymize_text($postmessage),
+                    // Pseudonymised author label (empty when the author cannot be resolved).
+                    'author' => $authorlabel ?? '',
                 ],
-                // Thread context sent inline — no MCP needed.
-                'thread_history' => utils::build_thread_context(
-                    (int)$discussionid,
-                    (int)$post->id,
-                ),
+                'thread_history' => $threadhistory,
                 // Attribute the request to the discussion author (rate limits are per user).
                 'userid' => (string)$discussion->userid,
                 'prompt' => $replymessage,
@@ -154,7 +169,8 @@ class process_ai_discussion extends adhoc_task {
             ];
 
             $airesponse = ai_service::call_ai_service($payload);
-            $replytext = $airesponse['reply'] ?? '';
+            // Markers are restored before the reply is stored or published.
+            $replytext = $pseudonymizer->restore_text((string)($airesponse['reply'] ?? ''));
             $rawgrade = $airesponse['grade'] ?? null;
             $grade = utils::resolve_ai_grade($rawgrade, $scalepayload);
 
@@ -169,7 +185,8 @@ class process_ai_discussion extends adhoc_task {
                 $requireapproval ? 'pending' : 'approved',
                 $discussion->firstpost,
                 $grade,
-                (!$requireapproval && $effectivegraderid) ? $effectivegraderid : $discussion->userid
+                $discussion->userid,
+                $requireapproval ? null : (int) $effectivegraderid
             );
 
             if (!$requireapproval && $pendingid) {

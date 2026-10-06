@@ -61,11 +61,10 @@ if ($hassiteconfig) {
             get_string('defaultenableai_desc', 'local_forum_ai'),
             1
         );
-        $globalenableaisetting->set_updatedcallback(function (string $settingname): void {
-            if ($settingname !== 'local_forum_ai/default_enabled') {
-                return;
-            }
-
+        // The callback is bound to this setting only and Moodle runs it only when the
+        // value changed, so no setting-name guard is needed (Moodle passes the full
+        // name "s_local_forum_ai_default_enabled", not "local_forum_ai/default_enabled").
+        $globalenableaisetting->set_updatedcallback(function (): void {
             if (!\local_forum_ai\utils::is_global_ai_enabled()) {
                 \local_forum_ai\utils::disable_all_forums_ai();
             }

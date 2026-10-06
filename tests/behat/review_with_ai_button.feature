@@ -9,6 +9,7 @@ Feature: Visibility of the Review with AI button in the forum grading interface
       | username | firstname | lastname | email                |
       | teacher1 | Teacher   | One      | teacher1@example.com |
       | student1 | Student   | One      | student1@example.com |
+      | student2 | Student   | Two      | student2@example.com |
     And the following "courses" exist:
       | fullname | shortname | category |
       | Course 1 | C1        | 0        |
@@ -16,6 +17,7 @@ Feature: Visibility of the Review with AI button in the forum grading interface
       | user     | course | role           |
       | teacher1 | C1     | editingteacher |
       | student1 | C1     | student        |
+      | student2 | C1     | student        |
     And the following "scales" exist:
       | name       | scale                          |
       | Test Scale | Disappointing, Good, Excellent |
@@ -26,16 +28,34 @@ Feature: Visibility of the Review with AI button in the forum grading interface
     And the following "mod_forum > discussions" exist:
       | user     | forum  | name         | message               |
       | student1 | gforum | Discussion G | Student participation |
+      | student2 | gforum | Discussion H | Second participation  |
 
   @javascript @MDL-E2E-001 @SYS-E2E-004
   Scenario: The button appears for a teacher in the grading panel of a point graded forum
     Given I am on the "Graded forum" "forum activity" page logged in as "teacher1"
     When I press "Grade users"
+    # The button is moved into the grading form asynchronously after the drawer opens.
+    And I wait until "[data-region='grade'] form #forum-ai-review-btn" "css_element" exists
     Then "#forum-ai-review-btn" "css_element" should be visible
     And I should see "Review with AI"
     # Paso manual: requiere servicio de IA (SYS-E2E-004 pasos 2-5: estado de carga al pulsar,
     # inyeccion de la nota en el formulario sin guardarse, notificacion de exito y notificacion
     # persistente de error del servicio).
+
+  @javascript @MDL-E2E-001
+  Scenario: The previous AI notice is cleared when the grader moves to another student
+    Given I am on the "Graded forum" "forum activity" page logged in as "teacher1"
+    And I press "Grade users"
+    # The button is moved into the grading form asynchronously after the drawer opens.
+    And I wait until "[data-region='grade'] form #forum-ai-review-btn" "css_element" exists
+    And "#forum-ai-review-btn" "css_element" should be visible
+    And the Forum AI review notice "Previous student notice" is shown
+    And I should see "Previous student notice"
+    When I click on "[data-region='user_picker'] [data-action='change-user'][data-direction='1']" "css_element"
+    Then I should not see "Previous student notice"
+    And "#forum-ai-review-btn" "css_element" should be visible
+    # Paso manual: requiere servicio de IA (D9: una respuesta de la IA que llega despues de
+    # cambiar de estudiante se descarta; no se escribe la nota ni se muestra el aviso).
 
   @javascript @MDL-E2E-001
   Scenario: The button does not exist for a student without the AI review permission
@@ -48,8 +68,7 @@ Feature: Visibility of the Review with AI button in the forum grading interface
     Given I am on the "Plain forum" "forum activity" page logged in as "teacher1"
     Then "Grade users" "button" should not exist
     And "#forum-ai-review-btn" "css_element" should not be visible
-    # Paso manual: requiere servicio de IA (MDL-E2E-001 pasos 3-4: reposicionamiento del boton
-    # al cambiar de estudiante con limpieza de notificaciones previas y bloqueo de una segunda
+    # Paso manual: requiere servicio de IA (MDL-E2E-001 paso 4: bloqueo de una segunda
     # solicitud durante una evaluacion en curso).
 
   @javascript @MDL-E2E-001 @SYS-E2E-006

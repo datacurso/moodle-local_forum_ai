@@ -134,6 +134,53 @@ final class cleanup_expired_test extends \advanced_testcase {
     }
 
     /**
+     * Forum date combinations for the expiry/publication-barrier coherence check.
+     *
+     * Offsets are relative to now in seconds; null means the date is not set.
+     *
+     * @return array
+     */
+    public static function deadline_provider(): array {
+        return [
+            'cut-off date passed' => [-DAYSECS, null],
+            'cut-off date in the future' => [DAYSECS, null],
+            'no cut-off date, due date passed' => [null, -DAYSECS],
+            'no cut-off date, due date in the future' => [null, DAYSECS],
+            'future cut-off date wins over a past due date' => [DAYSECS, -DAYSECS],
+            'no dates' => [null, null],
+        ];
+    }
+
+    /**
+     * A row expires if and only if the publication barrier would block it.
+     *
+     * @dataProvider deadline_provider
+     * @covers \local_forum_ai\utils::is_forum_deadline_reached
+     * @param int|null $cutoffoffset Cut-off date offset from now, null for none.
+     * @param int|null $duedateoffset Due date offset from now, null for none.
+     */
+    public function test_expiry_matches_publication_barrier(?int $cutoffoffset, ?int $duedateoffset): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $setup = $this->create_setup([
+            'cutoffdate' => $cutoffoffset === null ? 0 : time() + $cutoffoffset,
+            'duedate' => $duedateoffset === null ? 0 : time() + $duedateoffset,
+        ]);
+
+        $barrier = utils::is_forum_deadline_reached($setup->forum);
+
+        local_forum_ai_cleanup_expired($setup->course->id);
+
+        $this->assertSame(
+            $barrier ? 'expired' : 'pending',
+            $DB->get_field('local_forum_ai_pending', 'status', ['id' => $setup->pendingid], MUST_EXIST)
+        );
+    }
+
+    /**
      * Expired rows leave the pending list and appear in the history.
      */
     public function test_expired_rows_reach_history(): void {
@@ -171,9 +218,9 @@ final class cleanup_expired_test extends \advanced_testcase {
         // Approval loads by status = 'pending': an expired token is not found.
         try {
             external\approve_response::execute($token, 'approve');
-            $this->fail('Expected dml_missing_record_exception was not thrown.');
-        } catch (\dml_missing_record_exception $e) {
-            $this->assertSame('invalidrecord', $e->errorcode);
+            $this->fail('Expected moodle_exception was not thrown.');
+        } catch (moodle_exception $e) {
+            $this->assertSame('alreadysubmitted', $e->errorcode);
         }
 
         // Editing a non-pending row is rejected explicitly.
@@ -183,6 +230,41 @@ final class cleanup_expired_test extends \advanced_testcase {
         } catch (moodle_exception $e) {
             $this->assertSame('error_responsenotpending', $e->errorcode);
         }
+    }
+
+    /**
+     * A row approved between the cleanup selection and its write must stay approved.
+     *
+     * The interleaving is reproduced by approving the selected row before the
+     * extracted write runs. Covers: FAI-SEC-010.
+     *
+     * @covers ::local_forum_ai_mark_pending_expired
+     */
+    public function test_cleanup_does_not_expire_row_approved_after_select(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $approved = $this->create_setup(['cutoffdate' => time() - DAYSECS]);
+        $pending = $this->create_setup(['cutoffdate' => time() - DAYSECS], $approved->course);
+
+        // Both rows were selected as pending; one is approved before the write.
+        $DB->update_record('local_forum_ai_pending', (object) [
+            'id' => $approved->pendingid,
+            'status' => 'approved',
+            'postid' => $approved->discussion->firstpost,
+        ]);
+
+        local_forum_ai_mark_pending_expired([$approved->pendingid, $pending->pendingid], time());
+
+        $row = $DB->get_record('local_forum_ai_pending', ['id' => $approved->pendingid], '*', MUST_EXIST);
+        $this->assertSame('approved', $row->status);
+        $this->assertEquals($approved->discussion->firstpost, $row->postid);
+        $this->assertSame(
+            'expired',
+            $DB->get_field('local_forum_ai_pending', 'status', ['id' => $pending->pendingid], MUST_EXIST)
+        );
     }
 
     /**

@@ -48,11 +48,7 @@ class process_ai_queue extends \core\task\scheduled_task {
     public function execute() {
         global $DB;
 
-        if (!utils::is_feature_enabled()) {
-            return;
-        }
-
-        if (!utils::is_global_ai_enabled()) {
+        if (!utils::is_ai_available()) {
             return;
         }
 

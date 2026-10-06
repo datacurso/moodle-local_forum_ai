@@ -20,7 +20,8 @@ use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
-use context_module;
+use local_forum_ai\approval;
+use local_forum_ai\local\editable_text;
 use moodle_exception;
 
 /**
@@ -46,6 +47,12 @@ class update_response extends external_api {
             // PARAM_RAW on purpose: external_api::validate_parameters() rejects (not cleans)
             // values that change under PARAM_CLEANHTML; dirty input must be neutralized instead.
             'message' => new external_value(PARAM_RAW, 'New AI message'),
+            'plaintext' => new external_value(
+                PARAM_BOOL,
+                'Whether message is plain text from the edit box (converted to escaped paragraphs)',
+                VALUE_DEFAULT,
+                false
+            ),
         ]);
     }
 
@@ -53,42 +60,44 @@ class update_response extends external_api {
      * Executes the update of a pending AI message.
      *
      * Stores the purified message and triggers a response_updated audit event.
+     * With $plaintext the message is plain text: unchanged text keeps the stored
+     * HTML, any other text is stored as escaped, purified paragraphs.
      *
      * @param string $token Approval token
      * @param string $message New AI message
+     * @param bool $plaintext Whether $message is plain text from the edit box
      * @return array Result with status and the updated message rendered as display-ready HTML
      * @throws \required_capability_exception If the caller does not hold local/forum_ai:approveresponses.
-     * @throws \moodle_exception If the response is no longer pending.
+     * @throws \moodle_exception If the response is no longer pending, another request is
+     *                           managing it, or the discussion belongs to a group the
+     *                           caller cannot access.
      */
-    public static function execute($token, $message) {
-        global $DB;
-
+    public static function execute($token, $message, $plaintext = false) {
         $params = self::validate_parameters(self::execute_parameters(), [
             'token' => $token,
             'message' => $message,
+            'plaintext' => $plaintext,
         ]);
 
-        $pending = $DB->get_record('local_forum_ai_pending', ['approval_token' => $params['token']], '*', MUST_EXIST);
-
-        // Resolve forum context from the pending record.
-        $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid], '*', MUST_EXIST);
-        $forum = $DB->get_record('forum', ['id' => $pending->forumid], '*', MUST_EXIST);
-        $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
-        $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-
-        $context = context_module::instance($cm->id);
+        // Token, capability and discussion group are enforced in one place.
+        $loaded = approval::load_pending_for_user($params['token']);
+        $context = $loaded->context;
         self::validate_context($context);
-        require_capability('local/forum_ai:approveresponses', $context);
 
-        // Only pending responses may be edited; approved or rejected history records are immutable.
-        if ($pending->status !== 'pending') {
-            throw new moodle_exception('error_responsenotpending', 'local_forum_ai');
-        }
-
-        // Edited AI responses remain external, untrusted content: purify before storing.
-        $pending->message = clean_text($params['message'], FORMAT_HTML);
-        $pending->timemodified = time();
-        $DB->update_record('local_forum_ai_pending', $pending);
+        // The edit shares the approval lock and only writes while the row is still pending,
+        // so it can never revert a concurrent approval (status and postid are never written).
+        $compose = static function (string $stored) use ($params): string {
+            // Edited AI responses remain external, untrusted content: purify before storing.
+            if (!$params['plaintext']) {
+                return clean_text($params['message'], FORMAT_HTML);
+            } else if (editable_text::is_unchanged($params['message'], $stored)) {
+                // Unchanged text keeps the stored formatting (bold, lists, links), still purified.
+                return clean_text($stored, FORMAT_HTML);
+            }
+            // Typed text is escaped, so markup written by the teacher is stored as visible text.
+            return editable_text::to_html($params['message']);
+        };
+        $pending = approval::edit_pending_message((int) $loaded->pending->id, $compose);
 
         // Audit trail: edits of a pending response must be traceable in the standard log store.
         $event = \local_forum_ai\event\response_updated::create([

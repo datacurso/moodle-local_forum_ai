@@ -27,14 +27,19 @@
 defined('MOODLE_INTERNAL') || die(); // phpcs:ignore moodle.Files.MoodleInternal.MoodleInternalNotNeeded
 
 /**
- * Gets the list of pending responses.
+ * Gets the list of pending responses the user may manage.
+ *
+ * Rows are limited to forums visible to the user where they hold
+ * local/forum_ai:approveresponses, and to discussions of groups they can
+ * access (see local_forum_ai_filter_rows_for_user()).
  *
  * @package local_forum_ai
  * @param int $courseid Course ID.
  * @param int $forumid (optional) Forum ID to filter.
+ * @param int $userid (optional) User the rows are listed for; defaults to the current user.
  * @return array list of objects with pending data.
  */
-function local_forum_ai_get_pending(int $courseid, int $forumid = 0) {
+function local_forum_ai_get_pending(int $courseid, int $forumid = 0, int $userid = 0) {
     global $DB;
 
     // All user name fields so fullname() can be used on the returned rows.
@@ -42,7 +47,8 @@ function local_forum_ai_get_pending(int $courseid, int $forumid = 0) {
 
     $sql = "SELECT p.*, d.name AS discussionname, f.name AS forumname,
                    c.fullname AS coursename, {$usernamefields},
-                   fp.subject AS discussionsubject, fp.message AS discussionmessage, fp.messageformat
+                   fp.subject AS discussionsubject, fp.message AS discussionmessage, fp.messageformat,
+                   d.groupid AS discussiongroupid, cm.id AS cmid
               FROM {local_forum_ai_pending} p
               JOIN {forum_discussions} d ON d.id = p.discussionid
               JOIN {forum} f ON f.id = p.forumid
@@ -69,18 +75,21 @@ function local_forum_ai_get_pending(int $courseid, int $forumid = 0) {
 
     $sql .= " ORDER BY p.timecreated DESC";
 
-    return $DB->get_records_sql($sql, $params);
+    return local_forum_ai_filter_rows_for_user($DB->get_records_sql($sql, $params), $courseid, $userid);
 }
 
 /**
- * Gets the list of response history.
+ * Gets the list of response history the user may manage.
+ *
+ * Same access rules as local_forum_ai_get_pending().
  *
  * @package local_forum_ai
  * @param int $courseid Course ID.
  * @param int $forumid (optional) Forum ID to filter.
+ * @param int $userid (optional) User the rows are listed for; defaults to the current user.
  * @return array list of response objects.
  */
-function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
+function local_forum_ai_get_history(int $courseid, int $forumid = 0, int $userid = 0) {
     global $DB;
 
     // All user name fields so fullname() can be used on the returned rows:
@@ -90,7 +99,7 @@ function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
     $actionnamefields = \core_user\fields::for_name()->get_sql('au', false, 'action', '', false)->selects;
 
     $sql = "SELECT p.*, d.name AS discussionname, f.name AS forumname, c.fullname AS coursename,
-                   {$usernamefields}, {$actionnamefields}
+                   {$usernamefields}, {$actionnamefields}, d.groupid AS discussiongroupid, cm.id AS cmid
               FROM {local_forum_ai_pending} p
               JOIN {forum_discussions} d ON d.id = p.discussionid
               JOIN {forum} f ON f.id = p.forumid
@@ -114,7 +123,65 @@ function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
 
     $sql .= " ORDER BY p.timecreated DESC";
 
-    return $DB->get_records_sql($sql, $params);
+    return local_forum_ai_filter_rows_for_user($DB->get_records_sql($sql, $params), $courseid, $userid);
+}
+
+/**
+ * Keeps only the listing rows the user may manage.
+ *
+ * Filtering happens per forum in PHP because each forum of the course may use
+ * a different group mode and capability overrides: a row is kept only when its
+ * forum is visible to the user, the user holds local/forum_ai:approveresponses
+ * in the forum context and can access the discussion group.
+ *
+ * @package local_forum_ai
+ * @param array $records Rows carrying cmid and discussiongroupid, keyed by row id.
+ * @param int $courseid Course ID the rows belong to.
+ * @param int $userid User to evaluate; 0 for the current user.
+ * @return array The accessible rows, keys and order preserved.
+ */
+function local_forum_ai_filter_rows_for_user(array $records, int $courseid, int $userid = 0): array {
+    global $USER;
+
+    if (empty($records)) {
+        return [];
+    }
+
+    $userid = $userid ?: (int) $USER->id;
+    $modinfo = get_fast_modinfo($courseid, $userid);
+    $course = $modinfo->get_course();
+
+    // Per forum: false when the forum is not accessible, otherwise the result of
+    // get_allowed_discussion_groupids() (null meaning no group restriction).
+    $allowedbycm = [];
+    $result = [];
+    foreach ($records as $id => $record) {
+        $cmid = (int) $record->cmid;
+        if (!array_key_exists($cmid, $allowedbycm)) {
+            $allowedbycm[$cmid] = false;
+            $cm = $modinfo->get_cms()[$cmid] ?? null;
+            $canmanage = $cm && $cm->uservisible
+                && has_capability('local/forum_ai:approveresponses', context_module::instance($cmid), $userid);
+            if ($canmanage) {
+                $allowedbycm[$cmid] = \local_forum_ai\local\group_access::get_allowed_discussion_groupids(
+                    $cm,
+                    $course,
+                    $userid
+                );
+            }
+        }
+
+        $allowed = $allowedbycm[$cmid];
+        if ($allowed === false) {
+            continue;
+        }
+        if ($allowed !== null && !in_array((int) $record->discussiongroupid, $allowed, true)) {
+            continue;
+        }
+        $result[$id] = $record;
+    }
+
+    return $result;
 }
 
 /**
@@ -123,8 +190,9 @@ function local_forum_ai_get_history(int $courseid, int $forumid = 0) {
  * Scoped to one course (and optionally one forum): opening the pending list
  * of a course must never touch other courses. Rows are kept for traceability
  * with status 'expired' instead of being deleted, so they reach the history.
- * Expiry criterion (unchanged): the forum cut-off date has passed, or the due
- * date has passed when no cut-off date is set.
+ * Expiry criterion: the forum cut-off date has passed, or the due date has
+ * passed when no cut-off date is set. It must stay identical to
+ * \local_forum_ai\utils::is_forum_deadline_reached(), the publication barrier.
  *
  * @package local_forum_ai
  * @param int $courseid Course ID the cleanup is scoped to.
@@ -161,25 +229,60 @@ function local_forum_ai_cleanup_expired(int $courseid, int $forumid = 0): int {
 
     if ($pendings) {
         $ids = array_keys($pendings);
-        [$insql, $inparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
-        $DB->set_field_select(
-            'local_forum_ai_pending',
-            'status',
-            'expired',
-            "id $insql",
-            $inparams
-        );
-        $DB->set_field_select(
-            'local_forum_ai_pending',
-            'timemodified',
-            $now,
-            "id $insql",
-            $inparams
-        );
+        local_forum_ai_mark_pending_expired($ids, $now);
         return count($ids);
     }
 
     return 0;
+}
+
+/**
+ * Marks the given AI responses as expired, only while they are still pending.
+ *
+ * The bulk cleanup selects rows first and writes them afterwards: a row
+ * approved or rejected in between must keep its state (and its published
+ * post), so the write itself is conditioned on the pending status.
+ *
+ * @package local_forum_ai
+ * @param int[] $ids Pending row ids selected for expiry.
+ * @param int $now Timestamp stored as timemodified.
+ * @return void
+ */
+function local_forum_ai_mark_pending_expired(array $ids, int $now): void {
+    global $DB;
+
+    if (empty($ids)) {
+        return;
+    }
+
+    [$insql, $inparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
+    $DB->execute(
+        "UPDATE {local_forum_ai_pending}
+            SET status = :expired, timemodified = :now
+          WHERE id $insql AND status = :pending",
+        $inparams + ['expired' => 'expired', 'now' => $now, 'pending' => 'pending']
+    );
+}
+
+/**
+ * Marks one pending AI response as expired.
+ *
+ * Used when a single row is found past the forum deadline outside the bulk
+ * cleanup (approval attempt, review page). Only rows still pending change.
+ *
+ * @package local_forum_ai
+ * @param \stdClass $pending Pending response record.
+ * @return void
+ */
+function local_forum_ai_expire_pending(\stdClass $pending): void {
+    global $DB;
+
+    $DB->execute(
+        "UPDATE {local_forum_ai_pending}
+            SET status = 'expired', timemodified = :now
+          WHERE id = :id AND status = 'pending'",
+        ['now' => time(), 'id' => $pending->id]
+    );
 }
 
 /**
@@ -268,4 +371,43 @@ function local_forum_ai_add_rating(
             \core\cron::setup_user($originaluser);
         }
     }
+}
+
+/**
+ * Repairs history rows that stored the managing user as creator.
+ *
+ * Automatic mode used to store the grader in creator_userid (and left
+ * action_userid empty); rows managed before the action_userid column existed
+ * had the approving teacher there too. For approved rows with no manager whose
+ * creator is the author of the published AI post, the creator is moved to
+ * action_userid and the author of the parent post (the originating student)
+ * becomes the creator. Rows whose parent post no longer exists are skipped.
+ *
+ * @package local_forum_ai
+ * @return int Number of repaired rows.
+ */
+function local_forum_ai_repair_auto_mode_identities(): int {
+    global $DB;
+
+    $sql = "SELECT p.id, p.creator_userid, pp.userid AS parentauthorid
+              FROM {local_forum_ai_pending} p
+              JOIN {forum_posts} ap ON ap.id = p.postid AND ap.userid = p.creator_userid
+              JOIN {forum_posts} pp ON pp.id = p.parentpostid
+             WHERE p.status = :status
+               AND p.action_userid IS NULL
+               AND p.postid IS NOT NULL";
+
+    $repaired = 0;
+    $rows = $DB->get_recordset_sql($sql, ['status' => 'approved']);
+    foreach ($rows as $row) {
+        $DB->update_record('local_forum_ai_pending', (object) [
+            'id' => $row->id,
+            'creator_userid' => $row->parentauthorid,
+            'action_userid' => $row->creator_userid,
+        ]);
+        $repaired++;
+    }
+    $rows->close();
+
+    return $repaired;
 }
