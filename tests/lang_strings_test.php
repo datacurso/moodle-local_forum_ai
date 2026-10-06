@@ -38,15 +38,44 @@ final class lang_strings_test extends \advanced_testcase {
     private const SHIPPED_PACKS = ['de', 'en', 'es', 'es_mx', 'es_mx_kids', 'fr', 'id', 'pt_br', 'ru'];
 
     /**
-     * MDL-INT-005: the help texts for the allowed-roles and grader fields must
-     * describe the real behaviour (empty role list means every role triggers the
-     * AI; the grader list also includes users with the rate permission).
+     * MDL-INT-005 / FAI-SEC-005: the allowed-roles help text must describe the real
+     * fail-closed behaviour in every shipped pack: with no role selected the AI
+     * responds to nobody.
      */
     public function test_form_help_texts_describe_real_behaviour(): void {
+        $failclosed = [
+            'de' => 'Wenn keine ausgewählt sind, antwortet die KI auf keine Benutzer.',
+            'en' => 'If none are selected, the AI will not respond to any users.',
+            'es' => 'Si no se selecciona ninguno, la IA no responderá a ningún usuario.',
+            'es_mx' => 'Si no se selecciona ninguno, la IA no responderá a ningún usuario.',
+            'es_mx_kids' => 'Si no se selecciona ninguno, la IA no responderá a ningún usuario.',
+            'fr' => 'Si aucun n’est sélectionné, l’IA ne répondra à aucun utilisateur.',
+            'id' => 'Jika tidak ada yang dipilih, AI tidak akan merespons pengguna mana pun.',
+            'pt_br' => 'Se nenhuma for selecionada, a IA não responderá a nenhum usuário.',
+            'ru' => 'Если ни одна не выбрана, ИИ не будет отвечать ни одному пользователю.',
+        ];
+        $this->assertSame(self::SHIPPED_PACKS, array_keys($failclosed));
+
+        foreach ($failclosed as $pack => $sentence) {
+            $strings = $this->load_pack_strings($pack);
+            $this->assertArrayHasKey('allowedroles_help', $strings, "Pack {$pack} must declare allowedroles_help.");
+            $this->assertStringContainsString(
+                $sentence,
+                $strings['allowedroles_help'],
+                "Pack {$pack} must state that an empty role list makes the AI respond to nobody."
+            );
+        }
+    }
+
+    /**
+     * MDL-INT-005: the grader help text must describe the real behaviour (the
+     * grader list also includes users with the rate permission).
+     */
+    public function test_grader_help_text_describes_real_behaviour(): void {
         $this->markTestSkipped(
-            '[Pendiente:skip] Las ayudas de "Roles permitidos" y "Usuario calificador" describen '
-            . 'el comportamiento contrario o incompleto; deben corregirse los textos antes de '
-            . 'poder verificarlos. Caso marcado Automatizado: no — verificacion manual.'
+            '[Pendiente:skip] La ayuda de "Usuario calificador" describe un comportamiento '
+            . 'incompleto; debe corregirse el texto antes de poder verificarlo. Caso marcado '
+            . 'Automatizado: no — verificacion manual.'
         );
     }
 

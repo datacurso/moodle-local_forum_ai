@@ -68,6 +68,7 @@ $string['enableforumai'] = 'Aktifkan Forum AI';
 $string['enableforumai_desc'] = 'Jika dinonaktifkan, bagian "Datacurso Forum AI" disembunyikan dari pengaturan aktivitas forum dan pemrosesan otomatis dijeda.';
 $string['error_aidisabled'] = 'Fitur AI saat ini dinonaktifkan oleh administrator situs.';
 $string['error_airequest'] = 'Respon AI tidak dapat dimuat. Silakan coba lagi nanti atau hubungi administrator Anda.';
+$string['error_allowedrolesrequired'] = 'Pilih setidaknya satu peran yang dapat dibalas oleh AI.';
 $string['error_discussionlocked'] = 'Diskusi ini terkunci, sehingga respon AI tidak dapat dipublikasikan. Buka kunci diskusi lalu coba lagi.';
 $string['error_forumclosed'] = 'Tanggal tenggat atau tanggal batas akhir forum ini sudah lewat, sehingga respon AI tidak dapat dipublikasikan.';
 $string['error_graderrequired'] = 'Pilih penilai: persetujuan otomatis menerbitkan respons AI atas nama pengguna ini.';

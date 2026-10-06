@@ -74,7 +74,7 @@ class process_ai_post extends adhoc_task {
             $enabled = $config->enabled ?? get_config('local_forum_ai', 'default_enabled');
             $replymessage = $config->reply_message ?? get_config('local_forum_ai', 'default_reply_message');
             $requireapproval = $config->require_approval ?? 1;
-            $allowedroles = $config->allowedroles ?? '';
+            $allowedroles = utils::get_effective_allowed_roles($config);
             $graderid = $config->graderid ?? null;
             $effectivegraderid = !$requireapproval ? $graderid : null;
             $questionturnslimit = utils::get_effective_question_turns($config);
@@ -128,7 +128,7 @@ class process_ai_post extends adhoc_task {
 
             if (!role_checker::user_has_allowed_role($forum->id, $post->userid, $allowedroles)) {
                 mtrace("local_forum_ai: skipping post {$post->id} — author {$post->userid} has no allowed role " .
-                    "(forum {$forum->id}, allowedroles='{$allowedroles}').");
+                    "(forum {$forum->id}, allowedroles='" . implode(',', $allowedroles) . "').");
                 return;
             }
 

@@ -68,6 +68,7 @@ $string['enableforumai'] = 'Enable Forum AI';
 $string['enableforumai_desc'] = 'If disabled, the "Datacurso Forum AI" section is hidden from forum activity settings and automatic processing is paused.';
 $string['error_aidisabled'] = 'AI features are currently disabled by the site administrator.';
 $string['error_airequest'] = 'The AI response could not be loaded. Please try again later or contact your administrator.';
+$string['error_allowedrolesrequired'] = 'Select at least one role the AI may respond to.';
 $string['error_discussionlocked'] = 'This discussion is locked, so the AI response cannot be published. Unlock the discussion and try again.';
 $string['error_forumclosed'] = 'The due date or the cut-off date of this forum has passed, so the AI response cannot be published.';
 $string['error_graderrequired'] = 'Select a grader: automatic approval publishes the AI response on behalf of this user.';

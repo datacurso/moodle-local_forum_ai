@@ -68,6 +68,7 @@ $string['enableforumai'] = 'Activer Forum IA';
 $string['enableforumai_desc'] = 'Si désactivé, la section "Datacurso Forum IA" est masquée dans les paramètres de l’activité forum et le traitement automatique est mis en pause.';
 $string['error_aidisabled'] = 'Les fonctionnalités d\'IA sont actuellement désactivées par l\'administrateur du site.';
 $string['error_airequest'] = 'La réponse de l\'IA n\'a pas pu être chargée. Veuillez réessayer plus tard ou contacter votre administrateur.';
+$string['error_allowedrolesrequired'] = 'Sélectionnez au moins un rôle auquel l\'IA peut répondre.';
 $string['error_discussionlocked'] = 'Cette discussion est verrouillée, la réponse de l’IA ne peut donc pas être publiée. Déverrouillez la discussion et réessayez.';
 $string['error_forumclosed'] = 'La date de remise ou la date limite de ce forum est dépassée, la réponse de l’IA ne peut donc pas être publiée.';
 $string['error_graderrequired'] = 'Sélectionnez un évaluateur : l\'approbation automatique publie la réponse de l\'IA au nom de cet utilisateur.';

@@ -253,6 +253,9 @@ final class task_pipeline_test extends \advanced_testcase {
         // forum_add_instance auto-created the single discussion.
         $discussion = $DB->get_record('forum_discussions', ['forum' => $forum->id], '*', MUST_EXIST);
 
+        // The auto-created discussion is authored by the current user: give it an allowed role.
+        $this->getDataGenerator()->enrol_user((int) $discussion->userid, $course->id, 'student');
+
         $this->set_forum_config($forum->id, [
             'require_approval' => 1,
             'enablediainitconversation' => 1,
@@ -722,7 +725,7 @@ final class task_pipeline_test extends \advanced_testcase {
         $configrow->forumid = $forumid;
         $configrow->enabled = 1;
         $configrow->require_approval = 1;
-        $configrow->allowedroles = '';
+        $configrow->allowedroles = (string) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
         $configrow->reply_message = 'Test prompt';
         $configrow->timemodified = time();
         foreach ($overrides as $field => $value) {

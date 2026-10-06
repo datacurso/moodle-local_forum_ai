@@ -31,7 +31,7 @@ class role_checker {
      * @param int $forumid
      * @param int $userid
      * @param array|string $allowedroles Array of role ids (as integers) OR CSV string.
-     *        An empty value means no role restriction: every user is allowed.
+     *        An empty value allows no role: the check fails closed and every user is denied.
      * @return bool True if user has at least one allowed role; false otherwise.
      */
     public static function user_has_allowed_role(int $forumid, int $userid, $allowedroles): bool {
@@ -41,10 +41,10 @@ class role_checker {
             $allowedroles = $allowedroles === '' ? [] : explode(',', $allowedroles);
         }
 
-        // No roles configured means no restriction. Previously this returned false,
-        // which silently disabled AI replies for every post in the forum.
+        // No roles configured means the AI responds to nobody (fail closed). Forums
+        // without a config row get the student default via utils::get_effective_allowed_roles().
         if (empty($allowedroles)) {
-            return true;
+            return false;
         }
 
         $forum = $DB->get_record('forum', ['id' => $forumid], '*', MUST_EXIST);

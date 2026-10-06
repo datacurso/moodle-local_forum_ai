@@ -69,7 +69,7 @@ class process_ai_discussion extends adhoc_task {
             $replymessage = $config->reply_message ?? get_config('local_forum_ai', 'default_reply_message');
             $requireapproval = $config->require_approval ?? 1;
             $enablediainitconversation = $config->enablediainitconversation ?? 0;
-            $allowedroles = $config->allowedroles ?? '';
+            $allowedroles = utils::get_effective_allowed_roles($config);
             $graderid = $config->graderid ?? null;
             $effectivegraderid = !$requireapproval ? $graderid : null;
             $questionturnslimit = utils::get_effective_question_turns($config);
@@ -120,7 +120,7 @@ class process_ai_discussion extends adhoc_task {
 
             if (!role_checker::user_has_allowed_role($forum->id, $discussion->userid, $allowedroles)) {
                 mtrace("local_forum_ai: skipping discussion {$discussionid} — author {$discussion->userid} has " .
-                    "no allowed role (forum {$forum->id}, allowedroles='{$allowedroles}').");
+                    "no allowed role (forum {$forum->id}, allowedroles='" . implode(',', $allowedroles) . "').");
                 return;
             }
 

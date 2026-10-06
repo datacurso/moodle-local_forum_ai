@@ -249,13 +249,9 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     // Roles allowed to trigger AI.
     $roles = $DB->get_records('role', null, 'sortorder ASC');
     $roleoptions = [];
-    $defaultroles = [];
 
     // Default: student roles.
-    $studentroles = $DB->get_records('role', ['archetype' => 'student']);
-    foreach ($studentroles as $sr) {
-        $defaultroles[] = $sr->id;
-    }
+    $defaultroles = \local_forum_ai\utils::get_student_archetype_role_ids();
 
     foreach ($roles as $role) {
         $roleoptions[$role->id] = role_get_name($role);
@@ -413,6 +409,7 @@ function local_forum_ai_get_grader_options(\context $context, ?int $savedgraderi
  *
  * Automatic mode (no review) publishes as the configured grader, so it cannot be
  * saved without one; otherwise every reply would silently fall back to manual approval.
+ * An enabled forum AI also needs at least one allowed role, since an empty list denies everyone.
  *
  * @param moodleform_mod|null $fromform The forum settings form.
  * @param array $fields The submitted form data.
@@ -423,13 +420,19 @@ function local_forum_ai_coursemodule_validation($fromform, $fields) {
         return [];
     }
 
+    $errors = [];
     $enabled = !empty($fields['local_forum_ai_enabled']);
     $automatic = isset($fields['local_forum_ai_require_approval']) && empty($fields['local_forum_ai_require_approval']);
     if ($enabled && $automatic && empty($fields['local_forum_ai_grader'])) {
-        return ['local_forum_ai_grader' => get_string('error_graderrequired', 'local_forum_ai')];
+        $errors['local_forum_ai_grader'] = get_string('error_graderrequired', 'local_forum_ai');
     }
 
-    return [];
+    // An empty role list makes the AI respond to nobody; an empty selection is not submitted at all.
+    if ($enabled && empty($fields['allowedroles'])) {
+        $errors['allowedroles'] = get_string('error_allowedrolesrequired', 'local_forum_ai');
+    }
+
+    return $errors;
 }
 
 /**

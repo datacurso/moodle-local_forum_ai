@@ -302,7 +302,7 @@ final class group_mode_publish_test extends \advanced_testcase {
             'require_approval' => 0,
             'usedelay' => 0,
             'graderid' => $fixture->grader->id,
-            'allowedroles' => '',
+            'allowedroles' => (string) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST),
             'reply_message' => 'Test prompt',
             'timecreated' => time(),
             'timemodified' => time(),

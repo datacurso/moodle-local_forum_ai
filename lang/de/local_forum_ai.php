@@ -68,6 +68,7 @@ $string['enableforumai'] = 'Forum-KI aktivieren';
 $string['enableforumai_desc'] = 'Wenn deaktiviert, wird der Abschnitt "Datacurso Forum KI" in den Foren-Einstellungen ausgeblendet und die automatische Verarbeitung pausiert.';
 $string['error_aidisabled'] = 'KI-Funktionen sind derzeit von der Website-Administration deaktiviert.';
 $string['error_airequest'] = 'Die KI-Antwort konnte nicht geladen werden. Bitte versuchen Sie es später erneut oder wenden Sie sich an Ihren Administrator.';
+$string['error_allowedrolesrequired'] = 'Wählen Sie mindestens eine Rolle aus, auf die die KI antworten darf.';
 $string['error_discussionlocked'] = 'Diese Diskussion ist gesperrt, daher kann die KI-Antwort nicht veröffentlicht werden. Entsperren Sie die Diskussion und versuchen Sie es erneut.';
 $string['error_forumclosed'] = 'Das Fälligkeitsdatum oder der Stichtag dieses Forums ist abgelaufen, daher kann die KI-Antwort nicht veröffentlicht werden.';
 $string['error_graderrequired'] = 'Wählen Sie eine bewertende Person aus: Die automatische Genehmigung veröffentlicht die KI-Antwort im Namen dieser Person.';

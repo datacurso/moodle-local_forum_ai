@@ -592,6 +592,50 @@ final class backup_restore_test extends \advanced_testcase {
     }
 
     /**
+     * Pre-2026100600 backups may carry an empty allowed-roles list, which now denies every role:
+     * restore migrates it to the student-archetype roles and keeps an explicit list as is.
+     *
+     * Covers: FAI-SEC-005 — restored forums must not be silently muted.
+     */
+    public function test_restore_migrates_empty_allowedroles_to_student_roles(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $restore = new restore_local_forum_ai_plugin_test_double();
+
+        $studentroleids = array_keys($DB->get_records('role', ['archetype' => 'student'], 'id', 'id'));
+        $this->assertNotEmpty($studentroleids);
+        $teacherroleid = (string) $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
+
+        $restore->seed_mappings([
+            'forum' => [1001 => 2001, 1002 => 2002, 1003 => 2003],
+        ]);
+        $configs = [];
+        foreach ([1001 => null, 1002 => '', 1003 => $teacherroleid] as $forumid => $allowedroles) {
+            $configs[] = (object) [
+                'forumid' => $forumid,
+                'enabled' => 1,
+                'require_approval' => 1,
+                'reply_message' => 'Restored config',
+                'allowedroles' => $allowedroles,
+                'timecreated' => 1710000000,
+                'timemodified' => 1710000000,
+            ];
+        }
+        $restore->seed_tempconfigs($configs);
+
+        $this->expectOutputRegex('/.*/s');
+        $restore->after_restore_course();
+
+        $stored = function (int $forumid) use ($DB): ?string {
+            return $DB->get_field('local_forum_ai_config', 'allowedroles', ['forumid' => $forumid], MUST_EXIST);
+        };
+        $this->assertSame(implode(',', $studentroleids), $stored(2001));
+        $this->assertSame(implode(',', $studentroleids), $stored(2002));
+        $this->assertSame($teacherroleid, $stored(2003));
+    }
+
+    /**
      * Restored pending rows get a fresh, unpredictable token from the shared CSPRNG factory.
      *
      * Covers: FAI-SEC-009 — Restored approval tokens must not be time-derived.

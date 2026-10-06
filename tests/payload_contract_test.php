@@ -92,6 +92,14 @@ final class payload_contract_test extends \advanced_testcase {
         // Point the post at a user id that cannot be resolved.
         $DB->set_field('forum_posts', 'userid', 9999999, ['id' => $post->id]);
 
+        // Keep the role filter out of the way: the orphan id still holds the allowed student role.
+        $DB->insert_record('role_assignments', (object) [
+            'roleid' => (int) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST),
+            'contextid' => \context_course::instance($fixture->course->id)->id,
+            'userid' => 9999999,
+            'timemodified' => time(),
+        ]);
+
         $mock = $this->inject_mock(['reply' => 'Orphan author check']);
         $messagesink = $this->redirectMessages();
         $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
@@ -440,7 +448,7 @@ final class payload_contract_test extends \advanced_testcase {
         $configrow->forumid = $fixture->forum->id;
         $configrow->enabled = 1;
         $configrow->require_approval = 1;
-        $configrow->allowedroles = '';
+        $configrow->allowedroles = (string) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
         $configrow->reply_message = 'Test prompt';
         $configrow->timemodified = time();
         if (empty($configrow->id)) {

@@ -270,6 +270,39 @@ class utils {
     }
 
     /**
+     * Gets the ids of the roles with the student archetype (the default allowed roles).
+     *
+     * @return int[]
+     */
+    public static function get_student_archetype_role_ids(): array {
+        global $DB;
+
+        return array_map('intval', array_keys($DB->get_records('role', ['archetype' => 'student'], 'id', 'id')));
+    }
+
+    /**
+     * Gets the role ids the AI may respond to for a forum.
+     *
+     * Without a config row the student-archetype roles apply, matching the form default.
+     * An existing row keeps its explicit list; an empty list stays empty and denies every role.
+     *
+     * @param \stdClass|null $config Forum config row, or null/an empty object when there is none.
+     * @return int[]
+     */
+    public static function get_effective_allowed_roles(?\stdClass $config): array {
+        if ($config === null || !property_exists($config, 'allowedroles')) {
+            return self::get_student_archetype_role_ids();
+        }
+
+        $raw = trim((string) $config->allowedroles);
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_map('intval', explode(',', $raw));
+    }
+
+    /**
      * Gets global default for "reply in locked discussions".
      *
      * @return bool

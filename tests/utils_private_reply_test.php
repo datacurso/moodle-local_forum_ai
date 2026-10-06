@@ -294,6 +294,7 @@ final class utils_private_reply_test extends \advanced_testcase {
         $configrow->forumid = $forumid;
         $configrow->enabled = 1;
         $configrow->require_approval = 1;
+        $configrow->allowedroles = (string) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
         $configrow->reply_message = 'Test prompt';
         $configrow->timemodified = time();
         foreach ($overrides as $field => $value) {

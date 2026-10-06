@@ -37,6 +37,7 @@ require_once(__DIR__ . '/fixtures/mock_ai_client.php');
  * @group local_forum_ai
  * @covers \local_forum_ai\role_checker
  * @covers \local_forum_ai\task\process_ai_post
+ * @covers \local_forum_ai\utils
  */
 final class role_trigger_test extends \advanced_testcase {
     /**
@@ -48,29 +49,53 @@ final class role_trigger_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-UNIT-009: an empty or unset role list means every role triggers the
-     * AI, including teachers.
+     * MDL-UNIT-009: an empty or unset role list denies every user (fail closed),
+     * students and teachers alike.
      */
-    public function test_empty_role_list_allows_every_user(): void {
+    public function test_empty_role_list_denies_every_user(): void {
         $this->resetAfterTest();
 
         $fixture = $this->create_fixture();
 
-        $this->assertTrue(role_checker::user_has_allowed_role(
+        $this->assertFalse(role_checker::user_has_allowed_role(
             (int) $fixture->forum->id,
             (int) $fixture->student->id,
             ''
         ));
-        $this->assertTrue(role_checker::user_has_allowed_role(
+        $this->assertFalse(role_checker::user_has_allowed_role(
             (int) $fixture->forum->id,
             (int) $fixture->teacher->id,
             ''
         ));
-        $this->assertTrue(role_checker::user_has_allowed_role(
+        $this->assertFalse(role_checker::user_has_allowed_role(
+            (int) $fixture->forum->id,
+            (int) $fixture->student->id,
+            []
+        ));
+        $this->assertFalse(role_checker::user_has_allowed_role(
             (int) $fixture->forum->id,
             (int) $fixture->teacher->id,
             []
         ));
+    }
+
+    /**
+     * Only a missing config row falls back to the student-archetype roles; an
+     * existing row keeps its explicit list, and an empty list stays empty.
+     */
+    public function test_effective_allowed_roles_default_only_when_row_is_missing(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $studentroleids = array_map('intval', array_keys($DB->get_records('role', ['archetype' => 'student'], 'id', 'id')));
+        $this->assertNotEmpty($studentroleids);
+
+        $this->assertSame($studentroleids, utils::get_effective_allowed_roles(null));
+        $this->assertSame($studentroleids, utils::get_effective_allowed_roles(new stdClass()));
+        $this->assertSame([], utils::get_effective_allowed_roles((object) ['allowedroles' => null]));
+        $this->assertSame([], utils::get_effective_allowed_roles((object) ['allowedroles' => '']));
+        $this->assertSame([3, 5], utils::get_effective_allowed_roles((object) ['allowedroles' => '3,5']));
     }
 
     /**
@@ -229,8 +254,9 @@ final class role_trigger_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $fixture = $this->create_fixture();
+        $teacherroleid = (int) $DB->get_field('role', 'id', ['shortname' => 'editingteacher'], MUST_EXIST);
         $this->set_forum_config((int) $fixture->forum->id, [
-            'allowedroles' => '',
+            'allowedroles' => (string) $teacherroleid,
             'graderid' => $fixture->teacher->id,
         ]);
 
@@ -245,9 +271,10 @@ final class role_trigger_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-INT-006: with an empty role list any user triggers the AI response.
+     * MDL-INT-006: with an empty role list no user triggers the AI response,
+     * not even a student.
      */
-    public function test_empty_role_list_triggers_for_any_user(): void {
+    public function test_empty_role_list_never_triggers_the_ai(): void {
         global $DB;
 
         $this->resetAfterTest();
@@ -255,11 +282,40 @@ final class role_trigger_test extends \advanced_testcase {
         $fixture = $this->create_fixture();
         $this->set_forum_config((int) $fixture->forum->id, ['allowedroles' => '']);
 
-        $post = $this->create_reply($fixture, (int) $fixture->teacher->id, 'Unrestricted teacher reply');
+        $post = $this->create_reply($fixture, (int) $fixture->student->id, 'Student reply with no roles configured');
 
-        $mock = $this->inject_mock(['reply' => 'AI reply for anyone']);
+        $mock = $this->inject_mock(['reply' => 'AI reply for nobody']);
+        $output = $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
+
+        $this->assertStringContainsString('no allowed role', $output);
+        $this->assertCount(0, $mock->requests);
+        $this->assertSame(0, $DB->count_records('local_forum_ai_pending', ['forumid' => $fixture->forum->id]));
+    }
+
+    /**
+     * MDL-INT-006: a forum without a config row falls back to the student-archetype
+     * roles, so a student post triggers the AI and a teacher post does not.
+     */
+    public function test_missing_config_row_defaults_to_student_roles(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        set_config('default_enabled', 1, 'local_forum_ai');
+
+        $fixture = $this->create_fixture();
+        $DB->delete_records('local_forum_ai_config', ['forumid' => $fixture->forum->id]);
+
+        $teacherpost = $this->create_reply($fixture, (int) $fixture->teacher->id, 'Teacher reply');
+        $mock = $this->inject_mock(['reply' => 'AI reply']);
+        $output = $this->run_post_task((int) $teacherpost->id, (int) $fixture->cm->id);
+
+        $this->assertStringContainsString('no allowed role', $output);
+        $this->assertCount(0, $mock->requests);
+        $this->assertSame(0, $DB->count_records('local_forum_ai_pending', ['forumid' => $fixture->forum->id]));
+
+        $studentpost = $this->create_reply($fixture, (int) $fixture->student->id, 'Student reply');
         $messagesink = $this->redirectMessages();
-        $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
+        $this->run_post_task((int) $studentpost->id, (int) $fixture->cm->id);
         $messagesink->close();
 
         $this->assertCount(1, $mock->requests);
@@ -309,7 +365,7 @@ final class role_trigger_test extends \advanced_testcase {
         $configrow->forumid = $forumid;
         $configrow->enabled = 1;
         $configrow->require_approval = 1;
-        $configrow->allowedroles = '';
+        $configrow->allowedroles = (string) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
         $configrow->reply_message = 'Test prompt';
         $configrow->timemodified = time();
         foreach ($overrides as $field => $value) {
