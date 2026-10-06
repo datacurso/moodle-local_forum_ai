@@ -592,6 +592,50 @@ final class backup_restore_test extends \advanced_testcase {
     }
 
     /**
+     * Restored pending rows get a fresh, unpredictable token from the shared CSPRNG factory.
+     *
+     * Covers: FAI-SEC-009 — Restored approval tokens must not be time-derived.
+     */
+    public function test_restored_pending_gets_fresh_csprng_token(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $originaltoken = str_repeat('a', 64);
+        $pending = (object) [
+            'forumid' => 1001,
+            'discussionid' => 5001,
+            'creator_userid' => 3001,
+            'subject' => 'Re: Restored thread',
+            'message' => '<p>AI response</p>',
+            'status' => 'pending',
+            'approval_token' => $originaltoken,
+            'timecreated' => 1710000000,
+        ];
+
+        $tokens = [];
+        foreach ([2001, 2002] as $newforumid) {
+            $restore = new restore_local_forum_ai_plugin_test_double();
+            $restore->seed_mappings([
+                'forum' => [1001 => $newforumid],
+                'forum_discussion' => [5001 => $newforumid + 4000],
+                'user' => [3001 => 4001],
+            ]);
+            $restore->seed_temppendings([clone $pending]);
+
+            $this->expectOutputRegex('/.*/s');
+            $restore->after_restore_course();
+
+            $tokens[] = $DB->get_field('local_forum_ai_pending', 'approval_token', ['forumid' => $newforumid], MUST_EXIST);
+        }
+
+        foreach ($tokens as $token) {
+            $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $token);
+            $this->assertNotSame($originaltoken, $token);
+        }
+        $this->assertNotSame($tokens[0], $tokens[1]);
+    }
+
+    /**
      * Restore fallback must match the direct default delay helper.
      */
     public function test_restored_delay_matches_direct_default_delay_minutes(): void {

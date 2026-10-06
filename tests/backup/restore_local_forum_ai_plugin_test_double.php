@@ -55,6 +55,16 @@ final class restore_local_forum_ai_plugin_test_double extends \restore_local_for
     }
 
     /**
+     * Seed the temporary pending rows used by the restore test double.
+     *
+     * @param array $pendings Pending rows captured from backup.
+     * @return void
+     */
+    public function seed_temppendings(array $pendings): void {
+        $this->temppendings = $pendings;
+    }
+
+    /**
      * Return the seeded mapping value for the requested item and source id.
      *
      * @param string $itemname Mapping group name.

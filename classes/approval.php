@@ -30,6 +30,18 @@ require_once(__DIR__ . '/../locallib.php');
  */
 class approval {
     /**
+     * Generates an unpredictable approval token from a CSPRNG.
+     *
+     * Every path that issues a token (creation and course restore) must use this
+     * factory so that no token is derived from time or process identifiers.
+     *
+     * @return string 64 lowercase hexadecimal characters.
+     */
+    public static function generate_approval_token(): string {
+        return bin2hex(random_bytes(32));
+    }
+
+    /**
      * Creates an approval request and sends a notification.
      *
      * @param object $discussion The discussion object.
@@ -55,7 +67,7 @@ class approval {
         global $DB;
 
         try {
-            $approvaltoken = hash('sha256', $discussion->id . time() . random_string(20));
+            $approvaltoken = self::generate_approval_token();
 
             $pending = new \stdClass();
             $pending->discussionid = $discussion->id;
