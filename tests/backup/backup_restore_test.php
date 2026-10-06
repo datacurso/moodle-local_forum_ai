@@ -265,7 +265,8 @@ final class backup_restore_test extends \advanced_testcase {
             try {
                 approve_response::execute($managedrecord->approval_token, 'approve');
                 $this->fail('Managed restored responses must not be re-approved.');
-            } catch (\dml_missing_record_exception $e) {
+            } catch (\moodle_exception $e) {
+                $this->assertSame('alreadysubmitted', $e->errorcode);
                 $this->assertSame($managedpostcount, $DB->count_records('forum_posts', ['discussion' => $restoreddiscussion->id]));
             }
         }

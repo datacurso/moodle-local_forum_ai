@@ -43,8 +43,11 @@ try {
 }
 
 if (!$loaded) {
+    // The response is unknown or already managed: no module context can be trusted,
+    // so the notice is rendered in the system context.
+    $PAGE->set_context(context_system::instance());
     $PAGE->set_url('/local/forum_ai/review.php', ['token' => $token]);
-    $PAGE->set_pagelayout('incourse');
+    $PAGE->set_pagelayout('standard');
     $PAGE->set_title(get_string('reviewtitle', 'local_forum_ai'));
     $PAGE->set_heading(get_string('pluginname', 'local_forum_ai'));
 

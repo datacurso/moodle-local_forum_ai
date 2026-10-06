@@ -50,10 +50,11 @@ class approval {
      *
      * @param string $token Approval token.
      * @param string|null $requirestatus Only match rows in this status, or any status when null.
-     * @param int $strictness MUST_EXIST throws dml_missing_record_exception for an unknown
-     *                        token; IGNORE_MISSING returns null instead. Related records
-     *                        are always required.
+     * @param int $strictness MUST_EXIST throws the alreadysubmitted moodle_exception when no
+     *                        row matches (unknown token or no longer in the required status);
+     *                        IGNORE_MISSING returns null instead. Related records are always required.
      * @return \stdClass|null Object with pending, discussion, forum, course, cm and context.
+     * @throws \moodle_exception alreadysubmitted when no row matches and $strictness is MUST_EXIST.
      * @throws \required_capability_exception When the approval capability is missing.
      * @throws \moodle_exception error_discussionnotingroup when the discussion group is not accessible.
      */
@@ -69,8 +70,13 @@ class approval {
             $conditions['status'] = $requirestatus;
         }
 
-        $pending = $DB->get_record('local_forum_ai_pending', $conditions, '*', $strictness);
+        $pending = $DB->get_record('local_forum_ai_pending', $conditions);
         if (!$pending) {
+            // One generic message for unknown and already managed tokens, so the
+            // response never reveals which of the two cases applies.
+            if ($strictness === MUST_EXIST) {
+                throw new \moodle_exception('alreadysubmitted', 'local_forum_ai');
+            }
             return null;
         }
 

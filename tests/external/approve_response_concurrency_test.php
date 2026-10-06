@@ -48,6 +48,7 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * @group local_forum_ai
  * @covers \local_forum_ai\external\approve_response
  * @covers \local_forum_ai\external\update_response
+ * @covers \local_forum_ai\external\get_details
  * @covers \local_forum_ai\approval
  */
 final class approve_response_concurrency_test extends externallib_advanced_testcase {
@@ -152,9 +153,9 @@ final class approve_response_concurrency_test extends externallib_advanced_testc
         // The token gate only loads pending rows.
         try {
             approve_response::execute($pending->approval_token, 'approve');
-            $this->fail('Expected dml_missing_record_exception was not thrown.');
-        } catch (\dml_missing_record_exception $e) {
-            $this->assertSame('invalidrecord', $e->errorcode);
+            $this->fail('Expected moodle_exception was not thrown.');
+        } catch (moodle_exception $e) {
+            $this->assertSame('alreadysubmitted', $e->errorcode);
         }
 
         // A request that passed the gate before the first approval finished is
@@ -189,9 +190,9 @@ final class approve_response_concurrency_test extends externallib_advanced_testc
 
         try {
             approve_response::execute($pending->approval_token, 'reject');
-            $this->fail('Expected dml_missing_record_exception was not thrown.');
-        } catch (\dml_missing_record_exception $e) {
-            $this->assertSame('invalidrecord', $e->errorcode);
+            $this->fail('Expected moodle_exception was not thrown.');
+        } catch (moodle_exception $e) {
+            $this->assertSame('alreadysubmitted', $e->errorcode);
         }
 
         try {
@@ -235,6 +236,74 @@ final class approve_response_concurrency_test extends externallib_advanced_testc
         $this->assertEquals($teacher->id, $row->action_userid);
         $this->assertNotEmpty($row->approved_at);
         $this->assertNotEmpty($row->postid);
+    }
+
+    /**
+     * Approving a response that another tab already approved must fail with a clear plugin error.
+     */
+    public function test_approve_already_managed_response_throws_clear_error(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        [$pending, , $teacher] = $this->create_pending_response();
+        $this->setUser($teacher);
+
+        approve_response::execute($pending->approval_token, 'approve');
+        $postcount = $DB->count_records('forum_posts', ['discussion' => $pending->discussionid]);
+
+        try {
+            approve_response::execute($pending->approval_token, 'approve');
+            $this->fail('Expected moodle_exception was not thrown.');
+        } catch (moodle_exception $e) {
+            $this->assertNotInstanceOf(\dml_exception::class, $e);
+            $this->assertSame('alreadysubmitted', $e->errorcode);
+            $this->assertSame('local_forum_ai', $e->module);
+        }
+
+        $this->assertSame($postcount, $DB->count_records('forum_posts', ['discussion' => $pending->discussionid]));
+    }
+
+    /**
+     * Every token service answers an unknown token with the same clear plugin error.
+     */
+    public function test_token_services_reject_unknown_token_with_clear_error(): void {
+        $this->resetAfterTest();
+
+        [, , $teacher] = $this->create_pending_response();
+        $this->setUser($teacher);
+
+        $calls = [
+            'approve' => static fn() => approve_response::execute('unknowntoken', 'approve'),
+            'reject' => static fn() => approve_response::execute('unknowntoken', 'reject'),
+            'update' => static fn() => update_response::execute('unknowntoken', 'Edited message'),
+            'details' => static fn() => get_details::execute('unknowntoken'),
+        ];
+        foreach ($calls as $name => $call) {
+            try {
+                $call();
+                $this->fail("Expected moodle_exception was not thrown for {$name}.");
+            } catch (moodle_exception $e) {
+                $this->assertNotInstanceOf(\dml_exception::class, $e, $name);
+                $this->assertSame('alreadysubmitted', $e->errorcode, $name);
+            }
+        }
+    }
+
+    /**
+     * The review page loader reports a managed response as missing, so the page shows its notice.
+     */
+    public function test_review_loader_returns_null_for_managed_response(): void {
+        $this->resetAfterTest();
+
+        [$pending, , $teacher] = $this->create_pending_response();
+        $this->setUser($teacher);
+
+        $this->assertNotNull(approval::load_pending_for_user($pending->approval_token, 'pending', IGNORE_MISSING));
+
+        approve_response::execute($pending->approval_token, 'approve');
+
+        $this->assertNull(approval::load_pending_for_user($pending->approval_token, 'pending', IGNORE_MISSING));
     }
 
     /**

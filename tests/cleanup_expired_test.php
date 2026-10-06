@@ -218,9 +218,9 @@ final class cleanup_expired_test extends \advanced_testcase {
         // Approval loads by status = 'pending': an expired token is not found.
         try {
             external\approve_response::execute($token, 'approve');
-            $this->fail('Expected dml_missing_record_exception was not thrown.');
-        } catch (\dml_missing_record_exception $e) {
-            $this->assertSame('invalidrecord', $e->errorcode);
+            $this->fail('Expected moodle_exception was not thrown.');
+        } catch (moodle_exception $e) {
+            $this->assertSame('alreadysubmitted', $e->errorcode);
         }
 
         // Editing a non-pending row is rejected explicitly.

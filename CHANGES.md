@@ -14,6 +14,10 @@ Security release answering the MindFree re-evaluation of version 2026083100 (1.1
 - An empty "Allowed roles for AI responses" list now means the AI responds to nobody, as the help text always stated; forums that relied on "empty means everyone" now respond only to students after the upgrade (FAI-SEC-005, tests: `role_trigger_test`, `form_validation_test`, `upgrade_test`, `backup_restore_test::test_restore_migrates_empty_allowedroles_to_student_roles`)
 - Approval notifications are only sent to approvers who can access the discussion's group and approve the response (FAI-SEC-001-R1)
 
+### Fixed
+
+- Approving or opening an already handled response now shows a clear message instead of a database error, and the review page no longer fails for handled responses with developer debugging enabled (tests: `approve_response_concurrency_test`, `cleanup_expired_test`, `backup_restore_test`)
+
 ### Security
 
 - FAI-SEC-001-R1 / FORUMAI-SEC-001: separate-groups isolation is enforced on every entry point through a single access rule: pending and history listings (also at course level, which now honour module capability overrides and visibility), the review page, the detail, edit, approve and reject services, manual publication, approval notifications and the manual AI review payload (tests: `group_isolation_test`, `group_mode_publish_test`)
