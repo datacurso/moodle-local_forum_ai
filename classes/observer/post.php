@@ -38,11 +38,7 @@ class post {
     public static function post_created(post_created $event): bool {
         global $DB;
 
-        if (!utils::is_feature_enabled()) {
-            return true;
-        }
-
-        if (!utils::is_global_ai_enabled()) {
+        if (!utils::is_ai_available()) {
             return true;
         }
 

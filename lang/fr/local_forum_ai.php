@@ -66,6 +66,7 @@ $string['enablediainitconversation'] = 'Activer la réponse de l’IA au sujet d
 $string['enablediainitconversation_help'] = 'En activant cette option, l’IA pourra répondre au message initial qui lance la discussion. Il est également recommandé de sélectionner le rôle Enseignant dans le champ suivant.';
 $string['enableforumai'] = 'Activer Forum IA';
 $string['enableforumai_desc'] = 'Si désactivé, la section "Datacurso Forum IA" est masquée dans les paramètres de l’activité forum et le traitement automatique est mis en pause.';
+$string['error_aidisabled'] = 'Les fonctionnalités d\'IA sont actuellement désactivées par l\'administrateur du site.';
 $string['error_airequest'] = 'La réponse de l\'IA n\'a pas pu être chargée. Veuillez réessayer plus tard ou contacter votre administrateur.';
 $string['error_discussionlocked'] = 'Cette discussion est verrouillée, la réponse de l’IA ne peut donc pas être publiée. Déverrouillez la discussion et réessayez.';
 $string['error_forumclosed'] = 'La date de remise ou la date limite de ce forum est dépassée, la réponse de l’IA ne peut donc pas être publiée.';

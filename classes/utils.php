@@ -168,6 +168,28 @@ class utils {
     }
 
     /**
+     * Checks whether AI features may run: both the Forum AI master switch
+     * and the global AI switch must be on.
+     *
+     * @return bool
+     */
+    public static function is_ai_available(): bool {
+        return self::is_feature_enabled() && self::is_global_ai_enabled();
+    }
+
+    /**
+     * Ensures AI features may run before any data is sent to the AI service.
+     *
+     * @return void
+     * @throws \moodle_exception When an AI switch is off.
+     */
+    public static function require_ai_available(): void {
+        if (!self::is_ai_available()) {
+            throw new \moodle_exception('error_aidisabled', 'local_forum_ai');
+        }
+    }
+
+    /**
      * Disables AI in all existing forum configurations.
      *
      * @return void

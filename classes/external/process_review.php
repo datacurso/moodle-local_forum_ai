@@ -64,7 +64,7 @@ class process_review extends external_api {
      * @param int $userid User ID to be evaluated.
      * @return array Structured result containing evaluation type and serialized data.
      * @throws \required_capability_exception If the caller does not hold local/forum_ai:useaireview.
-     * @throws \moodle_exception If the target user is not enrolled in the course,
+     * @throws \moodle_exception If an AI switch is off, the target user is not enrolled in the course,
      *                           the forum uses separate groups and the caller does not
      *                           share a group with the target user,
      *                           or the AI response format is not recognized.
@@ -75,6 +75,8 @@ class process_review extends external_api {
 
         $context = \context_module::instance($params['cmid']);
         self::validate_context($context);
+        // Refuse while AI is switched off, before any data is gathered or audited.
+        utils::require_ai_available();
         require_capability('local/forum_ai:useaireview', $context);
 
         // The target user must belong to the forum's course.

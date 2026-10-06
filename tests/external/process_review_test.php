@@ -342,6 +342,61 @@ final class process_review_test extends externallib_advanced_testcase {
     }
 
     /**
+     * A review request must be refused when the Forum AI master switch is off.
+     *
+     * Nothing may leave the site: the AI client receives no request and no
+     * ai_review_requested event is recorded.
+     */
+    public function test_execute_refused_when_forum_ai_disabled(): void {
+        $this->resetAfterTest();
+        set_config('enableforumai', 0, 'local_forum_ai');
+
+        $this->assert_execute_refused_without_transfer();
+    }
+
+    /**
+     * A review request must be refused when the global AI switch is off.
+     */
+    public function test_execute_refused_when_global_ai_disabled(): void {
+        $this->resetAfterTest();
+        set_config('default_enabled', 0, 'local_forum_ai');
+
+        $this->assert_execute_refused_without_transfer();
+    }
+
+    /**
+     * Runs execute() as an authorized teacher and asserts it is refused before any transfer.
+     *
+     * @return void
+     */
+    private function assert_execute_refused_without_transfer(): void {
+        [$cm, $student, $teacher] = $this->create_forum_course();
+
+        $client = new mock_ai_client(['feedback' => 'Mock AI feedback']);
+        ai_service::set_client_for_testing($client);
+        $this->setUser($teacher);
+
+        $sink = $this->redirectEvents();
+        $thrown = null;
+        try {
+            process_review::execute($cm->id, $student->id);
+        } catch (moodle_exception $e) {
+            $thrown = $e;
+        }
+        $events = $sink->get_events();
+        $sink->close();
+
+        $this->assertNotNull($thrown, 'Expected moodle_exception was not thrown.');
+        $this->assertSame('error_aidisabled', $thrown->errorcode);
+        $this->assertSame([], $client->requests);
+
+        $reviewevents = array_filter($events, static function ($event) {
+            return $event instanceof \local_forum_ai\event\ai_review_requested;
+        });
+        $this->assertCount(0, $reviewevents);
+    }
+
+    /**
      * Creates a course with a forum, one enrolled student and one editing teacher.
      *
      * The editingteacher archetype holds local/forum_ai:useaireview by default.

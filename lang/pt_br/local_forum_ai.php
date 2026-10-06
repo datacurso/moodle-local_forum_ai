@@ -66,6 +66,7 @@ $string['enablediainitconversation'] = 'Ativar resposta de IA ao tópico de disc
 $string['enablediainitconversation_help'] = 'Ativar esta opção permitirá que a IA responda à mensagem inicial que inicia a discussão. Também é recomendável selecionar o papel de Professor no campo a seguir.';
 $string['enableforumai'] = 'Habilitar Fórum IA';
 $string['enableforumai_desc'] = 'Se desabilitado, a seção "Datacurso Fórum IA" é ocultada nas configurações da atividade fórum e o processamento automático é pausado.';
+$string['error_aidisabled'] = 'Os recursos de IA estão desativados no momento pelo administrador do site.';
 $string['error_airequest'] = 'Não foi possível carregar a resposta de IA. Tente novamente mais tarde ou entre em contato com o administrador.';
 $string['error_discussionlocked'] = 'Esta discussão está bloqueada, portanto a resposta da IA não pode ser publicada. Desbloqueie a discussão e tente novamente.';
 $string['error_forumclosed'] = 'A data de entrega ou a data limite deste fórum já passou, portanto a resposta da IA não pode ser publicada.';

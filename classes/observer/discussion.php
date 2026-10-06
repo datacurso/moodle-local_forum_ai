@@ -39,11 +39,7 @@ class discussion {
      * @return bool True on success, false on error.
      */
     public static function discussion_created(discussion_created $event): bool {
-        if (!utils::is_feature_enabled()) {
-            return true;
-        }
-
-        if (!utils::is_global_ai_enabled()) {
+        if (!utils::is_ai_available()) {
             return true;
         }
 
@@ -79,11 +75,7 @@ class discussion {
     public static function process_discussion(int $discussionid, int $forumid, int $courseid, \context $context): void {
         global $DB;
 
-        if (!utils::is_feature_enabled()) {
-            return;
-        }
-
-        if (!utils::is_global_ai_enabled()) {
+        if (!utils::is_ai_available()) {
             return;
         }
 

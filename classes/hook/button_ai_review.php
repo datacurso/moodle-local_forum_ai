@@ -17,7 +17,9 @@
 namespace local_forum_ai\hook;
 
 use core\hook\output\before_footer_html_generation;
-use context_course;
+use context_module;
+use local_forum_ai\utils;
+use moodle_url;
 
 /**
  * Hook responsible for injecting the AI review button into forum pages.
@@ -27,7 +29,8 @@ use context_course;
  *
  * The button is only added:
  *  - On forum view pages.
- *  - For users with the required capability.
+ *  - While the AI switches are on.
+ *  - For users with the required capability in the forum.
  *
  * @package     local_forum_ai
  * @copyright   2025 Datacurso
@@ -45,13 +48,21 @@ class button_ai_review {
     public static function before_footer_html_generation(before_footer_html_generation $hook): void {
         global $PAGE;
 
-        if ($PAGE->url->get_path() !== '/mod/forum/view.php') {
+        // Compare against a moodle_url so the check also holds when Moodle
+        // is installed in a subdirectory of the web root.
+        if (!$PAGE->url->compare(new moodle_url('/mod/forum/view.php'), URL_MATCH_BASE)) {
             return;
         }
 
-        $coursecontext = context_course::instance($PAGE->course->id);
+        if (!utils::is_ai_available() || !$PAGE->cm) {
+            return;
+        }
 
-        if (!has_capability('local/forum_ai:useaireview', $coursecontext)) {
+        // Check the capability where the review runs, so overrides on the
+        // forum itself are honoured like in the process_review service.
+        $modulecontext = context_module::instance($PAGE->cm->id);
+
+        if (!has_capability('local/forum_ai:useaireview', $modulecontext)) {
             return;
         }
 
