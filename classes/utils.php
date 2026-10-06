@@ -18,6 +18,7 @@ namespace local_forum_ai;
 
 use local_forum_ai\helper\rubric;
 use local_forum_ai\helper\guide;
+use local_forum_ai\local\payload_pseudonymizer;
 use core_text;
 
 /**
@@ -568,18 +569,25 @@ class utils {
      * The list is capped to the root post (which defines the topic) plus
      * the most recent posts, to keep the payload bounded in long threads.
      *
-     * Each entry contains the post id, chronological order, author
-     * full name, and cleaned message text.
+     * Each entry contains the post id, chronological order, author label
+     * and cleaned message text. Authors are third parties: they travel only as
+     * pseudonymised labels, their names inside the texts are replaced and
+     * e-mail addresses are masked (FAI-PRIV-001-R1).
      *
      * @param int $discussionid Discussion ID.
      * @param int $postid Current post ID.
      * @param int $maxposts Maximum number of posts included in the context.
+     * @param payload_pseudonymizer|null $pseudonymizer Request pseudonymiser, so the labels stay
+     *                                                  consistent with the rest of the payload and
+     *                                                  can be restored in the reply. A private one
+     *                                                  is used when null.
      * @return array List of thread entries with id, order, author, message.
      */
     public static function build_thread_context(
         int $discussionid,
         int $postid,
         int $maxposts = 20,
+        ?payload_pseudonymizer $pseudonymizer = null,
     ): array {
         global $DB;
 
@@ -613,27 +621,28 @@ class utils {
             $posts = array_merge([$root], array_slice($posts, -($maxposts - 1)));
         }
 
-        $authornames = [];
-        $threadentries = [];
-        $order = 1;
+        $pseudonymizer = $pseudonymizer ?? new payload_pseudonymizer();
+
+        // Every author is labelled first, so the names of later authors are also
+        // replaced inside earlier messages.
+        $entries = [];
         foreach ($posts as $post) {
             $cleaned = trim(strip_tags($post->message));
             if ($cleaned === '') {
                 continue;
             }
+            // Never expose raw user ids or names to the AI: authors travel as labels.
+            $entries[] = [$post, $cleaned, $pseudonymizer->label_for((int)$post->userid)];
+        }
 
-            $authorid = (int)$post->userid;
-            if (!array_key_exists($authorid, $authornames)) {
-                $author = \core_user::get_user($authorid);
-                // Never expose raw user ids to the AI; use a neutral label as fallback.
-                $authornames[$authorid] = $author ? fullname($author) : 'Participant';
-            }
-
+        $threadentries = [];
+        $order = 1;
+        foreach ($entries as [$post, $cleaned, $label]) {
             $threadentries[] = [
                 'id' => (int)$post->id,
                 'order' => $order,
-                'author' => $authornames[$authorid],
-                'message' => $cleaned,
+                'author' => $label,
+                'message' => $pseudonymizer->pseudonymize_text($cleaned),
             ];
             $order++;
         }
@@ -678,9 +687,17 @@ class utils {
      * @param int|null $viewerid User the payload is built for (the reviewing teacher): in
      *                           separate groups mode only discussions of groups they can
      *                           access are included. Null applies no group restriction.
+     * @param payload_pseudonymizer|null $pseudonymizer Request pseudonymiser, used afterwards to
+     *                                                  restore the student's name in the feedback.
+     *                                                  A private one is used when null.
      * @return array Structured payload ready to be sent to the AI service.
      */
-    public static function build_forum_ai_payload(int $cmid, int $userid, ?int $viewerid = null): array {
+    public static function build_forum_ai_payload(
+        int $cmid,
+        int $userid,
+        ?int $viewerid = null,
+        ?payload_pseudonymizer $pseudonymizer = null
+    ): array {
         global $DB, $CFG;
 
         require_once($CFG->dirroot . '/grade/grading/lib.php');
@@ -732,13 +749,34 @@ class utils {
             {$groupsql}
         ", array_merge([$userid, $forum->id], $groupparams));
 
+        // The evaluated student's names, those of the other authors of their discussions
+        // (third parties) and every e-mail address are hidden in the free text. Rubric and
+        // guide texts stay verbatim: the browser maps the result back by them.
+        $pseudonymizer = $pseudonymizer ?? new payload_pseudonymizer();
+        $pseudonymizer->set_student($userid);
+        if (!empty($posts)) {
+            [$dinsql, $dinparams] = $DB->get_in_or_equal(array_keys($posts));
+            $authors = $DB->get_recordset_sql("
+                SELECT p.id, p.userid
+                  FROM {forum_posts} p
+                 WHERE p.discussion {$dinsql}
+                   AND p.privatereplyto = 0
+                   AND p.deleted = 0
+              ORDER BY p.discussion, p.created, p.id
+            ", $dinparams);
+            foreach ($authors as $author) {
+                $pseudonymizer->label_for((int)$author->userid);
+            }
+            $authors->close();
+        }
+
         $discussions = [];
 
         foreach ($posts as $p) {
             $discussions[] = [
-                'discussion' => $p->name,
+                'discussion' => $pseudonymizer->pseudonymize_text($p->name),
                 'discussion_id' => $p->id,
-                'answer' => trim(strip_tags($p->message)),
+                'answer' => $pseudonymizer->pseudonymize_text(trim(strip_tags($p->message))),
             ];
         }
 

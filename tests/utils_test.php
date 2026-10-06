@@ -268,8 +268,7 @@ final class utils_test extends \advanced_testcase {
     }
 
     /**
-     * The thread context must keep accents verbatim in author names and
-     * message bodies.
+     * The thread context must keep accents verbatim in message bodies.
      */
     public function test_build_thread_context_preserves_accents(): void {
         $this->resetAfterTest();
@@ -296,8 +295,8 @@ final class utils_test extends \advanced_testcase {
         $entries = utils::build_thread_context((int)$discussion->id, (int)$reply->id);
 
         $this->assertNotEmpty($entries);
-        $this->assertSame(fullname($student), $entries[0]['author']);
-        $this->assertStringContainsString('José', $entries[0]['author']);
+        // FAI-PRIV-001-R1: authors travel as labels, never as real names.
+        $this->assertSame('[PARTICIPANT_1]', $entries[0]['author']);
         $this->assertStringContainsString('Opinión inicial: café añejo', $entries[0]['message']);
     }
 

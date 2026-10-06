@@ -188,11 +188,20 @@ final class lang_strings_test extends \advanced_testcase {
      * context should come from a language string.
      */
     public function test_unavailable_author_label_is_localised(): void {
-        $this->markTestSkipped(
-            'MDL-INT-031 NOTA [Pendiente:skip]: la etiqueta de autor no disponible esta fija ' .
-            'en ingles ("Participant" en classes/utils.php) y no usa cadena de idioma — gap ' .
-            'de i18n no critico.'
-        );
+        foreach (self::SHIPPED_PACKS as $pack) {
+            $strings = $this->load_pack_strings($pack);
+            $this->assertArrayHasKey('unknownparticipant', $strings, "Pack {$pack} must declare unknownparticipant.");
+            $this->assertNotSame('', trim($strings['unknownparticipant']));
+        }
+
+        // The hardcoded English fallback is gone from the thread context builder.
+        global $CFG;
+        $source = file_get_contents($CFG->dirroot . '/local/forum_ai/classes/utils.php');
+        $this->assertStringNotContainsString("'Participant'", $source);
+
+        $pseudonymizer = new local\payload_pseudonymizer();
+        $label = $pseudonymizer->label_for(9999999);
+        $this->assertSame(get_string('unknownparticipant', 'local_forum_ai'), $pseudonymizer->restore_text($label));
     }
 
     /**

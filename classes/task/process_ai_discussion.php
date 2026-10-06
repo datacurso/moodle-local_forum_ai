@@ -19,6 +19,7 @@ namespace local_forum_ai\task;
 use core\task\adhoc_task;
 use local_forum_ai\ai_service;
 use local_forum_ai\approval;
+use local_forum_ai\local\payload_pseudonymizer;
 use local_forum_ai\role_checker;
 use local_forum_ai\utils;
 
@@ -133,26 +134,32 @@ class process_ai_discussion extends adhoc_task {
             $postmessage = strip_tags($postmessage);
             $postmessage = trim($postmessage);
 
-            $postauthor = \core_user::get_user($discussion->userid);
-            $postauthorname = $postauthor ? fullname($postauthor) : '';
+            // FAI-PRIV-001-R1: names never leave the site. The author travels as
+            // [STUDENT_NAME], other thread authors as [PARTICIPANT_N], names inside the
+            // texts are replaced and e-mail addresses masked; the reply is restored below.
+            $pseudonymizer = new payload_pseudonymizer();
+            $authorlabel = $pseudonymizer->set_student((int)$discussion->userid);
+            // Thread context sent inline — no MCP needed. Built first so every author is labelled.
+            $threadhistory = utils::build_thread_context(
+                (int)$discussionid,
+                (int)$post->id,
+                20,
+                $pseudonymizer,
+            );
 
             $payload = [
                 'course' => $course->fullname,
                 'forum' => $forum->name,
-                'discussion' => $discussion->name,
+                'discussion' => $pseudonymizer->pseudonymize_text((string)$discussion->name),
                 'discussion_id' => $discussionid,
                 'postid' => $post->id,
                 'post' => [
-                    'subject' => $post->subject,
-                    'message' => $postmessage,
-                    // Display name of the post author so the AI never greets by numeric id.
-                    'author' => $postauthorname,
+                    'subject' => $pseudonymizer->pseudonymize_text((string)$post->subject),
+                    'message' => $pseudonymizer->pseudonymize_text($postmessage),
+                    // Pseudonymised author label (empty when the author cannot be resolved).
+                    'author' => $authorlabel ?? '',
                 ],
-                // Thread context sent inline — no MCP needed.
-                'thread_history' => utils::build_thread_context(
-                    (int)$discussionid,
-                    (int)$post->id,
-                ),
+                'thread_history' => $threadhistory,
                 // Attribute the request to the discussion author (rate limits are per user).
                 'userid' => (string)$discussion->userid,
                 'prompt' => $replymessage,
@@ -162,7 +169,8 @@ class process_ai_discussion extends adhoc_task {
             ];
 
             $airesponse = ai_service::call_ai_service($payload);
-            $replytext = $airesponse['reply'] ?? '';
+            // Markers are restored before the reply is stored or published.
+            $replytext = $pseudonymizer->restore_text((string)($airesponse['reply'] ?? ''));
             $rawgrade = $airesponse['grade'] ?? null;
             $grade = utils::resolve_ai_grade($rawgrade, $scalepayload);
 

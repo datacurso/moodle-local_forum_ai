@@ -21,6 +21,7 @@ use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
 use local_forum_ai\ai_service;
+use local_forum_ai\local\payload_pseudonymizer;
 use local_forum_ai\utils;
 use moodle_exception;
 
@@ -99,7 +100,9 @@ class process_review extends external_api {
         }
 
         // Only discussions of groups the reviewer can access are sent to the AI service.
-        $payload = utils::build_forum_ai_payload($params['cmid'], $params['userid'], (int) $USER->id);
+        // FAI-PRIV-001-R1: the student's names travel pseudonymised and are restored in the feedback.
+        $pseudonymizer = new payload_pseudonymizer();
+        $payload = utils::build_forum_ai_payload($params['cmid'], $params['userid'], (int) $USER->id, $pseudonymizer);
         $scale = $payload['forum_participations'][0]['participation']['scale'] ?? null;
 
         // Audit the transfer attempt before any data leaves the site, so the
@@ -110,7 +113,8 @@ class process_review extends external_api {
             'other' => ['forumid' => (int) $cm->instance],
         ])->trigger();
 
-        $response = ai_service::call_ai_service_global($payload);
+        // Only the free-text 'reply' feedback is restored: criterion texts must stay as sent.
+        $response = $pseudonymizer->restore_replies(ai_service::call_ai_service_global($payload));
 
         // Simple grade.
         if (isset($response['grade'])) {

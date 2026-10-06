@@ -42,6 +42,8 @@ require_once(__DIR__ . '/fixtures/mock_ai_client.php');
  * @covers \local_forum_ai\utils
  * @covers \local_forum_ai\helper\rubric
  * @covers \local_forum_ai\helper\guide
+ * @covers \local_forum_ai\local\payload_pseudonymizer
+ * @covers \local_forum_ai\external\process_review
  */
 final class payload_contract_test extends \advanced_testcase {
     /**
@@ -173,7 +175,8 @@ final class payload_contract_test extends \advanced_testcase {
         // Post block.
         $this->assertSame($post->subject, $body['post']['subject']);
         $this->assertSame('Trigger reply', $body['post']['message']);
-        $this->assertSame(fullname($fixture->student), $body['post']['author']);
+        // FAI-PRIV-001-R1: the author travels as the pseudonymised student marker.
+        $this->assertSame('[STUDENT_NAME]', $body['post']['author']);
 
         // Thread history: chronological, structured, no deleted/private content.
         $this->assertIsArray($body['thread_history']);
@@ -199,6 +202,101 @@ final class payload_contract_test extends \advanced_testcase {
         $this->assertIsBool($body['allow_followup_question']);
         $this->assertTrue($body['grading_enabled']);
         $this->assertSame(100, $body['scale']);
+    }
+
+    /**
+     * FAI-PRIV-001-R1: no participant name or e-mail address reaches the chat service.
+     * Authors travel as stable labels and names inside the texts are replaced.
+     */
+    public function test_chat_payload_contains_no_real_names(): void {
+        $this->resetAfterTest();
+
+        $people = $this->create_named_thread();
+
+        $mock = $this->inject_mock(['reply' => 'Thanks [STUDENT_NAME]']);
+        $messagesink = $this->redirectMessages();
+        $this->run_post_task((int) $people->post->id, (int) $people->cm->id);
+        $messagesink->close();
+
+        $body = $mock->last_request()['body'];
+        $encoded = json_encode($body, JSON_UNESCAPED_UNICODE);
+        $this->assert_names_absent(['Ana', 'Torres', 'Bruno', 'Díaz', 'Carla', 'Mendoza'], $encoded);
+        $this->assertStringNotContainsString('@example.com', $encoded);
+
+        $this->assertSame('[STUDENT_NAME]', $body['post']['author']);
+        $this->assertSame(['[PARTICIPANT_1]', '[PARTICIPANT_2]'], array_column($body['thread_history'], 'author'));
+        $this->assertSame('Question from [PARTICIPANT_1]', $body['discussion']);
+        $this->assertSame(
+            'Thanks [PARTICIPANT_2]! [PARTICIPANT_1], the membrane protects the cell. Mail me at [EMAIL]. Anabel said banana.',
+            $body['post']['message']
+        );
+        $this->assertSame(
+            'Good question [PARTICIPANT_1]. [STUDENT_NAME], can you help? Write to [EMAIL].',
+            $body['thread_history'][1]['message']
+        );
+    }
+
+    /**
+     * FAI-PRIV-001-R1 end to end: the markers in the AI reply are restored to the real
+     * name before the pending response is stored.
+     */
+    public function test_chat_reply_restores_real_name_before_storage(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $people = $this->create_named_thread();
+
+        $this->inject_mock(['reply' => 'Great job [STUDENT_NAME], as [PARTICIPANT_1] asked.']);
+        $messagesink = $this->redirectMessages();
+        $this->run_post_task((int) $people->post->id, (int) $people->cm->id);
+        $messagesink->close();
+
+        $pending = $DB->get_record('local_forum_ai_pending', ['forumid' => $people->forum->id], '*', MUST_EXIST);
+        $this->assertSame(
+            'Great job ' . fullname($people->student) . ', as ' . fullname($people->peer) . ' asked.',
+            $pending->message
+        );
+    }
+
+    /**
+     * FAI-PRIV-001-R1: the grading request carries no name or e-mail of the evaluated
+     * student nor of the other authors of their discussions, and the feedback returned
+     * to the teacher has the real name restored.
+     */
+    public function test_grade_payload_contains_no_real_names(): void {
+        $this->resetAfterTest();
+
+        $people = $this->create_named_thread();
+
+        $mock = $this->inject_mock();
+        $mock->set_response('/forum/grade', [
+            'rubric' => [[
+                'criterion' => 'Argument quality',
+                'levels' => [['description' => 'Strong', 'points' => 5]],
+                'reply' => 'Well argued, [STUDENT_NAME].',
+            ]],
+        ]);
+
+        $this->setUser($people->teacher);
+        $result = external\process_review::execute((int) $people->cm->id, (int) $people->student->id);
+
+        $request = $mock->last_request();
+        $this->assertSame('/forum/grade', $request['path']);
+        $encoded = json_encode($request['body'], JSON_UNESCAPED_UNICODE);
+        $this->assert_names_absent(['Ana', 'Torres', 'Bruno', 'Díaz', 'Carla', 'Mendoza'], $encoded);
+        $this->assertStringNotContainsString('@example.com', $encoded);
+        $discussions = $request['body']['forum_participations'][0]['participation']['discussions'];
+        $this->assertSame(['Question from [PARTICIPANT_1]'], array_column($discussions, 'discussion'));
+        $this->assertSame(
+            ['Thanks [PARTICIPANT_2]! [PARTICIPANT_1], the membrane protects the cell. Mail me at [EMAIL]. Anabel said banana.'],
+            array_column($discussions, 'answer')
+        );
+
+        $this->assertSame('rubric', $result['type']);
+        $data = json_decode($result['data'], true);
+        $this->assertSame('Argument quality', $data[0]['criterion']);
+        $this->assertSame('Well argued, ' . fullname($people->student) . '.', $data[0]['reply']);
     }
 
     /**
@@ -459,6 +557,85 @@ final class payload_contract_test extends \advanced_testcase {
         }
 
         return $fixture;
+    }
+
+    /**
+     * Creates a thread with known names: a peer opens the discussion, the teacher
+     * answers and the student replies mentioning both and an e-mail address.
+     *
+     * @return stdClass Holder (course, forum, cm, student, peer, teacher, post).
+     */
+    private function create_named_thread(): stdClass {
+        global $DB;
+
+        $generator = $this->getDataGenerator();
+        $people = new stdClass();
+        $people->course = $generator->create_course();
+        $people->student = $generator->create_and_enrol($people->course, 'student', [
+            'firstname' => 'Ana', 'lastname' => 'Torres', 'email' => 'ana.torres@example.com',
+        ]);
+        $people->peer = $generator->create_and_enrol($people->course, 'student', [
+            'firstname' => 'Bruno', 'lastname' => 'Díaz',
+        ]);
+        $people->teacher = $generator->create_and_enrol($people->course, 'editingteacher', [
+            'firstname' => 'Carla', 'lastname' => 'Mendoza',
+        ]);
+
+        $forummodule = $generator->create_module('forum', ['course' => $people->course->id]);
+        $people->cm = get_coursemodule_from_instance('forum', $forummodule->id, $people->course->id, false, MUST_EXIST);
+        $people->forum = $DB->get_record('forum', ['id' => $forummodule->id], '*', MUST_EXIST);
+
+        $forumgenerator = $generator->get_plugin_generator('mod_forum');
+        $discussion = $forumgenerator->create_discussion([
+            'course' => $people->course->id,
+            'forum' => $people->forum->id,
+            'userid' => $people->peer->id,
+            'name' => 'Question from Bruno Díaz',
+            'message' => 'Hi all, I am Bruno. What is a cell membrane?',
+        ]);
+        $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $people->teacher->id,
+            'message' => 'Good question Bruno. Ana, can you help? Write to carla.mendoza@example.com.',
+        ]);
+        $people->post = $forumgenerator->create_post([
+            'discussion' => $discussion->id,
+            'parent' => $discussion->firstpost,
+            'userid' => $people->student->id,
+            'subject' => 'Re: Question from Bruno Díaz',
+            'message' => 'Thanks Carla! Bruno, the membrane protects the cell. Mail me at ana.torres@example.com. ' .
+                'Anabel said banana.',
+        ]);
+
+        $DB->insert_record('local_forum_ai_config', (object) [
+            'forumid' => $people->forum->id,
+            'enabled' => 1,
+            'require_approval' => 1,
+            'allowedroles' => (string) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST),
+            'reply_message' => 'Test prompt',
+            'timecreated' => time(),
+            'timemodified' => time(),
+        ]);
+
+        return $people;
+    }
+
+    /**
+     * Asserts that none of the names appears as a whole word (in any case) in the text.
+     *
+     * @param string[] $names Names that must not be present.
+     * @param string $text Text to inspect.
+     * @return void
+     */
+    private function assert_names_absent(array $names, string $text): void {
+        foreach ($names as $name) {
+            $this->assertDoesNotMatchRegularExpression(
+                '/(?<![\\pL\\pN])' . preg_quote($name, '/') . '(?![\\pL\\pN])/iu',
+                $text,
+                "'{$name}' must not reach the AI service."
+            );
+        }
     }
 
     /**

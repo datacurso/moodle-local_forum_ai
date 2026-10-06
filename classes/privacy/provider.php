@@ -110,14 +110,20 @@ class provider implements
         );
 
         // Forum post content is sent to the external AI provider to generate replies and evaluations.
+        // Names travel pseudonymised and e-mail addresses masked (FAI-PRIV-001-R1).
         $collection->add_external_location_link(
             'datacurso_ai',
             [
                 'userid' => 'privacy:metadata:datacurso_ai:userid',
                 'author_name' => 'privacy:metadata:datacurso_ai:author_name',
+                'thread_authors' => 'privacy:metadata:datacurso_ai:thread_authors',
                 'post_content' => 'privacy:metadata:datacurso_ai:post_content',
                 'thread_history' => 'privacy:metadata:datacurso_ai:thread_history',
                 'course_activity' => 'privacy:metadata:datacurso_ai:course_activity',
+                'evaluated_userid' => 'privacy:metadata:datacurso_ai:evaluated_userid',
+                'grading_configuration' => 'privacy:metadata:datacurso_ai:grading_configuration',
+                'requester' => 'privacy:metadata:datacurso_ai:requester',
+                'provider_fields' => 'privacy:metadata:datacurso_ai:provider_fields',
             ],
             'privacy:metadata:datacurso_ai'
         );
