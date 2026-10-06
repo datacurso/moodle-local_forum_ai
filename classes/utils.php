@@ -675,9 +675,12 @@ class utils {
      *
      * @param int $cmid Course module ID of the forum.
      * @param int $userid User ID whose participation will be analyzed.
+     * @param int|null $viewerid User the payload is built for (the reviewing teacher): in
+     *                           separate groups mode only discussions of groups they can
+     *                           access are included. Null applies no group restriction.
      * @return array Structured payload ready to be sent to the AI service.
      */
-    public static function build_forum_ai_payload(int $cmid, int $userid): array {
+    public static function build_forum_ai_payload(int $cmid, int $userid, ?int $viewerid = null): array {
         global $DB, $CFG;
 
         require_once($CFG->dirroot . '/grade/grading/lib.php');
@@ -701,6 +704,21 @@ class utils {
             $guidedata = guide::get($cmid);
         }
 
+        // Discussions of groups the viewer cannot access never leave the site.
+        $groupsql = '';
+        $groupparams = [];
+        if ($viewerid !== null) {
+            $allowedgroupids = \local_forum_ai\local\group_access::get_allowed_discussion_groupids(
+                $cm,
+                get_course($cm->course),
+                $viewerid
+            );
+            if ($allowedgroupids !== null) {
+                [$insql, $groupparams] = $DB->get_in_or_equal($allowedgroupids);
+                $groupsql = "AND d.groupid {$insql}";
+            }
+        }
+
         // Deleted posts and private replies are excluded: the payload must only
         // contain what a normal participant can see.
         $posts = $DB->get_records_sql("
@@ -711,7 +729,8 @@ class utils {
             AND d.forum = ?
             AND p.privatereplyto = 0
             AND p.deleted = 0
-        ", [$userid, $forum->id]);
+            {$groupsql}
+        ", array_merge([$userid, $forum->id], $groupparams));
 
         $discussions = [];
 

@@ -20,7 +20,7 @@ use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
-use context_module;
+use local_forum_ai\approval;
 use local_forum_ai\local\editable_text;
 use moodle_exception;
 
@@ -68,7 +68,8 @@ class update_response extends external_api {
      * @param bool $plaintext Whether $message is plain text from the edit box
      * @return array Result with status and the updated message rendered as display-ready HTML
      * @throws \required_capability_exception If the caller does not hold local/forum_ai:approveresponses.
-     * @throws \moodle_exception If the response is no longer pending.
+     * @throws \moodle_exception If the response is no longer pending, or the discussion
+     *                           belongs to a group the caller cannot access.
      */
     public static function execute($token, $message, $plaintext = false) {
         global $DB;
@@ -79,17 +80,11 @@ class update_response extends external_api {
             'plaintext' => $plaintext,
         ]);
 
-        $pending = $DB->get_record('local_forum_ai_pending', ['approval_token' => $params['token']], '*', MUST_EXIST);
-
-        // Resolve forum context from the pending record.
-        $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid], '*', MUST_EXIST);
-        $forum = $DB->get_record('forum', ['id' => $pending->forumid], '*', MUST_EXIST);
-        $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
-        $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-
-        $context = context_module::instance($cm->id);
+        // Token, capability and discussion group are enforced in one place.
+        $loaded = approval::load_pending_for_user($params['token']);
+        $pending = $loaded->pending;
+        $context = $loaded->context;
         self::validate_context($context);
-        require_capability('local/forum_ai:approveresponses', $context);
 
         // Only pending responses may be edited; approved or rejected history records are immutable.
         if ($pending->status !== 'pending') {

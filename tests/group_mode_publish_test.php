@@ -65,6 +65,7 @@ final class group_mode_publish_test extends \advanced_testcase {
 
         $fixture = $this->create_fixture(SEPARATEGROUPS);
         $this->prohibit_accessallgroups($fixture);
+        $approver = $this->create_group_b_approver($fixture);
         $post = $this->create_reply($fixture);
 
         $this->inject_mock(['reply' => 'Group AI answer']);
@@ -73,7 +74,7 @@ final class group_mode_publish_test extends \advanced_testcase {
         $messages = $messagesink->get_messages();
         $messagesink->close();
 
-        $this->assert_degraded_to_pending($fixture, $messages);
+        $this->assert_degraded_to_pending($fixture, $messages, (int) $approver->id);
     }
 
     /**
@@ -140,6 +141,7 @@ final class group_mode_publish_test extends \advanced_testcase {
 
         $fixture = $this->create_fixture(SEPARATEGROUPS, ['enablediainitconversation' => 1]);
         $this->prohibit_accessallgroups($fixture);
+        $approver = $this->create_group_b_approver($fixture);
 
         $this->inject_mock(['reply' => 'Group AI answer']);
         $messagesink = $this->redirectMessages();
@@ -152,7 +154,7 @@ final class group_mode_publish_test extends \advanced_testcase {
         $messages = $messagesink->get_messages();
         $messagesink->close();
 
-        $this->assert_degraded_to_pending($fixture, $messages);
+        $this->assert_degraded_to_pending($fixture, $messages, (int) $approver->id);
     }
 
     /**
@@ -331,6 +333,19 @@ final class group_mode_publish_test extends \advanced_testcase {
     }
 
     /**
+     * Creates an editing teacher in group B, so the discussion has an approver who can access it.
+     *
+     * @param stdClass $fixture Fixture holder.
+     * @return stdClass The approver.
+     */
+    private function create_group_b_approver(stdClass $fixture): stdClass {
+        $approver = $this->getDataGenerator()->create_and_enrol($fixture->course, 'editingteacher');
+        $this->getDataGenerator()->create_group_member(['groupid' => $fixture->groupb->id, 'userid' => $approver->id]);
+
+        return $approver;
+    }
+
+    /**
      * Creates a student reply to the first post of the fixture discussion.
      *
      * @param stdClass $fixture Fixture holder.
@@ -347,12 +362,13 @@ final class group_mode_publish_test extends \advanced_testcase {
 
     /**
      * Asserts the response stayed pending, nothing was published by the grader
-     * and an approval notification was sent.
+     * and an approval notification was sent to the group B approver only.
      *
      * @param stdClass $fixture Fixture holder.
      * @param array $messages Messages captured by the sink.
+     * @param int $approverid Approver member of the discussion group.
      */
-    private function assert_degraded_to_pending(stdClass $fixture, array $messages): void {
+    private function assert_degraded_to_pending(stdClass $fixture, array $messages, int $approverid): void {
         global $DB;
 
         $this->assertSame(0, $DB->count_records('forum_posts', ['userid' => $fixture->grader->id]));
@@ -364,6 +380,11 @@ final class group_mode_publish_test extends \advanced_testcase {
             return $message->component === 'local_forum_ai' && $message->eventtype === 'ai_approval_request';
         });
         $this->assertNotEmpty($approvals, 'The degraded response must notify the approvers.');
+
+        // The grader cannot access group B, so the review link must not reach them.
+        $recipients = array_map(static fn($message): int => (int) $message->useridto, $approvals);
+        $this->assertContains($approverid, $recipients);
+        $this->assertNotContains((int) $fixture->grader->id, $recipients);
     }
 
     /**

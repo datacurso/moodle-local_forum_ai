@@ -70,6 +70,7 @@ class process_review extends external_api {
      *                           or the AI response format is not recognized.
      */
     public static function execute($cmid, $userid) {
+        global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), compact('cmid', 'userid'));
 
@@ -97,7 +98,8 @@ class process_review extends external_api {
             }
         }
 
-        $payload = utils::build_forum_ai_payload($params['cmid'], $params['userid']);
+        // Only discussions of groups the reviewer can access are sent to the AI service.
+        $payload = utils::build_forum_ai_payload($params['cmid'], $params['userid'], (int) $USER->id);
         $scale = $payload['forum_participations'][0]['participation']['scale'] ?? null;
 
         // Audit the transfer attempt before any data leaves the site, so the

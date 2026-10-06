@@ -42,6 +42,58 @@ class approval {
     }
 
     /**
+     * Loads a pending AI response by token for the current user, enforcing access.
+     *
+     * Single entry point for every token-based page and web service: it resolves
+     * the related records, then requires local/forum_ai:approveresponses in the
+     * forum context and access to the discussion group (separate groups mode).
+     *
+     * @param string $token Approval token.
+     * @param string|null $requirestatus Only match rows in this status, or any status when null.
+     * @param int $strictness MUST_EXIST throws dml_missing_record_exception for an unknown
+     *                        token; IGNORE_MISSING returns null instead. Related records
+     *                        are always required.
+     * @return \stdClass|null Object with pending, discussion, forum, course, cm and context.
+     * @throws \required_capability_exception When the approval capability is missing.
+     * @throws \moodle_exception error_discussionnotingroup when the discussion group is not accessible.
+     */
+    public static function load_pending_for_user(
+        string $token,
+        ?string $requirestatus = null,
+        int $strictness = MUST_EXIST
+    ): ?\stdClass {
+        global $DB, $USER;
+
+        $conditions = ['approval_token' => $token];
+        if ($requirestatus !== null) {
+            $conditions['status'] = $requirestatus;
+        }
+
+        $pending = $DB->get_record('local_forum_ai_pending', $conditions, '*', $strictness);
+        if (!$pending) {
+            return null;
+        }
+
+        $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid], '*', MUST_EXIST);
+        $forum = $DB->get_record('forum', ['id' => $pending->forumid], '*', MUST_EXIST);
+        $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
+        $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
+        $context = \context_module::instance($cm->id);
+
+        require_capability('local/forum_ai:approveresponses', $context);
+        local\group_access::require_discussion_access($cm, $course, (int) $discussion->groupid, (int) $USER->id);
+
+        return (object) [
+            'pending' => $pending,
+            'discussion' => $discussion,
+            'forum' => $forum,
+            'course' => $course,
+            'cm' => $cm,
+            'context' => $context,
+        ];
+    }
+
+    /**
      * Creates an approval request and sends a notification.
      *
      * @param object $discussion The discussion object.
@@ -134,9 +186,23 @@ class approval {
             $approvers = get_users_by_capability($context, 'local/forum_ai:approveresponses', 'u.*');
             $repliers = get_users_by_capability($context, 'mod/forum:replypost', 'u.id');
 
+            // The review link and preview must only reach approvers who can access
+            // the discussion group and could publish there on manual approval
+            // (the same group rules approve_response and publish_ai_post apply).
+            $discussiongroupid = isset($discussion->groupid)
+                ? (int) $discussion->groupid
+                : (int) $DB->get_field('forum_discussions', 'groupid', ['id' => $discussion->id], MUST_EXIST);
+            $groupdiscussion = (object) ['groupid' => $discussiongroupid];
+
             $finalrecipients = [];
             foreach ($approvers as $approver) {
                 if (!empty($approver->suspended) || !isset($repliers[$approver->id])) {
+                    continue;
+                }
+                if (!local\group_access::can_access_discussion($cm, $course, $discussiongroupid, (int) $approver->id)) {
+                    continue;
+                }
+                if (!utils::can_user_reply_in_discussion_group($cm, $course, $groupdiscussion, (int) $approver->id)) {
                     continue;
                 }
                 $finalrecipients[$approver->id] = $approver;
@@ -297,8 +363,8 @@ class approval {
         $post->mailnow = 0;
         $post->deleted = 0;
 
-        // Switch to the author when the current user differs (task/queue paths only).
-        $originaluser = null;
+        // The author differs from the current user on task/queue paths only.
+        $author = null;
         if ((int) $USER->id !== $authorid) {
             $author = \core_user::get_user($authorid);
             if (!$author || !empty($author->deleted) || !empty($author->suspended)) {
@@ -311,15 +377,22 @@ class approval {
                 );
                 return false;
             }
-            if (!utils::can_user_reply_in_discussion_group($cm, $course, $discussion, $authorid)) {
-                // Core would forbid this user from replying in the discussion group.
-                debugging(
-                    'Cannot publish AI reply: author user ' . $authorid . ' cannot reply in the group of discussion ' .
-                        $discussion->id,
-                    DEBUG_DEVELOPER
-                );
-                return false;
-            }
+        }
+
+        // Applies to the manual approval path too ($USER is the author there):
+        // core would forbid this user from replying in the discussion group.
+        if (!utils::can_user_reply_in_discussion_group($cm, $course, $discussion, $authorid)) {
+            debugging(
+                'Cannot publish AI reply: author user ' . $authorid . ' cannot reply in the group of discussion ' .
+                    $discussion->id,
+                DEBUG_DEVELOPER
+            );
+            return false;
+        }
+
+        // Switch to the author when the current user differs.
+        $originaluser = null;
+        if ($author !== null) {
             $originaluser = $USER;
             \core\cron::setup_user($author);
         }
