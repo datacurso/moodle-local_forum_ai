@@ -30,6 +30,213 @@ require_once(__DIR__ . '/../locallib.php');
  */
 class approval {
     /**
+     * Generates an unpredictable approval token from a CSPRNG.
+     *
+     * Every path that issues a token (creation and course restore) must use this
+     * factory so that no token is derived from time or process identifiers.
+     *
+     * @return string 64 lowercase hexadecimal characters.
+     */
+    public static function generate_approval_token(): string {
+        return bin2hex(random_bytes(32));
+    }
+
+    /**
+     * Loads a pending AI response by token for the current user, enforcing access.
+     *
+     * Single entry point for every token-based page and web service: it resolves
+     * the related records, then requires local/forum_ai:approveresponses in the
+     * forum context and access to the discussion group (separate groups mode).
+     *
+     * @param string $token Approval token.
+     * @param string|null $requirestatus Only match rows in this status, or any status when null.
+     * @param int $strictness MUST_EXIST throws the alreadysubmitted moodle_exception when no
+     *                        row matches (unknown token or no longer in the required status);
+     *                        IGNORE_MISSING returns null instead. Related records are always required.
+     * @return \stdClass|null Object with pending, discussion, forum, course, cm and context.
+     * @throws \moodle_exception alreadysubmitted when no row matches and $strictness is MUST_EXIST.
+     * @throws \required_capability_exception When the approval capability is missing.
+     * @throws \moodle_exception error_discussionnotingroup when the discussion group is not accessible.
+     */
+    public static function load_pending_for_user(
+        string $token,
+        ?string $requirestatus = null,
+        int $strictness = MUST_EXIST
+    ): ?\stdClass {
+        global $DB, $USER;
+
+        $conditions = ['approval_token' => $token];
+        if ($requirestatus !== null) {
+            $conditions['status'] = $requirestatus;
+        }
+
+        $pending = $DB->get_record('local_forum_ai_pending', $conditions);
+        if (!$pending) {
+            // One generic message for unknown and already managed tokens, so the
+            // response never reveals which of the two cases applies.
+            if ($strictness === MUST_EXIST) {
+                throw new \moodle_exception('alreadysubmitted', 'local_forum_ai');
+            }
+            return null;
+        }
+
+        $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid], '*', MUST_EXIST);
+        $forum = $DB->get_record('forum', ['id' => $pending->forumid], '*', MUST_EXIST);
+        $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
+        $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
+        $context = \context_module::instance($cm->id);
+
+        require_capability('local/forum_ai:approveresponses', $context);
+        local\group_access::require_discussion_access($cm, $course, (int) $discussion->groupid, (int) $USER->id);
+
+        return (object) [
+            'pending' => $pending,
+            'discussion' => $discussion,
+            'forum' => $forum,
+            'course' => $course,
+            'cm' => $cm,
+            'context' => $context,
+        ];
+    }
+
+    /**
+     * Moves a pending AI response to its final state, exclusively and only once.
+     *
+     * Approve and reject requests for the same row are serialised with a lock;
+     * under it the row is re-read and must still be pending with no published
+     * post, so a request that passed the token gate before another one finished
+     * is refused. The state is written field by field and only while the row is
+     * pending, so it never overwrites what another writer stored.
+     *
+     * Failure ordering: when $publish throws before a post exists the row stays
+     * pending; once a post exists publish_ai_post() has linked it to the row, so
+     * any retry is refused by the postid check.
+     *
+     * @param int $pendingid Pending row id.
+     * @param string $to Target state: 'approved' or 'rejected'.
+     * @param int $actorid User who manages the response (stored in action_userid).
+     * @param callable|null $publish Called under the lock with the fresh row before the state changes.
+     * @return \stdClass The row after the transition.
+     * @throws \moodle_exception error_responsebusy when another request holds the row,
+     *                           error_responsenotpending when the row was already managed.
+     */
+    public static function transition_pending(int $pendingid, string $to, int $actorid, ?callable $publish = null): \stdClass {
+        global $DB;
+
+        if (!in_array($to, ['approved', 'rejected'], true)) {
+            throw new \coding_exception('Invalid pending response transition: ' . $to);
+        }
+
+        return self::run_locked($pendingid, static function (\stdClass $pending) use ($DB, $to, $actorid, $publish): \stdClass {
+            if ($pending->status !== 'pending' || !empty($pending->postid)) {
+                throw new \moodle_exception('error_responsenotpending', 'local_forum_ai');
+            }
+
+            if ($publish !== null) {
+                $publish($pending);
+            }
+
+            $now = time();
+            $params = ['to' => $to, 'actorid' => $actorid, 'now' => $now, 'id' => $pending->id, 'pending' => 'pending'];
+            $approvedat = '';
+            if ($to === 'approved') {
+                $approvedat = ', approved_at = :approvedat';
+                $params['approvedat'] = $now;
+            }
+            // Record who managed the response without touching creator_userid:
+            // the originating student's identity must survive for traceability.
+            $DB->execute(
+                "UPDATE {local_forum_ai_pending}
+                    SET status = :to, action_userid = :actorid, timemodified = :now{$approvedat}
+                  WHERE id = :id AND status = :pending",
+                $params
+            );
+
+            return self::require_written_state((int) $pending->id, $to);
+        });
+    }
+
+    /**
+     * Replaces the message of a pending AI response, exclusively.
+     *
+     * Shares the lock of transition_pending(), so an edit never interleaves with
+     * an approval. $compose receives the message stored when the lock was taken,
+     * and the new message is written only while the row is still pending.
+     *
+     * @param int $pendingid Pending row id.
+     * @param callable $compose Returns the purified message to store from the stored one.
+     * @return \stdClass The row after the edit.
+     * @throws \moodle_exception error_responsebusy when another request holds the row,
+     *                           error_responsenotpending when the row is no longer pending.
+     */
+    public static function edit_pending_message(int $pendingid, callable $compose): \stdClass {
+        global $DB;
+
+        return self::run_locked($pendingid, static function (\stdClass $pending) use ($DB, $compose): \stdClass {
+            // Only pending responses may be edited; approved or rejected history records are immutable.
+            if ($pending->status !== 'pending') {
+                throw new \moodle_exception('error_responsenotpending', 'local_forum_ai');
+            }
+
+            $message = (string) $compose((string) $pending->message);
+            $DB->execute(
+                "UPDATE {local_forum_ai_pending}
+                    SET message = :message, timemodified = :now
+                  WHERE id = :id AND status = :pending",
+                ['message' => $message, 'now' => time(), 'id' => $pending->id, 'pending' => 'pending']
+            );
+
+            return self::require_written_state((int) $pending->id, 'pending');
+        });
+    }
+
+    /**
+     * Runs $callback with the freshly read pending row while holding its lock.
+     *
+     * @param int $pendingid Pending row id.
+     * @param callable $callback Receives the pending row read under the lock.
+     * @return mixed The callback result.
+     * @throws \moodle_exception error_responsebusy when the lock cannot be obtained.
+     */
+    private static function run_locked(int $pendingid, callable $callback) {
+        global $DB;
+
+        $factory = \core\lock\lock_config::get_lock_factory('local_forum_ai');
+        $lock = $factory->get_lock('pending_' . $pendingid, 5);
+        if (!$lock) {
+            throw new \moodle_exception('error_responsebusy', 'local_forum_ai');
+        }
+
+        try {
+            $pending = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
+            return $callback($pending);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Re-reads a pending row and requires the state a conditional write stored.
+     *
+     * DML execute() does not report affected rows: a writer that ignored the lock
+     * (bulk expiry) may have changed the row, which this re-read detects.
+     *
+     * @param int $pendingid Pending row id.
+     * @param string $status Status the row must hold.
+     * @return \stdClass The row.
+     * @throws \moodle_exception error_responsenotpending when the row holds another status.
+     */
+    private static function require_written_state(int $pendingid, string $status): \stdClass {
+        global $DB;
+
+        $row = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
+        if ($row->status !== $status) {
+            throw new \moodle_exception('error_responsenotpending', 'local_forum_ai');
+        }
+        return $row;
+    }
+
+    /**
      * Creates an approval request and sends a notification.
      *
      * @param object $discussion The discussion object.
@@ -55,7 +262,7 @@ class approval {
         global $DB;
 
         try {
-            $approvaltoken = hash('sha256', $discussion->id . time() . random_string(20));
+            $approvaltoken = self::generate_approval_token();
 
             $pending = new \stdClass();
             $pending->discussionid = $discussion->id;
@@ -122,9 +329,23 @@ class approval {
             $approvers = get_users_by_capability($context, 'local/forum_ai:approveresponses', 'u.*');
             $repliers = get_users_by_capability($context, 'mod/forum:replypost', 'u.id');
 
+            // The review link and preview must only reach approvers who can access
+            // the discussion group and could publish there on manual approval
+            // (the same group rules approve_response and publish_ai_post apply).
+            $discussiongroupid = isset($discussion->groupid)
+                ? (int) $discussion->groupid
+                : (int) $DB->get_field('forum_discussions', 'groupid', ['id' => $discussion->id], MUST_EXIST);
+            $groupdiscussion = (object) ['groupid' => $discussiongroupid];
+
             $finalrecipients = [];
             foreach ($approvers as $approver) {
                 if (!empty($approver->suspended) || !isset($repliers[$approver->id])) {
+                    continue;
+                }
+                if (!local\group_access::can_access_discussion($cm, $course, $discussiongroupid, (int) $approver->id)) {
+                    continue;
+                }
+                if (!utils::can_user_reply_in_discussion_group($cm, $course, $groupdiscussion, (int) $approver->id)) {
                     continue;
                 }
                 $finalrecipients[$approver->id] = $approver;
@@ -285,8 +506,8 @@ class approval {
         $post->mailnow = 0;
         $post->deleted = 0;
 
-        // Switch to the author when the current user differs (task/queue paths only).
-        $originaluser = null;
+        // The author differs from the current user on task/queue paths only.
+        $author = null;
         if ((int) $USER->id !== $authorid) {
             $author = \core_user::get_user($authorid);
             if (!$author || !empty($author->deleted) || !empty($author->suspended)) {
@@ -299,15 +520,22 @@ class approval {
                 );
                 return false;
             }
-            if (!utils::can_user_reply_in_discussion_group($cm, $course, $discussion, $authorid)) {
-                // Core would forbid this user from replying in the discussion group.
-                debugging(
-                    'Cannot publish AI reply: author user ' . $authorid . ' cannot reply in the group of discussion ' .
-                        $discussion->id,
-                    DEBUG_DEVELOPER
-                );
-                return false;
-            }
+        }
+
+        // Applies to the manual approval path too ($USER is the author there):
+        // core would forbid this user from replying in the discussion group.
+        if (!utils::can_user_reply_in_discussion_group($cm, $course, $discussion, $authorid)) {
+            debugging(
+                'Cannot publish AI reply: author user ' . $authorid . ' cannot reply in the group of discussion ' .
+                    $discussion->id,
+                DEBUG_DEVELOPER
+            );
+            return false;
+        }
+
+        // Switch to the author when the current user differs.
+        $originaluser = null;
+        if ($author !== null) {
             $originaluser = $USER;
             \core\cron::setup_user($author);
         }

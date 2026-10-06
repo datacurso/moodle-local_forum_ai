@@ -93,7 +93,13 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->enabled = $config->enabled;
             $record->reply_message = $config->reply_message;
             $record->require_approval = $config->require_approval;
-            $record->allowedroles = $config->allowedroles ?? null;
+            // Pre-2026100600 backups may carry an empty list, which now denies every role:
+            // migrate it to the student-archetype roles, as the upgrade step does.
+            $record->allowedroles = trim((string) ($config->allowedroles ?? ''));
+            if ($record->allowedroles === '') {
+                $studentroleids = \local_forum_ai\utils::get_student_archetype_role_ids();
+                $record->allowedroles = $studentroleids ? implode(',', $studentroleids) : null;
+            }
             $record->enablediainitconversation = $config->enablediainitconversation ?? 0;
             $record->questionturns = isset($config->questionturns) ? max(0, min(3, (int)$config->questionturns)) : 1;
             $record->graderid = !empty($config->graderid)
@@ -148,7 +154,8 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->status = in_array($pending->status ?? null, ['pending', 'approved', 'rejected', 'expired'], true)
                 ? $pending->status
                 : 'pending';
-            $record->approval_token = md5(uniqid('restored_', true));
+            // Never reuse the source token, and never derive it from time.
+            $record->approval_token = \local_forum_ai\approval::generate_approval_token();
             $record->timecreated = $pending->timecreated;
             $record->timemodified = time();
             $record->approved_at = property_exists($pending, 'approved_at') ? $pending->approved_at : null;

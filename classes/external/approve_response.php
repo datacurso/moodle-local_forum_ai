@@ -58,7 +58,9 @@ class approve_response extends external_api {
      * @param string $token  Approval token associated with the pending response
      * @param string $action Action to perform: approve or reject
      * @return array Result with 'success' key in case of success
-     * @throws moodle_exception If the validations or permissions are not met
+     * @throws moodle_exception If the validations or permissions are not met, including
+     *                          separate-groups access to the discussion, or when another
+     *                          request is managing the response (error_responsebusy)
      */
     public static function execute($token, $action) {
         global $DB, $CFG, $USER;
@@ -68,21 +70,15 @@ class approve_response extends external_api {
             'action' => $action,
         ]);
 
-        $pending = $DB->get_record(
-            'local_forum_ai_pending',
-            ['approval_token' => $params['token'], 'status' => 'pending'],
-            '*',
-            MUST_EXIST
-        );
-
-        $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid], '*', MUST_EXIST);
-        $forum      = $DB->get_record('forum', ['id' => $pending->forumid], '*', MUST_EXIST);
-        $course     = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
-        $cm         = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-
-        $context = \context_module::instance($cm->id);
+        // Token, capability and discussion group are enforced in one place.
+        $loaded = \local_forum_ai\approval::load_pending_for_user($params['token'], 'pending');
+        $pending = $loaded->pending;
+        $discussion = $loaded->discussion;
+        $forum = $loaded->forum;
+        $course = $loaded->course;
+        $cm = $loaded->cm;
+        $context = $loaded->context;
         self::validate_context($context);
-        require_capability('local/forum_ai:approveresponses', $context);
 
         $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]) ?: null;
 
@@ -103,6 +99,13 @@ class approve_response extends external_api {
 
             if (!\local_forum_ai\utils::can_reply_in_discussion($forum, $discussion, $config)) {
                 throw new moodle_exception('error_discussionlocked', 'local_forum_ai');
+            }
+
+            // The response is published on behalf of $USER: core's group rules for
+            // replying apply (e.g. no replies to all-participants discussions in
+            // separate groups without accessallgroups).
+            if (!\local_forum_ai\utils::can_user_reply_in_discussion_group($cm, $course, $discussion, (int) $USER->id)) {
+                throw new moodle_exception('error_cannotpublishingroup', 'local_forum_ai');
             }
 
             // Determine the correct parent post based on parentpostid.
@@ -133,83 +136,84 @@ class approve_response extends external_api {
                 }
             }
 
-            // In manual mode the AI response is attributed to the user who approved it,
-            // so the shared publisher never needs to switch users on this path.
-            $newpostid = \local_forum_ai\approval::publish_ai_post(
-                $discussion,
-                $forum,
-                $cm,
-                $course,
-                $pending,
-                (int) $parentid,
-                (int) $USER->id
-            );
-            if (!$newpostid) {
-                // Defense in depth: false only happens for pre-insert failures (the gates
-                // above should have caught them already), so no post was published.
-                throw new moodle_exception('error_privatereply', 'local_forum_ai');
-            }
+            // Publication and the state change run under the row lock, on the row re-read
+            // there: a concurrent approve, reject or edit can never publish twice or revert it.
+            $approverid = (int) $USER->id;
+            $managed = \local_forum_ai\approval::transition_pending(
+                (int) $pending->id,
+                'approved',
+                $approverid,
+                function (\stdClass $current) use ($discussion, $forum, $cm, $course, $context, $parentid, $approverid): void {
+                    global $DB;
 
-            $gradingenabled = ($forum->assessed != 0);
-
-            // Rating is best effort: a grade of zero is valid and must not be dropped.
-            if ($gradingenabled && $pending->grade !== null && !empty($pending->parentpostid)) {
-                $originalpost = $DB->get_record('forum_posts', ['id' => $pending->parentpostid]);
-
-                if ($originalpost) {
-                    // In manual mode, attribute the rating to the user who approved it.
-                    $rated = \local_forum_ai\approval::rate_ai_post(
-                        $cm,
-                        $context,
+                    // In manual mode the AI response is attributed to the user who approved it,
+                    // so the shared publisher never needs to switch users on this path.
+                    $newpostid = \local_forum_ai\approval::publish_ai_post(
+                        $discussion,
                         $forum,
-                        (int) $pending->parentpostid,
-                        (int) $originalpost->userid,
-                        (int) $pending->grade,
-                        (int) $USER->id
+                        $cm,
+                        $course,
+                        $current,
+                        (int) $parentid,
+                        $approverid
                     );
-                    if (!$rated) {
-                        debugging(
-                            'AI rating skipped on manual approval for post ' . $pending->parentpostid,
-                            DEBUG_DEVELOPER
-                        );
+                    if (!$newpostid) {
+                        // Defense in depth: false only happens for pre-insert failures (the gates
+                        // above should have caught them already), so no post was published.
+                        throw new moodle_exception('error_privatereply', 'local_forum_ai');
+                    }
+
+                    $gradingenabled = ($forum->assessed != 0);
+
+                    // Rating is best effort: a grade of zero is valid and must not be dropped.
+                    if ($gradingenabled && $current->grade !== null && !empty($current->parentpostid)) {
+                        $originalpost = $DB->get_record('forum_posts', ['id' => $current->parentpostid]);
+
+                        if ($originalpost) {
+                            // In manual mode, attribute the rating to the user who approved it.
+                            $rated = \local_forum_ai\approval::rate_ai_post(
+                                $cm,
+                                $context,
+                                $forum,
+                                (int) $current->parentpostid,
+                                (int) $originalpost->userid,
+                                (int) $current->grade,
+                                $approverid
+                            );
+                            if (!$rated) {
+                                debugging(
+                                    'AI rating skipped on manual approval for post ' . $current->parentpostid,
+                                    DEBUG_DEVELOPER
+                                );
+                            }
+                        }
                     }
                 }
-            }
-
-            $pending->status       = 'approved';
-            // Record who managed the response without touching creator_userid:
-            // the originating student's identity must survive for traceability.
-            $pending->action_userid = $USER->id;
-            $pending->approved_at  = time();
-            $pending->timemodified = time();
-            $DB->update_record('local_forum_ai_pending', $pending);
+            );
 
             // Audit trail: record who approved the response in the standard log store.
             $event = \local_forum_ai\event\response_approved::create([
                 'context' => $context,
-                'objectid' => (int) $pending->id,
-                'relateduserid' => (int) $pending->creator_userid,
+                'objectid' => (int) $managed->id,
+                'relateduserid' => (int) $managed->creator_userid,
                 'other' => [
-                    'forumid' => (int) $pending->forumid,
-                    'discussionid' => (int) $pending->discussionid,
+                    'forumid' => (int) $managed->forumid,
+                    'discussionid' => (int) $managed->discussionid,
                 ],
             ]);
             $event->trigger();
         } else if ($params['action'] === 'reject') {
-            $pending->status       = 'rejected';
-            // Same traceability rule as on approval: keep the creator, record the actor.
-            $pending->action_userid = $USER->id;
-            $pending->timemodified = time();
-            $DB->update_record('local_forum_ai_pending', $pending);
+            // Same exclusive, conditional transition as approval; nothing is published.
+            $managed = \local_forum_ai\approval::transition_pending((int) $pending->id, 'rejected', (int) $USER->id);
 
             // Audit trail: a rejection leaves no post behind, so the event is its only trace.
             $event = \local_forum_ai\event\response_rejected::create([
                 'context' => $context,
-                'objectid' => (int) $pending->id,
-                'relateduserid' => (int) $pending->creator_userid,
+                'objectid' => (int) $managed->id,
+                'relateduserid' => (int) $managed->creator_userid,
                 'other' => [
-                    'forumid' => (int) $pending->forumid,
-                    'discussionid' => (int) $pending->discussionid,
+                    'forumid' => (int) $managed->forumid,
+                    'discussionid' => (int) $managed->discussionid,
                 ],
             ]);
             $event->trigger();

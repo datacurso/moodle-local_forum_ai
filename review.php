@@ -31,16 +31,23 @@ $token = required_param('token', PARAM_ALPHANUMEXT);
 
 require_login();
 
-$pending = $DB->get_record(
-    'local_forum_ai_pending',
-    ['approval_token' => $token, 'status' => 'pending'],
-    '*',
-    IGNORE_MISSING
-);
+// Token, capability and discussion group are enforced in one place. Only data
+// errors are wrapped: the standard 403 (required_capability_exception) and the
+// group refusal must reach the user unwrapped.
+try {
+    $loaded = \local_forum_ai\approval::load_pending_for_user($token, 'pending', IGNORE_MISSING);
+} catch (dml_exception $e) {
+    debugging('Error in review.php: ' . $e->getMessage(), DEBUG_DEVELOPER);
+    // Never expose internal exception details to the user (FORUMAI-SEC-006).
+    throw new moodle_exception('error_airequest', 'local_forum_ai');
+}
 
-if (!$pending) {
+if (!$loaded) {
+    // The response is unknown or already managed: no module context can be trusted,
+    // so the notice is rendered in the system context.
+    $PAGE->set_context(context_system::instance());
     $PAGE->set_url('/local/forum_ai/review.php', ['token' => $token]);
-    $PAGE->set_pagelayout('incourse');
+    $PAGE->set_pagelayout('standard');
     $PAGE->set_title(get_string('reviewtitle', 'local_forum_ai'));
     $PAGE->set_heading(get_string('pluginname', 'local_forum_ai'));
 
@@ -55,11 +62,14 @@ if (!$pending) {
     exit;
 }
 
+$pending = $loaded->pending;
+$discussion = $loaded->discussion;
+$forum = $loaded->forum;
+$course = $loaded->course;
+$cm = $loaded->cm;
+$context = $loaded->context;
+
 try {
-    $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid], '*', MUST_EXIST);
-    $forum = $DB->get_record('forum', ['id' => $pending->forumid], '*', MUST_EXIST);
-    $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
-    $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
     $originalpost = $DB->get_record('forum_posts', ['id' => $discussion->firstpost], '*', MUST_EXIST);
     $author = $DB->get_record('user', ['id' => $originalpost->userid], '*', MUST_EXIST);
 } catch (Exception $e) {
@@ -67,11 +77,6 @@ try {
     // Never expose internal exception details to the user (FORUMAI-SEC-006).
     throw new moodle_exception('error_airequest', 'local_forum_ai');
 }
-
-$context = context_module::instance($cm->id);
-
-// Outside any try block so the standard 403 (required_capability_exception) reaches the user unwrapped.
-require_capability('local/forum_ai:approveresponses', $context);
 
 $PAGE->set_url('/local/forum_ai/review.php', ['token' => $token]);
 // Bind the course module so the navigation can initialise in a module context.

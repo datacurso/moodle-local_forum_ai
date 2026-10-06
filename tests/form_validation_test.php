@@ -34,6 +34,7 @@ require_once($CFG->dirroot . '/local/forum_ai/lib.php');
  * Tests for local_forum_ai_coursemodule_validation().
  *
  * Covers: MDL-INT-002 — automatic mode cannot be saved without a grader.
+ * Covers: FAI-SEC-005 — an enabled forum AI must allow at least one role.
  *
  * @group local_forum_ai
  * @covers ::local_forum_ai_coursemodule_validation
@@ -54,6 +55,34 @@ final class form_validation_test extends \advanced_testcase {
 
         $this->assertArrayHasKey('local_forum_ai_grader', $errors);
         $this->assertSame(get_string('error_graderrequired', 'local_forum_ai'), $errors['local_forum_ai_grader']);
+    }
+
+    /**
+     * FAI-SEC-005: with the forum AI enabled an empty role selection is rejected on
+     * the allowed-roles field, whether the element is submitted empty or omitted.
+     */
+    public function test_enabled_ai_requires_at_least_one_role(): void {
+        $this->resetAfterTest();
+        set_config('default_enabled', 1, 'local_forum_ai');
+
+        $base = [
+            'local_forum_ai_enabled' => 1,
+            'local_forum_ai_require_approval' => 1,
+            'local_forum_ai_grader' => 0,
+        ];
+        $expected = get_string('error_allowedrolesrequired', 'local_forum_ai');
+
+        foreach ([$base, $base + ['allowedroles' => []], $base + ['allowedroles' => '']] as $fields) {
+            $errors = local_forum_ai_coursemodule_validation(null, $fields);
+            $this->assertSame(['allowedroles' => $expected], $errors);
+        }
+
+        // With the forum AI disabled no role is required.
+        $this->assertSame([], local_forum_ai_coursemodule_validation(null, [
+            'local_forum_ai_enabled' => 0,
+            'local_forum_ai_require_approval' => 1,
+            'allowedroles' => [],
+        ]));
     }
 
     /**
@@ -80,11 +109,13 @@ final class form_validation_test extends \advanced_testcase {
                 'local_forum_ai_enabled' => 1,
                 'local_forum_ai_require_approval' => 0,
                 'local_forum_ai_grader' => 5,
+                'allowedroles' => [5],
             ]],
             'review without grader' => [[
                 'local_forum_ai_enabled' => 1,
                 'local_forum_ai_require_approval' => 1,
                 'local_forum_ai_grader' => 0,
+                'allowedroles' => [5],
             ]],
             'ai disabled without grader' => [[
                 'local_forum_ai_enabled' => 0,

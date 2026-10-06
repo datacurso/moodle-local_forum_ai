@@ -96,6 +96,13 @@ class local_forum_ai_generator extends component_generator_base {
             throw new coding_exception('create_config() requires a forumid.');
         }
 
+        // Mirror the form default: the AI responds to student-archetype roles unless told otherwise.
+        if (array_key_exists('allowedroles', $record)) {
+            $allowedroles = $record['allowedroles'];
+        } else {
+            $allowedroles = implode(',', array_keys($DB->get_records('role', ['archetype' => 'student'], 'id', 'id')));
+        }
+
         $now = time();
         $config = (object) [
             'forumid' => (int) $record['forumid'],
@@ -103,7 +110,7 @@ class local_forum_ai_generator extends component_generator_base {
             'enablediainitconversation' => isset($record['enablediainitconversation'])
                 ? (int) $record['enablediainitconversation'] : 0,
             'questionturns' => isset($record['questionturns']) ? (int) $record['questionturns'] : 1,
-            'allowedroles' => $record['allowedroles'] ?? null,
+            'allowedroles' => $allowedroles,
             'reply_message' => $record['reply_message'] ?? 'Reply with an empathetic and motivational tone',
             'require_approval' => isset($record['require_approval']) ? (int) $record['require_approval'] : 1,
             'graderid' => isset($record['graderid']) && $record['graderid'] !== '' ? (int) $record['graderid'] : null,

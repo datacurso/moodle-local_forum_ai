@@ -64,6 +64,40 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
     }
 
     /**
+     * FAI-PRIV-001-R1: the external location declares that thread authors are third
+     * parties sent only as pseudonymised labels, that e-mails are masked, the grading
+     * request data and the transport fields added by aiprovider_datacurso.
+     *
+     * @covers ::get_metadata
+     */
+    public function test_external_location_declares_pseudonymised_third_party_authors(): void {
+        $collection = new collection('local_forum_ai');
+        provider::get_metadata($collection);
+
+        $fields = [];
+        foreach ($collection->get_collection() as $item) {
+            if ($item instanceof external_location && $item->get_name() === 'datacurso_ai') {
+                $fields = $item->get_privacy_fields();
+            }
+        }
+
+        $expected = [
+            'author_name', 'thread_authors', 'post_content', 'grading_configuration', 'evaluated_userid',
+            'requester', 'provider_fields',
+        ];
+        foreach ($expected as $key) {
+            $this->assertArrayHasKey($key, $fields);
+        }
+
+        $string = fn(string $key): string => get_string($fields[$key], 'local_forum_ai');
+        $this->assertStringContainsString('[STUDENT_NAME]', $string('author_name'));
+        $this->assertStringContainsString('third parties', $string('thread_authors'));
+        $this->assertStringContainsString('[PARTICIPANT_1]', $string('thread_authors'));
+        $this->assertStringContainsString('[EMAIL]', $string('post_content'));
+        $this->assertStringContainsString('aiprovider_datacurso', $string('provider_fields'));
+    }
+
+    /**
      * All personal-data tables must be declared, including the processing queue.
      *
      * @covers ::get_metadata

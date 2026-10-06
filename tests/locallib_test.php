@@ -218,6 +218,8 @@ final class locallib_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $data = $this->setup_rated_forum();
+        // Listings only return rows the current user may manage.
+        $this->setAdminUser();
         $this->insert_pending($data);
 
         $records = local_forum_ai_get_pending($data['course']->id);
@@ -241,6 +243,8 @@ final class locallib_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $data = $this->setup_rated_forum();
+        // Listings only return rows the current user may manage.
+        $this->setAdminUser();
         $this->insert_pending($data);
 
         $records = local_forum_ai_get_pending($data['course']->id);
@@ -260,6 +264,8 @@ final class locallib_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $data = $this->setup_rated_forum();
+        // Listings only return rows the current user may manage.
+        $this->setAdminUser();
         $this->insert_pending($data, 'approved');
 
         $records = local_forum_ai_get_history($data['course']->id);
@@ -279,6 +285,8 @@ final class locallib_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $data = $this->setup_rated_forum();
+        // Listings only return rows the current user may manage.
+        $this->setAdminUser();
         $this->insert_pending($data, 'approved');
 
         $records = local_forum_ai_get_history($data['course']->id);

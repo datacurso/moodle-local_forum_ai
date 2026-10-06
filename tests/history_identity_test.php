@@ -273,7 +273,7 @@ final class history_identity_test extends \advanced_testcase {
         $config->enabled = 1;
         $config->require_approval = $config->require_approval ?? 1;
         $config->usedelay = 0;
-        $config->allowedroles = '';
+        $config->allowedroles = (string) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);
         $config->reply_message = 'Test prompt';
         $config->timemodified = time();
         foreach ($overrides as $field => $value) {
