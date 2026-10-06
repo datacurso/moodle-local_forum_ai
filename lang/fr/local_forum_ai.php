@@ -76,6 +76,7 @@ $string['error_forumclosed'] = 'La date de remise ou la date limite de ce forum 
 $string['error_graderrequired'] = 'Sélectionnez un évaluateur : l\'approbation automatique publie la réponse de l\'IA au nom de cet utilisateur.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Le message auquel il est répondu est une réponse privée, une réponse de l’IA ne peut donc pas être publiée.';
+$string['error_responsebusy'] = 'Une autre requête est en train de traiter cette réponse de l’IA. Patientez un instant et réessayez.';
 $string['error_responseexpired'] = 'Cette réponse de l’IA a expiré car la date de remise ou la date limite du forum est dépassée.';
 $string['error_responsenotpending'] = 'Cette réponse a déjà été approuvée ou rejetée et ne peut plus être modifiée.';
 $string['error_usernotincourse'] = 'L’utilisateur sélectionné n’est pas inscrit à ce cours.';

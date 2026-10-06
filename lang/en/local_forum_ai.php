@@ -76,6 +76,7 @@ $string['error_forumclosed'] = 'The due date or the cut-off date of this forum h
 $string['error_graderrequired'] = 'Select a grader: automatic approval publishes the AI response on behalf of this user.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'The post being replied to is a private reply, so an AI response cannot be published.';
+$string['error_responsebusy'] = 'Another request is managing this AI response right now. Wait a moment and try again.';
 $string['error_responseexpired'] = 'This AI response has expired because the due date or the cut-off date of the forum has passed.';
 $string['error_responsenotpending'] = 'This response has already been approved or rejected and can no longer be edited.';
 $string['error_usernotincourse'] = 'The selected user is not enrolled in this course.';

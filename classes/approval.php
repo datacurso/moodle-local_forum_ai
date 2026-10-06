@@ -94,6 +94,143 @@ class approval {
     }
 
     /**
+     * Moves a pending AI response to its final state, exclusively and only once.
+     *
+     * Approve and reject requests for the same row are serialised with a lock;
+     * under it the row is re-read and must still be pending with no published
+     * post, so a request that passed the token gate before another one finished
+     * is refused. The state is written field by field and only while the row is
+     * pending, so it never overwrites what another writer stored.
+     *
+     * Failure ordering: when $publish throws before a post exists the row stays
+     * pending; once a post exists publish_ai_post() has linked it to the row, so
+     * any retry is refused by the postid check.
+     *
+     * @param int $pendingid Pending row id.
+     * @param string $to Target state: 'approved' or 'rejected'.
+     * @param int $actorid User who manages the response (stored in action_userid).
+     * @param callable|null $publish Called under the lock with the fresh row before the state changes.
+     * @return \stdClass The row after the transition.
+     * @throws \moodle_exception error_responsebusy when another request holds the row,
+     *                           error_responsenotpending when the row was already managed.
+     */
+    public static function transition_pending(int $pendingid, string $to, int $actorid, ?callable $publish = null): \stdClass {
+        global $DB;
+
+        if (!in_array($to, ['approved', 'rejected'], true)) {
+            throw new \coding_exception('Invalid pending response transition: ' . $to);
+        }
+
+        return self::run_locked($pendingid, static function (\stdClass $pending) use ($DB, $to, $actorid, $publish): \stdClass {
+            if ($pending->status !== 'pending' || !empty($pending->postid)) {
+                throw new \moodle_exception('error_responsenotpending', 'local_forum_ai');
+            }
+
+            if ($publish !== null) {
+                $publish($pending);
+            }
+
+            $now = time();
+            $params = ['to' => $to, 'actorid' => $actorid, 'now' => $now, 'id' => $pending->id, 'pending' => 'pending'];
+            $approvedat = '';
+            if ($to === 'approved') {
+                $approvedat = ', approved_at = :approvedat';
+                $params['approvedat'] = $now;
+            }
+            // Record who managed the response without touching creator_userid:
+            // the originating student's identity must survive for traceability.
+            $DB->execute(
+                "UPDATE {local_forum_ai_pending}
+                    SET status = :to, action_userid = :actorid, timemodified = :now{$approvedat}
+                  WHERE id = :id AND status = :pending",
+                $params
+            );
+
+            return self::require_written_state((int) $pending->id, $to);
+        });
+    }
+
+    /**
+     * Replaces the message of a pending AI response, exclusively.
+     *
+     * Shares the lock of transition_pending(), so an edit never interleaves with
+     * an approval. $compose receives the message stored when the lock was taken,
+     * and the new message is written only while the row is still pending.
+     *
+     * @param int $pendingid Pending row id.
+     * @param callable $compose Returns the purified message to store from the stored one.
+     * @return \stdClass The row after the edit.
+     * @throws \moodle_exception error_responsebusy when another request holds the row,
+     *                           error_responsenotpending when the row is no longer pending.
+     */
+    public static function edit_pending_message(int $pendingid, callable $compose): \stdClass {
+        global $DB;
+
+        return self::run_locked($pendingid, static function (\stdClass $pending) use ($DB, $compose): \stdClass {
+            // Only pending responses may be edited; approved or rejected history records are immutable.
+            if ($pending->status !== 'pending') {
+                throw new \moodle_exception('error_responsenotpending', 'local_forum_ai');
+            }
+
+            $message = (string) $compose((string) $pending->message);
+            $DB->execute(
+                "UPDATE {local_forum_ai_pending}
+                    SET message = :message, timemodified = :now
+                  WHERE id = :id AND status = :pending",
+                ['message' => $message, 'now' => time(), 'id' => $pending->id, 'pending' => 'pending']
+            );
+
+            return self::require_written_state((int) $pending->id, 'pending');
+        });
+    }
+
+    /**
+     * Runs $callback with the freshly read pending row while holding its lock.
+     *
+     * @param int $pendingid Pending row id.
+     * @param callable $callback Receives the pending row read under the lock.
+     * @return mixed The callback result.
+     * @throws \moodle_exception error_responsebusy when the lock cannot be obtained.
+     */
+    private static function run_locked(int $pendingid, callable $callback) {
+        global $DB;
+
+        $factory = \core\lock\lock_config::get_lock_factory('local_forum_ai');
+        $lock = $factory->get_lock('pending_' . $pendingid, 5);
+        if (!$lock) {
+            throw new \moodle_exception('error_responsebusy', 'local_forum_ai');
+        }
+
+        try {
+            $pending = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
+            return $callback($pending);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Re-reads a pending row and requires the state a conditional write stored.
+     *
+     * DML execute() does not report affected rows: a writer that ignored the lock
+     * (bulk expiry) may have changed the row, which this re-read detects.
+     *
+     * @param int $pendingid Pending row id.
+     * @param string $status Status the row must hold.
+     * @return \stdClass The row.
+     * @throws \moodle_exception error_responsenotpending when the row holds another status.
+     */
+    private static function require_written_state(int $pendingid, string $status): \stdClass {
+        global $DB;
+
+        $row = $DB->get_record('local_forum_ai_pending', ['id' => $pendingid], '*', MUST_EXIST);
+        if ($row->status !== $status) {
+            throw new \moodle_exception('error_responsenotpending', 'local_forum_ai');
+        }
+        return $row;
+    }
+
+    /**
      * Creates an approval request and sends a notification.
      *
      * @param object $discussion The discussion object.

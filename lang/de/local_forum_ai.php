@@ -76,6 +76,7 @@ $string['error_forumclosed'] = 'Das Fälligkeitsdatum oder der Stichtag dieses F
 $string['error_graderrequired'] = 'Wählen Sie eine bewertende Person aus: Die automatische Genehmigung veröffentlicht die KI-Antwort im Namen dieser Person.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Der Beitrag, auf den geantwortet wird, ist eine private Antwort, daher kann keine KI-Antwort veröffentlicht werden.';
+$string['error_responsebusy'] = 'Diese KI-Antwort wird gerade von einer anderen Anfrage bearbeitet. Warten Sie einen Moment und versuchen Sie es erneut.';
 $string['error_responseexpired'] = 'Diese KI-Antwort ist abgelaufen, weil das Fälligkeitsdatum oder der Stichtag des Forums überschritten ist.';
 $string['error_responsenotpending'] = 'Diese Antwort wurde bereits genehmigt oder abgelehnt und kann nicht mehr bearbeitet werden.';
 $string['error_usernotincourse'] = 'Die ausgewählte Person ist nicht in diesem Kurs eingeschrieben.';

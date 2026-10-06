@@ -229,25 +229,39 @@ function local_forum_ai_cleanup_expired(int $courseid, int $forumid = 0): int {
 
     if ($pendings) {
         $ids = array_keys($pendings);
-        [$insql, $inparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
-        $DB->set_field_select(
-            'local_forum_ai_pending',
-            'status',
-            'expired',
-            "id $insql",
-            $inparams
-        );
-        $DB->set_field_select(
-            'local_forum_ai_pending',
-            'timemodified',
-            $now,
-            "id $insql",
-            $inparams
-        );
+        local_forum_ai_mark_pending_expired($ids, $now);
         return count($ids);
     }
 
     return 0;
+}
+
+/**
+ * Marks the given AI responses as expired, only while they are still pending.
+ *
+ * The bulk cleanup selects rows first and writes them afterwards: a row
+ * approved or rejected in between must keep its state (and its published
+ * post), so the write itself is conditioned on the pending status.
+ *
+ * @package local_forum_ai
+ * @param int[] $ids Pending row ids selected for expiry.
+ * @param int $now Timestamp stored as timemodified.
+ * @return void
+ */
+function local_forum_ai_mark_pending_expired(array $ids, int $now): void {
+    global $DB;
+
+    if (empty($ids)) {
+        return;
+    }
+
+    [$insql, $inparams] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
+    $DB->execute(
+        "UPDATE {local_forum_ai_pending}
+            SET status = :expired, timemodified = :now
+          WHERE id $insql AND status = :pending",
+        $inparams + ['expired' => 'expired', 'now' => $now, 'pending' => 'pending']
+    );
 }
 
 /**

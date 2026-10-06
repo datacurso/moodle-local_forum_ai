@@ -68,12 +68,11 @@ class update_response extends external_api {
      * @param bool $plaintext Whether $message is plain text from the edit box
      * @return array Result with status and the updated message rendered as display-ready HTML
      * @throws \required_capability_exception If the caller does not hold local/forum_ai:approveresponses.
-     * @throws \moodle_exception If the response is no longer pending, or the discussion
-     *                           belongs to a group the caller cannot access.
+     * @throws \moodle_exception If the response is no longer pending, another request is
+     *                           managing it, or the discussion belongs to a group the
+     *                           caller cannot access.
      */
     public static function execute($token, $message, $plaintext = false) {
-        global $DB;
-
         $params = self::validate_parameters(self::execute_parameters(), [
             'token' => $token,
             'message' => $message,
@@ -82,27 +81,23 @@ class update_response extends external_api {
 
         // Token, capability and discussion group are enforced in one place.
         $loaded = approval::load_pending_for_user($params['token']);
-        $pending = $loaded->pending;
         $context = $loaded->context;
         self::validate_context($context);
 
-        // Only pending responses may be edited; approved or rejected history records are immutable.
-        if ($pending->status !== 'pending') {
-            throw new moodle_exception('error_responsenotpending', 'local_forum_ai');
-        }
-
-        // Edited AI responses remain external, untrusted content: purify before storing.
-        if (!$params['plaintext']) {
-            $pending->message = clean_text($params['message'], FORMAT_HTML);
-        } else if (editable_text::is_unchanged($params['message'], $pending->message)) {
-            // Unchanged text keeps the stored formatting (bold, lists, links), still purified.
-            $pending->message = clean_text($pending->message, FORMAT_HTML);
-        } else {
+        // The edit shares the approval lock and only writes while the row is still pending,
+        // so it can never revert a concurrent approval (status and postid are never written).
+        $compose = static function (string $stored) use ($params): string {
+            // Edited AI responses remain external, untrusted content: purify before storing.
+            if (!$params['plaintext']) {
+                return clean_text($params['message'], FORMAT_HTML);
+            } else if (editable_text::is_unchanged($params['message'], $stored)) {
+                // Unchanged text keeps the stored formatting (bold, lists, links), still purified.
+                return clean_text($stored, FORMAT_HTML);
+            }
             // Typed text is escaped, so markup written by the teacher is stored as visible text.
-            $pending->message = editable_text::to_html($params['message']);
-        }
-        $pending->timemodified = time();
-        $DB->update_record('local_forum_ai_pending', $pending);
+            return editable_text::to_html($params['message']);
+        };
+        $pending = approval::edit_pending_message((int) $loaded->pending->id, $compose);
 
         // Audit trail: edits of a pending response must be traceable in the standard log store.
         $event = \local_forum_ai\event\response_updated::create([

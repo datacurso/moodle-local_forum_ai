@@ -76,6 +76,7 @@ $string['error_forumclosed'] = 'Tanggal tenggat atau tanggal batas akhir forum i
 $string['error_graderrequired'] = 'Pilih penilai: persetujuan otomatis menerbitkan respons AI atas nama pengguna ini.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Posting yang dibalas adalah balasan pribadi, sehingga respon AI tidak dapat dipublikasikan.';
+$string['error_responsebusy'] = 'Permintaan lain sedang mengelola respon AI ini. Tunggu sebentar lalu coba lagi.';
 $string['error_responseexpired'] = 'Respon AI ini telah kedaluwarsa karena tanggal tenggat atau tanggal batas akhir forum sudah lewat.';
 $string['error_responsenotpending'] = 'Respon ini sudah disetujui atau ditolak dan tidak dapat diedit lagi.';
 $string['error_usernotincourse'] = 'Pengguna yang dipilih tidak terdaftar di kursus ini.';

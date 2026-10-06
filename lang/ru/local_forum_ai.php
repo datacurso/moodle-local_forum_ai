@@ -76,6 +76,7 @@ $string['error_forumclosed'] = 'Срок сдачи или крайний сро
 $string['error_graderrequired'] = 'Выберите оценивающего: при автоматическом одобрении ответ ИИ публикуется от имени этого пользователя.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Сообщение, на которое даётся ответ, является личным ответом, поэтому ответ ИИ не может быть опубликован.';
+$string['error_responsebusy'] = 'Этот ответ ИИ сейчас обрабатывается другим запросом. Подождите немного и попробуйте снова.';
 $string['error_responseexpired'] = 'Срок действия этого ответа ИИ истёк, потому что срок сдачи или крайний срок форума прошёл.';
 $string['error_responsenotpending'] = 'Этот ответ уже был одобрен или отклонён и больше не может быть отредактирован.';
 $string['error_usernotincourse'] = 'Выбранный пользователь не записан на этот курс.';

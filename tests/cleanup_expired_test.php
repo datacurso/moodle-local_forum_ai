@@ -233,6 +233,41 @@ final class cleanup_expired_test extends \advanced_testcase {
     }
 
     /**
+     * A row approved between the cleanup selection and its write must stay approved.
+     *
+     * The interleaving is reproduced by approving the selected row before the
+     * extracted write runs. Covers: FAI-SEC-010.
+     *
+     * @covers ::local_forum_ai_mark_pending_expired
+     */
+    public function test_cleanup_does_not_expire_row_approved_after_select(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $this->setAdminUser();
+
+        $approved = $this->create_setup(['cutoffdate' => time() - DAYSECS]);
+        $pending = $this->create_setup(['cutoffdate' => time() - DAYSECS], $approved->course);
+
+        // Both rows were selected as pending; one is approved before the write.
+        $DB->update_record('local_forum_ai_pending', (object) [
+            'id' => $approved->pendingid,
+            'status' => 'approved',
+            'postid' => $approved->discussion->firstpost,
+        ]);
+
+        local_forum_ai_mark_pending_expired([$approved->pendingid, $pending->pendingid], time());
+
+        $row = $DB->get_record('local_forum_ai_pending', ['id' => $approved->pendingid], '*', MUST_EXIST);
+        $this->assertSame('approved', $row->status);
+        $this->assertEquals($approved->discussion->firstpost, $row->postid);
+        $this->assertSame(
+            'expired',
+            $DB->get_field('local_forum_ai_pending', 'status', ['id' => $pending->pendingid], MUST_EXIST)
+        );
+    }
+
+    /**
      * Expired responses never count as used follow-up question turns.
      *
      * @covers \local_forum_ai\utils::count_prior_ai_turns_in_thread

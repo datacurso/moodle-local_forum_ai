@@ -76,6 +76,7 @@ $string['error_forumclosed'] = 'Este foro ya cerró porque pasó su fecha de ent
 $string['error_graderrequired'] = 'Elige un calificador: la aprobación automática publica la respuesta de la IA a nombre de esta persona.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Ese mensaje es una respuesta privada, así que la IA no puede publicar una respuesta ahí.';
+$string['error_responsebusy'] = 'Alguien más está revisando esta respuesta de la IA ahora mismo. Espera un momento e inténtalo otra vez.';
 $string['error_responseexpired'] = 'Esta respuesta de la IA ya venció porque pasó la fecha de entrega o la fecha límite del foro.';
 $string['error_responsenotpending'] = 'Esta respuesta ya se aprobó o se rechazó, así que ya no se puede cambiar.';
 $string['error_usernotincourse'] = 'La persona que elegiste no está en este curso.';
