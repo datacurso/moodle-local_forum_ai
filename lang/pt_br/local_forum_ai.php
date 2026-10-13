@@ -88,6 +88,14 @@ $string['eventaireviewrequested'] = 'Revisão com IA solicitada';
 $string['eventresponseapproved'] = 'Resposta de IA aprovada';
 $string['eventresponserejected'] = 'Resposta de IA rejeitada';
 $string['eventresponseupdated'] = 'Resposta de IA editada';
+$string['failure_licence_record'] = 'Não foi possível gerar a resposta da IA porque a licença do serviço de IA está ausente ou não é válida.';
+$string['failure_notification_fullmessage'] = 'Olá {$a->firstname},
+
+O Fórum IA não conseguiu gerar uma resposta na discussão "{$a->discussion}" do fórum "{$a->forum}" (curso "{$a->course}") porque a licença do serviço de IA está ausente ou não é válida. A postagem não foi respondida pela IA. Peça ao seu administrador que revise a licença.
+
+Histórico: {$a->historyurl}';
+$string['failure_notification_smallmessage'] = 'Resposta da IA não gerada em "{$a}"';
+$string['failure_notification_subject'] = 'O Fórum IA não conseguiu gerar uma resposta';
 $string['forum'] = 'Fórum';
 $string['forum_ai:approveresponses'] = 'Aprovar ou rejeitar respostas do fórum geradas por IA';
 $string['forum_ai:managetenantsettings'] = 'Gerenciar as configurações do Forum AI do tenant';
@@ -100,6 +108,7 @@ $string['invalidaction'] = 'A ação especificada é inválida.';
 $string['level'] = 'Nível: {$a}';
 $string['managedby'] = 'Gerenciado por';
 $string['messageprovider:ai_approval_request'] = 'Solicitação de aprovação de IA';
+$string['messageprovider:ai_failure'] = 'Não foi possível gerar a resposta da IA';
 $string['modal_title'] = 'Detalhes do histórico da discussão';
 $string['modal_title_pending'] = 'Detalhes da discussão';
 $string['no'] = 'Não';
@@ -191,6 +200,7 @@ $string['settings'] = 'Configurações para: ';
 $string['status'] = 'Status';
 $string['statusapproved'] = 'Aprovado';
 $string['statusexpired'] = 'Expirado';
+$string['statusfailed'] = 'Falhou';
 $string['statuspending'] = 'Pendente';
 $string['statusrejected'] = 'Rejeitado';
 $string['task_process_ai_queue'] = 'Processar fila adiada do Forum AI';

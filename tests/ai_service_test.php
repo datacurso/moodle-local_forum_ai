@@ -96,6 +96,9 @@ final class ai_service_test extends \advanced_testcase {
      * @param string $switch Config name of the switch turned off.
      */
     public function test_calls_refused_when_ai_disabled(string $switch): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
         set_config($switch, 0, 'local_forum_ai');
 

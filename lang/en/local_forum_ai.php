@@ -88,6 +88,14 @@ $string['eventaireviewrequested'] = 'AI review requested';
 $string['eventresponseapproved'] = 'AI response approved';
 $string['eventresponserejected'] = 'AI response rejected';
 $string['eventresponseupdated'] = 'AI response edited';
+$string['failure_licence_record'] = 'The AI response could not be generated because the AI service licence is missing or not valid.';
+$string['failure_notification_fullmessage'] = 'Hello {$a->firstname},
+
+Forum AI could not generate a response in the discussion "{$a->discussion}" of the forum "{$a->forum}" (course "{$a->course}") because the AI service licence is missing or not valid. The post was not answered by the AI. Please ask your administrator to review the licence.
+
+History: {$a->historyurl}';
+$string['failure_notification_smallmessage'] = 'AI response not generated in "{$a}"';
+$string['failure_notification_subject'] = 'Forum AI could not generate a response';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Approve or reject AI-generated forum responses';
 $string['forum_ai:managetenantsettings'] = 'Manage tenant settings for Forum AI';
@@ -100,6 +108,7 @@ $string['invalidaction'] = 'The specified action is invalid.';
 $string['level'] = 'Level: {$a}';
 $string['managedby'] = 'Managed by';
 $string['messageprovider:ai_approval_request'] = 'AI Approval Request';
+$string['messageprovider:ai_failure'] = 'AI response could not be generated';
 $string['modal_title'] = 'Discussion History Details';
 $string['modal_title_pending'] = 'Discussion Details';
 $string['no'] = 'No';
@@ -191,6 +200,7 @@ $string['settings'] = 'Settings for: ';
 $string['status'] = 'Status';
 $string['statusapproved'] = 'Approved';
 $string['statusexpired'] = 'Expired';
+$string['statusfailed'] = 'Failed';
 $string['statuspending'] = 'Pending';
 $string['statusrejected'] = 'Rejected';
 $string['task_process_ai_queue'] = 'Process delayed Forum AI queue';

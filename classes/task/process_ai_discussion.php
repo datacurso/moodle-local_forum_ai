@@ -51,10 +51,6 @@ class process_ai_discussion extends adhoc_task {
     public function execute() {
         global $DB, $CFG;
 
-        if (!utils::is_ai_available()) {
-            return;
-        }
-
         // Get custom data passed to the task.
         $data = $this->get_custom_data();
         $discussionid = $data->discussionid;
@@ -65,15 +61,21 @@ class process_ai_discussion extends adhoc_task {
             $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
             $post = $DB->get_record('forum_posts', ['id' => $discussion->firstpost], '*', MUST_EXIST);
 
+            // The AI switches belong to the tenant of the forum: the course tenant, else the tenant of the author.
+            $tenantid = utils::get_tenant_id((int) $course->id, (int) $post->userid);
+            if (!utils::is_ai_available($tenantid)) {
+                return;
+            }
+
             $config = $DB->get_record('local_forum_ai_config', ['forumid' => $forum->id]) ?: new \stdClass();
-            $enabled = $config->enabled ?? get_config('local_forum_ai', 'default_enabled');
-            $replymessage = $config->reply_message ?? get_config('local_forum_ai', 'default_reply_message');
+            $enabled = $config->enabled ?? utils::get_default('default_enabled', $tenantid);
+            $replymessage = $config->reply_message ?? utils::get_default('default_reply_message', $tenantid);
             $requireapproval = $config->require_approval ?? 1;
             $enablediainitconversation = $config->enablediainitconversation ?? 0;
             $allowedroles = utils::get_effective_allowed_roles($config);
             $graderid = $config->graderid ?? null;
             $effectivegraderid = !$requireapproval ? $graderid : null;
-            $questionturnslimit = utils::get_effective_question_turns($config);
+            $questionturnslimit = utils::get_effective_question_turns($config, $tenantid);
             $allowfollowupquestion = utils::should_allow_followup_question(
                 (int)$discussionid,
                 (int)$post->id,
@@ -108,7 +110,7 @@ class process_ai_discussion extends adhoc_task {
                 return;
             }
 
-            if (!utils::can_reply_in_discussion($forum, $discussion, $config)) {
+            if (!utils::can_reply_in_discussion($forum, $discussion, $config, $tenantid)) {
                 mtrace("local_forum_ai: skipping discussion {$discussionid} — discussion is locked.");
                 return;
             }
@@ -168,7 +170,18 @@ class process_ai_discussion extends adhoc_task {
                 'scale' => $scalepayload,
             ];
 
-            $airesponse = ai_service::call_ai_service($payload);
+            try {
+                $airesponse = ai_service::call_ai_service($payload, $tenantid);
+            } catch (\moodle_exception $e) {
+                if (!ai_service::is_licence_failure($e)) {
+                    throw $e;
+                }
+                // The tenant has no usable AI licence: record the attempt and tell the approvers instead of
+                // failing silently. The task is not retried, a retry would fail the same way.
+                approval::record_failed_attempt($discussion, $forum, (int) $discussion->firstpost, (int) $post->userid);
+                mtrace("local_forum_ai: no usable AI licence, discussion {$discussionid} was not answered.");
+                return;
+            }
             // Markers are restored before the reply is stored or published.
             $replytext = $pseudonymizer->restore_text((string)($airesponse['reply'] ?? ''));
             $rawgrade = $airesponse['grade'] ?? null;

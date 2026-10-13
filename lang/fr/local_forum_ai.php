@@ -88,6 +88,14 @@ $string['eventaireviewrequested'] = 'Révision par l’IA demandée';
 $string['eventresponseapproved'] = 'Réponse IA approuvée';
 $string['eventresponserejected'] = 'Réponse IA rejetée';
 $string['eventresponseupdated'] = 'Réponse IA modifiée';
+$string['failure_licence_record'] = 'La réponse de l’IA n’a pas pu être générée, car la licence du service d’IA est absente ou non valide.';
+$string['failure_notification_fullmessage'] = 'Bonjour {$a->firstname},
+
+Forum IA n’a pas pu générer de réponse dans la discussion "{$a->discussion}" du forum "{$a->forum}" (cours "{$a->course}") car la licence du service d’IA est absente ou non valide. Le message n’a pas reçu de réponse de l’IA. Demandez à votre administrateur de vérifier la licence.
+
+Historique : {$a->historyurl}';
+$string['failure_notification_smallmessage'] = 'Réponse de l’IA non générée dans "{$a}"';
+$string['failure_notification_subject'] = 'Forum IA n’a pas pu générer de réponse';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Approuver ou rejeter les réponses générées par l’IA dans le forum';
 $string['forum_ai:managetenantsettings'] = 'Gérer les paramètres Forum AI du tenant';
@@ -100,6 +108,7 @@ $string['invalidaction'] = 'L’action indiquée n’est pas valide.';
 $string['level'] = 'Niveau : {$a}';
 $string['managedby'] = 'Géré par';
 $string['messageprovider:ai_approval_request'] = 'Demande d’approbation IA';
+$string['messageprovider:ai_failure'] = 'La réponse de l’IA n’a pas pu être générée';
 $string['modal_title'] = 'Détails de l’historique de la discussion';
 $string['modal_title_pending'] = 'Détails de la discussion';
 $string['no'] = 'Non';
@@ -191,6 +200,7 @@ $string['settings'] = 'Paramètres pour : ';
 $string['status'] = 'Statut';
 $string['statusapproved'] = 'Approuvé';
 $string['statusexpired'] = 'Expiré';
+$string['statusfailed'] = 'Échec';
 $string['statuspending'] = 'En attente';
 $string['statusrejected'] = 'Rejeté';
 $string['task_process_ai_queue'] = 'Traiter la file d’attente différée de Forum AI';

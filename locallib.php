@@ -109,7 +109,7 @@ function local_forum_ai_get_history(int $courseid, int $forumid = 0, int $userid
               )
               JOIN {user} u ON u.id = p.creator_userid
          LEFT JOIN {user} au ON au.id = p.action_userid
-             WHERE p.status IN ('approved', 'rejected', 'expired')
+             WHERE p.status IN ('approved', 'rejected', 'expired', 'failed')
                AND f.course = :courseid
                AND cm.deletioninprogress = 0
                AND cm.visible = 1";

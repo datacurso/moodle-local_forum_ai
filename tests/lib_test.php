@@ -216,6 +216,9 @@ final class lib_test extends \advanced_testcase {
      * Covers: MDL-INT-002 — defect 1 (the forced "No" must not be persisted).
      */
     public function test_save_with_global_ai_disabled_keeps_stored_enabled_value(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         global $DB;
 
         $this->resetAfterTest();
@@ -247,6 +250,9 @@ final class lib_test extends \advanced_testcase {
      * Covers: MDL-INT-002 — defect 1.
      */
     public function test_save_with_global_ai_disabled_ignores_submitted_yes(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         global $DB;
 
         $this->resetAfterTest();
@@ -271,6 +277,9 @@ final class lib_test extends \advanced_testcase {
      * Covers: MDL-INT-002 — defect 1.
      */
     public function test_save_with_global_ai_disabled_creates_new_row_disabled(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         global $DB;
 
         $this->resetAfterTest();

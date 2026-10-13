@@ -46,7 +46,7 @@ class button_ai_review {
      * @return void
      */
     public static function before_footer_html_generation(before_footer_html_generation $hook): void {
-        global $PAGE;
+        global $PAGE, $USER;
 
         // Compare against a moodle_url so the check also holds when Moodle
         // is installed in a subdirectory of the web root.
@@ -54,7 +54,12 @@ class button_ai_review {
             return;
         }
 
-        if (!utils::is_ai_available() || !$PAGE->cm) {
+        if (!$PAGE->cm) {
+            return;
+        }
+
+        $tenantid = utils::get_tenant_id((int) $PAGE->course->id, (int) $USER->id);
+        if (!utils::is_ai_available($tenantid)) {
             return;
         }
 

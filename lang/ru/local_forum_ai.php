@@ -88,6 +88,14 @@ $string['eventaireviewrequested'] = 'Запрошена проверка с по
 $string['eventresponseapproved'] = 'Ответ ИИ одобрен';
 $string['eventresponserejected'] = 'Ответ ИИ отклонён';
 $string['eventresponseupdated'] = 'Ответ ИИ отредактирован';
+$string['failure_licence_record'] = 'Не удалось сформировать ответ ИИ, потому что лицензия сервиса ИИ отсутствует или недействительна.';
+$string['failure_notification_fullmessage'] = 'Здравствуйте, {$a->firstname}!
+
+Forum AI не удалось сформировать ответ в обсуждении "{$a->discussion}" форума "{$a->forum}" (курс "{$a->course}"), потому что лицензия сервиса ИИ отсутствует или недействительна. ИИ не ответил на сообщение. Попросите администратора проверить лицензию.
+
+История: {$a->historyurl}';
+$string['failure_notification_smallmessage'] = 'Ответ ИИ не сформирован в "{$a}"';
+$string['failure_notification_subject'] = 'Forum AI не удалось сформировать ответ';
 $string['forum'] = 'Форум';
 $string['forum_ai:approveresponses'] = 'Одобрить или отклонить ответы форума, сгенерированные ИИ';
 $string['forum_ai:managetenantsettings'] = 'Управление настройками Forum AI арендатора';
@@ -100,6 +108,7 @@ $string['invalidaction'] = 'Указанное действие недопуст
 $string['level'] = 'Уровень: {$a}';
 $string['managedby'] = 'Обработано';
 $string['messageprovider:ai_approval_request'] = 'Запрос на одобрение ИИ';
+$string['messageprovider:ai_failure'] = 'Не удалось сформировать ответ ИИ';
 $string['modal_title'] = 'Подробности истории обсуждения';
 $string['modal_title_pending'] = 'Подробности обсуждения';
 $string['no'] = 'Нет';
@@ -191,6 +200,7 @@ $string['settings'] = 'Настройки для: ';
 $string['status'] = 'Статус';
 $string['statusapproved'] = 'Одобрено';
 $string['statusexpired'] = 'Истёк';
+$string['statusfailed'] = 'Ошибка';
 $string['statuspending'] = 'Ожидает';
 $string['statusrejected'] = 'Отклонено';
 $string['task_process_ai_queue'] = 'Обработать отложенную очередь Forum AI';

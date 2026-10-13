@@ -684,6 +684,9 @@ final class backup_restore_test extends \advanced_testcase {
      * Restore fallback must match the direct default delay helper.
      */
     public function test_restored_delay_matches_direct_default_delay_minutes(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         global $DB;
 
         $this->resetAfterTest();

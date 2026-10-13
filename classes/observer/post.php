@@ -38,7 +38,9 @@ class post {
     public static function post_created(post_created $event): bool {
         global $DB;
 
-        if (!utils::is_ai_available()) {
+        // The AI switches belong to the tenant of the course: its category tenant, else the tenant of the author.
+        $tenantid = utils::get_tenant_id((int) $event->courseid, (int) $event->userid);
+        if (!utils::is_ai_available($tenantid)) {
             return true;
         }
 

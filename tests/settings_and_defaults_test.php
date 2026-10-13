@@ -88,6 +88,9 @@ final class settings_and_defaults_test extends \advanced_testcase {
      * setting and mass-disables every forum configuration row.
      */
     public function test_saving_global_enable_ai_off_through_admin_settings_disables_all_forums(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -104,6 +107,9 @@ final class settings_and_defaults_test extends \advanced_testcase {
      * previous per-forum state (the mass-disable is irreversible).
      */
     public function test_saving_global_enable_ai_on_does_not_restore_forums(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -121,6 +127,9 @@ final class settings_and_defaults_test extends \advanced_testcase {
      * "Enable AI", leaves the forum configuration rows untouched.
      */
     public function test_saving_other_settings_does_not_disable_forums(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -225,6 +234,9 @@ final class settings_and_defaults_test extends \advanced_testcase {
      * built (the reseed block at the top of settings.php).
      */
     public function test_missing_defaults_are_reseeded_by_settings_page(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         global $CFG;
 
         $this->resetAfterTest();
@@ -252,6 +264,9 @@ final class settings_and_defaults_test extends \advanced_testcase {
      * a freshly installed or partially configured site has the AI active.
      */
     public function test_global_flags_fail_open_when_unconfigured(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
 
         // Unset: enabled (fail-open, documented behavior).
@@ -284,6 +299,9 @@ final class settings_and_defaults_test extends \advanced_testcase {
      * stored values are normalized, and the forum config overrides the global.
      */
     public function test_question_turns_resolution_ladder(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
 
         unset_config('default_question_turns', 'local_forum_ai');

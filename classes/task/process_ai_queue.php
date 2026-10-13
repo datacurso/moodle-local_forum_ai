@@ -17,6 +17,7 @@
 namespace local_forum_ai\task;
 
 use local_forum_ai\task\process_ai_discussion;
+use local_forum_ai\local\tenant_context;
 use local_forum_ai\task\process_ai_post;
 use local_forum_ai\utils;
 
@@ -48,7 +49,8 @@ class process_ai_queue extends \core\task\scheduled_task {
     public function execute() {
         global $DB;
 
-        if (!utils::is_ai_available()) {
+        // Without tenancy there is one switch for the whole site and a disabled site leaves the queue untouched.
+        if (!tenant_context::is_tenancy_available() && !utils::is_ai_available()) {
             return;
         }
 
@@ -101,6 +103,16 @@ class process_ai_queue extends \core\task\scheduled_task {
         $data = json_decode($item->payload);
         $authorid = $this->resolve_author_id($item->type, $data);
 
+        // Under Workplace every tenant has its own switches: the items of a tenant with AI disabled are dropped,
+        // exactly like the ad hoc tasks of that tenant, and the items of the other tenants are not affected.
+        if ($authorid !== null && tenant_context::is_tenancy_available()) {
+            $tenantid = utils::get_tenant_id($this->resolve_course_id($item->type, $data), $authorid);
+            if (!utils::is_ai_available($tenantid)) {
+                $DB->delete_records('local_forum_ai_queue', ['id' => $item->id]);
+                return;
+            }
+        }
+
         if ($authorid === null) {
             debugging(
                 'Discarding Forum AI queue item ' . $item->id . ': unusable payload or missing target.',
@@ -127,6 +139,24 @@ class process_ai_queue extends \core\task\scheduled_task {
             // rollback_delegated_transaction() always rethrows; execute() logs it.
             $transaction->rollback($e);
         }
+    }
+
+    /**
+     * Resolve the course a queue item refers to.
+     *
+     * @param string $type Queue item type, either 'post' or 'discussion'.
+     * @param mixed $data Decoded queue payload, already checked by resolve_author_id().
+     * @return int Course id, 0 when it cannot be resolved.
+     */
+    private function resolve_course_id(string $type, mixed $data): int {
+        global $DB;
+
+        if ($type === 'post') {
+            $sql = 'SELECT d.course FROM {forum_posts} p JOIN {forum_discussions} d ON d.id = p.discussion WHERE p.id = :id';
+            return (int) $DB->get_field_sql($sql, ['id' => (int) $data->postid]);
+        }
+
+        return (int) $DB->get_field('forum_discussions', 'course', ['id' => (int) $data->discussionid]);
     }
 
     /**

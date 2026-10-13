@@ -199,7 +199,7 @@ class get_details extends external_api {
         // PARAM_RAW: plain text may legitimately contain "<" typed as text; clients must escape it.
         'airesponsetext' => new external_value(PARAM_RAW, 'AI response as plain text for the edit box (not HTML)'),
         'token' => new external_value(PARAM_ALPHANUMEXT, 'Approval token'),
-        'status' => new external_value(PARAM_ALPHA, 'Message status (pending, approved, rejected, expired)'),
+        'status' => new external_value(PARAM_ALPHA, 'Message status (pending, approved, rejected, expired, failed)'),
         ]);
     }
 }

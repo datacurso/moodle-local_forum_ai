@@ -437,5 +437,10 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101301, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026101302) {
+        // The ai_failure message provider (db/messages.php) is registered by the plugin version change itself.
+        upgrade_plugin_savepoint(true, 2026101302, 'local', 'forum_ai');
+    }
+
     return true;
 }

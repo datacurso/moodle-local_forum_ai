@@ -32,12 +32,13 @@
 function local_forum_ai_extend_settings_navigation(settings_navigation $nav, context $context) {
     global $PAGE, $DB, $USER;
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    // Only apply in forum module contexts.
+    if ($context->contextlevel != CONTEXT_MODULE || $PAGE->cm->modname !== 'forum') {
         return;
     }
 
-    // Only apply in forum module contexts.
-    if ($context->contextlevel != CONTEXT_MODULE || $PAGE->cm->modname !== 'forum') {
+    $tenantid = \local_forum_ai\utils::get_tenant_id((int) $PAGE->course->id, (int) $USER->id);
+    if (!\local_forum_ai\utils::is_feature_enabled($tenantid)) {
         return;
     }
 
@@ -90,7 +91,8 @@ function local_forum_ai_extend_settings_navigation(settings_navigation $nav, con
 function local_forum_ai_extend_navigation_course($navigation, $course, $context) {
     global $USER;
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    $tenantid = \local_forum_ai\utils::get_tenant_id((int) $course->id, (int) $USER->id);
+    if (!\local_forum_ai\utils::is_feature_enabled($tenantid)) {
         return;
     }
 
@@ -128,16 +130,17 @@ function local_forum_ai_extend_navigation_course($navigation, $course, $context)
 function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     global $DB, $USER;
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
-        return;
-    }
-
     // Only for forum.
     if ($formwrapper->get_current()->modulename !== 'forum') {
         return;
     }
 
     $cm = $formwrapper->get_current();
+    $tenantid = \local_forum_ai\utils::get_tenant_id((int) $cm->course, (int) $USER->id);
+    if (!\local_forum_ai\utils::is_feature_enabled($tenantid)) {
+        return;
+    }
+
     $forumid = $cm->instance ?? null;
     $context = context_course::instance($cm->course);
 
@@ -146,11 +149,11 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
         return;
     }
 
-    $rawdefaultenabled = get_config('local_forum_ai', 'default_enabled');
-    $rawdefaultrequireapproval = get_config('local_forum_ai', 'default_require_approval');
-    $rawdefaultreplymessage = get_config('local_forum_ai', 'default_reply_message');
-    $rawdefaultinitconversation = get_config('local_forum_ai', 'default_enablediainitconversation');
-    $rawdefaultusedelay = get_config('local_forum_ai', 'default_usedelay');
+    $rawdefaultenabled = \local_forum_ai\utils::get_default('default_enabled', $tenantid);
+    $rawdefaultrequireapproval = \local_forum_ai\utils::get_default('default_require_approval', $tenantid);
+    $rawdefaultreplymessage = \local_forum_ai\utils::get_default('default_reply_message', $tenantid);
+    $rawdefaultinitconversation = \local_forum_ai\utils::get_default('default_enablediainitconversation', $tenantid);
+    $rawdefaultusedelay = \local_forum_ai\utils::get_default('default_usedelay', $tenantid);
     $defaultenabled = ($rawdefaultenabled === false || $rawdefaultenabled === '') ? 1 : (int)$rawdefaultenabled;
     $defaultrequireapproval =
         ($rawdefaultrequireapproval === false || $rawdefaultrequireapproval === '') ? 1 : (int)$rawdefaultrequireapproval;
@@ -161,10 +164,10 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $defaultinitconversation =
         ($rawdefaultinitconversation === false || $rawdefaultinitconversation === '') ? 0 : (int)$rawdefaultinitconversation;
     $defaultusedelay = ($rawdefaultusedelay === false || $rawdefaultusedelay === '') ? 0 : (int)$rawdefaultusedelay;
-    $defaultdelayminutes = \local_forum_ai\utils::get_default_delay_minutes();
+    $defaultdelayminutes = \local_forum_ai\utils::get_default_delay_minutes($tenantid);
     $defaultreplyinlocked = \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
-    $defaultquestionturns = \local_forum_ai\utils::get_default_question_turns();
-    $globalenabled = \local_forum_ai\utils::is_global_ai_enabled();
+    $defaultquestionturns = \local_forum_ai\utils::get_default_question_turns($tenantid);
+    $globalenabled = \local_forum_ai\utils::is_global_ai_enabled($tenantid);
 
     // Default values.
     $defaults = (object)[
@@ -416,7 +419,14 @@ function local_forum_ai_get_grader_options(\context $context, ?int $savedgraderi
  * @return array Errors keyed by element name.
  */
 function local_forum_ai_coursemodule_validation($fromform, $fields) {
-    if (!array_key_exists('local_forum_ai_enabled', $fields) || !\local_forum_ai\utils::is_global_ai_enabled()) {
+    global $USER;
+
+    if (!array_key_exists('local_forum_ai_enabled', $fields)) {
+        return [];
+    }
+
+    $tenantid = \local_forum_ai\utils::get_tenant_id((int) ($fields['course'] ?? 0), (int) $USER->id);
+    if (!\local_forum_ai\utils::is_global_ai_enabled($tenantid)) {
         return [];
     }
 
@@ -449,7 +459,8 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         return $data;
     }
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    $tenantid = \local_forum_ai\utils::get_tenant_id((int) $course->id, (int) $USER->id);
+    if (!\local_forum_ai\utils::is_feature_enabled($tenantid)) {
         return $data;
     }
 
@@ -544,12 +555,12 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
     if (property_exists($data, 'local_forum_ai_questionturns')) {
         $config->questionturns = \local_forum_ai\utils::normalize_question_turns($data->local_forum_ai_questionturns);
     } else if (!isset($config->questionturns)) {
-        $config->questionturns = \local_forum_ai\utils::get_default_question_turns();
+        $config->questionturns = \local_forum_ai\utils::get_default_question_turns($tenantid);
     }
 
     // With global AI disabled the form shows a forced "No"; never persist it.
     // Existing rows keep their stored value and new rows are created disabled.
-    if (!\local_forum_ai\utils::is_global_ai_enabled()) {
+    if (!\local_forum_ai\utils::is_global_ai_enabled($tenantid)) {
         $config->enabled = $storedenabled;
     }
 

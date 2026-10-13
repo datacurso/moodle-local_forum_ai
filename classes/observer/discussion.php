@@ -39,7 +39,9 @@ class discussion {
      * @return bool True on success, false on error.
      */
     public static function discussion_created(discussion_created $event): bool {
-        if (!utils::is_ai_available()) {
+        // The AI switches belong to the tenant of the course: its category tenant, else the tenant of the author.
+        $tenantid = utils::get_tenant_id((int) $event->courseid, (int) $event->userid);
+        if (!utils::is_ai_available($tenantid)) {
             return true;
         }
 
@@ -75,13 +77,14 @@ class discussion {
     public static function process_discussion(int $discussionid, int $forumid, int $courseid, \context $context): void {
         global $DB;
 
-        if (!utils::is_ai_available()) {
-            return;
-        }
-
         try {
             // Get discussion, forum and course records.
             $discussion = $DB->get_record('forum_discussions', ['id' => $discussionid], '*', MUST_EXIST);
+
+            if (!utils::is_ai_available(utils::get_tenant_id($courseid, (int) $discussion->userid))) {
+                return;
+            }
+
             $forum = $DB->get_record('forum', ['id' => $forumid], '*', MUST_EXIST);
             $course = $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
 
