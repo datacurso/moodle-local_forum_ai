@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_forum_ai';
-$plugin->release = '1.2.0';
+$plugin->release = '1.1.4';
 $plugin->version = 2026101900;
 $plugin->requires = 2024100700;
 $plugin->maturity = MATURITY_STABLE;
