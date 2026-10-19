@@ -159,7 +159,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
             ? get_string('default_reply_message', 'local_forum_ai')
             : (string)$rawdefaultreplymessage;
     $defaultinitconversation =
-        ($rawdefaultinitconversation === false || $rawdefaultinitconversation === '') ? 0 : (int)$rawdefaultinitconversation;
+        ($rawdefaultinitconversation === false || $rawdefaultinitconversation === '') ? 1 : (int)$rawdefaultinitconversation;
     $defaultusedelay = ($rawdefaultusedelay === false || $rawdefaultusedelay === '') ? 0 : (int)$rawdefaultusedelay;
     $defaultdelayminutes = \local_forum_ai\utils::get_default_delay_minutes();
     $defaultreplyinlocked = \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
@@ -229,6 +229,17 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->setType('enablediainitconversation', PARAM_INT);
     $mform->addHelpButton('enablediainitconversation', 'enablediainitconversation', 'local_forum_ai');
     $mform->setDefault('enablediainitconversation', $defaults->enablediainitconversation);
+
+    // With this option off the opening post is never graded: warn only when it matters.
+    $mform->addElement(
+        'static',
+        'enablediainitconversation_warning',
+        '',
+        get_string('enablediainitconversation_warning', 'local_forum_ai')
+    );
+    $mform->hideIf('enablediainitconversation_warning', 'enablediainitconversation', 'eq', 1);
+    $mform->hideIf('enablediainitconversation_warning', 'assessed', 'eq', 0);
+    $mform->hideIf('enablediainitconversation_warning', 'local_forum_ai_enabled', 'neq', 1);
 
     $questionturnoptions = [
         0 => '0',

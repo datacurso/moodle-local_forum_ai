@@ -103,6 +103,73 @@ final class upgrade_test extends \advanced_testcase {
     }
 
     /**
+     * The 2026101500 step adds the reminder timestamp column, defaulting to "never reminded".
+     */
+    public function test_upgrade_adds_timeremindered_column(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $dbman = $DB->get_manager();
+        $table = new \xmldb_table('local_forum_ai_pending');
+        $field = new \xmldb_field('timeremindered', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'approved_at');
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+        set_config('version', 2026100600, 'local_forum_ai');
+
+        xmldb_local_forum_ai_upgrade(2026100600);
+
+        $columns = $DB->get_columns('local_forum_ai_pending', false);
+        $this->assertArrayHasKey('timeremindered', $columns);
+        $this->assertSame(0, (int) $columns['timeremindered']->default_value);
+    }
+
+    /**
+     * The 2026101500 step grants the approval capability to the teacher archetype on existing sites.
+     */
+    public function test_upgrade_grants_approval_capability_to_teacher_role(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $roleid = (int) $DB->get_field('role', 'id', ['shortname' => 'teacher'], MUST_EXIST);
+        $systemid = \context_system::instance()->id;
+        unassign_capability('local/forum_ai:approveresponses', $roleid, $systemid);
+        set_config('version', 2026100600, 'local_forum_ai');
+
+        xmldb_local_forum_ai_upgrade(2026100600);
+
+        $this->assertEquals(CAP_ALLOW, $DB->get_field('role_capabilities', 'permission', [
+            'roleid' => $roleid,
+            'capability' => 'local/forum_ai:approveresponses',
+            'contextid' => $systemid,
+        ]));
+    }
+
+    /**
+     * The capability step never overrides a decision the administrator already made.
+     */
+    public function test_upgrade_keeps_an_existing_teacher_capability_decision(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $roleid = (int) $DB->get_field('role', 'id', ['shortname' => 'teacher'], MUST_EXIST);
+        $systemid = \context_system::instance()->id;
+        assign_capability('local/forum_ai:approveresponses', CAP_PROHIBIT, $roleid, $systemid, true);
+        set_config('version', 2026100600, 'local_forum_ai');
+
+        xmldb_local_forum_ai_upgrade(2026100600);
+
+        $this->assertEquals(CAP_PROHIBIT, $DB->get_field('role_capabilities', 'permission', [
+            'roleid' => $roleid,
+            'capability' => 'local/forum_ai:approveresponses',
+            'contextid' => $systemid,
+        ]));
+    }
+
+    /**
      * MDL-INT-021 (D2): the 2026093000 step repairs automatic-mode rows that stored the grader as creator.
      */
     public function test_upgrade_repairs_auto_mode_identities(): void {
@@ -186,6 +253,62 @@ final class upgrade_test extends \advanced_testcase {
         xmldb_local_forum_ai_upgrade(2026100101);
         $this->assertSame($expected, $stored($forumids['null']));
         $this->assertSame((string) $teacherroleid, $stored($forumids['explicit']));
+    }
+
+    /**
+     * The 2026101600 step turns the stored global default "respond to the opening post" from 0 to 1,
+     * never touches per-forum rows and is idempotent.
+     */
+    public function test_upgrade_enables_initconversation_default_without_touching_forums(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+
+        $course = $this->getDataGenerator()->create_course();
+        $forumid = (int) $this->getDataGenerator()->create_module('forum', ['course' => $course->id])->id;
+        $this->insert_config_row($forumid, 0);
+        $before = $DB->get_record('local_forum_ai_config', ['forumid' => $forumid], '*', MUST_EXIST);
+        $this->assertSame(0, (int) $before->enablediainitconversation);
+
+        set_config('default_enablediainitconversation', 0, 'local_forum_ai');
+        set_config('version', 2026101500, 'local_forum_ai');
+        xmldb_local_forum_ai_upgrade(2026101500);
+
+        $this->assertSame('1', get_config('local_forum_ai', 'default_enablediainitconversation'));
+        $after = $DB->get_record('local_forum_ai_config', ['forumid' => $forumid], '*', MUST_EXIST);
+        $this->assertEquals($before, $after);
+
+        // Running the step again changes nothing.
+        set_config('version', 2026101500, 'local_forum_ai');
+        xmldb_local_forum_ai_upgrade(2026101500);
+        $this->assertSame('1', get_config('local_forum_ai', 'default_enablediainitconversation'));
+        $this->assertEquals($before, $DB->get_record('local_forum_ai_config', ['forumid' => $forumid], '*', MUST_EXIST));
+    }
+
+    /**
+     * A site that never stored the global default ends up with it on.
+     */
+    public function test_upgrade_seeds_initconversation_default_when_unset(): void {
+        $this->resetAfterTest();
+
+        unset_config('default_enablediainitconversation', 'local_forum_ai');
+        set_config('version', 2026101500, 'local_forum_ai');
+        xmldb_local_forum_ai_upgrade(2026101500);
+
+        $this->assertSame('1', get_config('local_forum_ai', 'default_enablediainitconversation'));
+    }
+
+    /**
+     * An already-enabled default stays enabled.
+     */
+    public function test_upgrade_keeps_initconversation_default_when_already_on(): void {
+        $this->resetAfterTest();
+
+        set_config('default_enablediainitconversation', 1, 'local_forum_ai');
+        set_config('version', 2026101500, 'local_forum_ai');
+        xmldb_local_forum_ai_upgrade(2026101500);
+
+        $this->assertSame('1', get_config('local_forum_ai', 'default_enablediainitconversation'));
     }
 
     /**

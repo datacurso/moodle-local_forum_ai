@@ -31,7 +31,7 @@ if ($hassiteconfig) {
         'default_enabled' => 1,
         'default_require_approval' => 1,
         'default_reply_message' => get_string('default_reply_message', 'local_forum_ai'),
-        'default_enablediainitconversation' => 0,
+        'default_enablediainitconversation' => 1,
         'default_usedelay' => 0,
         'default_delayminutes' => 60,
         'default_question_turns' => 1,
@@ -75,7 +75,7 @@ if ($hassiteconfig) {
             'local_forum_ai/default_enablediainitconversation',
             get_string('enablediainitconversation', 'local_forum_ai'),
             get_string('enablediainitconversation_help', 'local_forum_ai'),
-            0
+            1
         ));
 
         $settings->add(new admin_setting_configcheckbox(

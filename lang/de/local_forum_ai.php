@@ -63,7 +63,8 @@ $string['discussionmsg'] = 'KI-generierte Nachricht';
 $string['discussionname'] = 'Thema';
 $string['enabled'] = 'KI aktivieren';
 $string['enablediainitconversation'] = 'KI-Antworten auf das Diskussionsthema aktivieren';
-$string['enablediainitconversation_help'] = 'Wenn diese Option aktiviert ist, kann die KI auf die erste Nachricht antworten, die die Diskussion startet. Es wird außerdem empfohlen, im folgenden Feld die Rolle „Lehrer“ auszuwählen.';
+$string['enablediainitconversation_help'] = 'Wenn diese Option aktiviert ist, kann die KI auf die erste Nachricht antworten, die die Diskussion startet. Es wird außerdem empfohlen, im folgenden Feld die Rolle „Lehrer“ auszuwählen. Wenn das Forum bewertbar ist und diese Option deaktiviert ist, bewertet die KI den Eingangsbeitrag jeder Diskussion nicht.';
+$string['enablediainitconversation_warning'] = 'Dieses Forum ist bewertbar, aber die KI-Antwort auf das Diskussionsthema ist deaktiviert: Die KI bewertet den Eingangsbeitrag jeder Diskussion nicht.';
 $string['enableforumai'] = 'Forum-KI aktivieren';
 $string['enableforumai_desc'] = 'Wenn deaktiviert, wird der Abschnitt "Datacurso Forum KI" in den Foren-Einstellungen ausgeblendet und die automatische Verarbeitung pausiert.';
 $string['error_aidisabled'] = 'KI-Funktionen sind derzeit von der Website-Administration deaktiviert.';
@@ -116,6 +117,16 @@ Um die vollständige Nachricht zu überprüfen und zu entscheiden, ob sie genehm
 $string['notification_greeting'] = 'Hallo {$a->firstname},';
 $string['notification_intro'] = 'Eine automatische Antwort wurde für die Diskussion "{$a->discussion}" im Forum "{$a->forum}" des Kurses "{$a->course}" generiert.';
 $string['notification_preview'] = 'Vorschau:';
+$string['notification_reminder_fullmessage'] = 'Hallo {$a->firstname},
+
+Erinnerung: Eine von der KI erstellte Antwort wartet noch auf Prüfung, und zwar für die Diskussion „{$a->discussion}“ im Forum „{$a->forum}“ (Kurs: {$a->course}).
+
+Vorschau: {$a->preview}...
+
+Um die vollständige Nachricht zu prüfen und zu entscheiden, ob Sie sie freigeben oder ablehnen, besuchen Sie bitte:
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Erinnerung: KI-Antwort noch offen in „{$a->discussion}“';
+$string['notification_reminder_subject'] = 'Erinnerung: KI-Antwort wartet auf Freigabe';
 $string['notification_review_button'] = 'Antwort überprüfen';
 $string['notification_smallmessage'] = 'Neue KI-Antwort ausstehend in "{$a->discussion}"';
 $string['notification_subject'] = 'Genehmigung erforderlich: KI-Antwort';
@@ -163,6 +174,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Status des Beitrags
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Betreff oder Thema der Nachricht.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Datum, an dem der Datensatz erstellt wurde.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Datum, an dem der Datensatz aktualisiert wurde.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Datum der letzten Erinnerung an die Freigebenden zu dieser Antwort (0, falls nie).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'Warteschlange verzögerter KI-Verarbeitungsanfragen.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'JSON-Daten mit dem Kursmodul und dem zu verarbeitenden Beitrag oder der Diskussion.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Gibt an, ob die Anfrage in der Warteschlange verarbeitet wurde.';
@@ -192,6 +204,7 @@ $string['statuspending'] = 'Ausstehend';
 $string['statusrejected'] = 'Abgelehnt';
 $string['task_process_ai_queue'] = 'Verzögerte Warteschlange von Forum AI verarbeiten';
 $string['task_process_single_forum_discussion'] = 'Ein einzelnes Diskussionsforum für KI verarbeiten';
+$string['task_remind_pending_approvals'] = 'An ausstehende Forum-KI-Antworten zur Freigabe erinnern';
 $string['unknownparticipant'] = 'Teilnehmer/in';
 $string['usedelay'] = 'Verzögerte Überprüfung verwenden';
 $string['usedelay_help'] = 'Wenn aktiviert, wird die KI-Überprüfung nach einer konfigurierbaren Wartezeit ausgeführt, anstatt sofort zu starten.';

@@ -63,7 +63,8 @@ $string['discussionmsg'] = 'Message généré par l’IA';
 $string['discussionname'] = 'Sujet';
 $string['enabled'] = 'Activer l’IA';
 $string['enablediainitconversation'] = 'Activer la réponse de l’IA au sujet de discussion';
-$string['enablediainitconversation_help'] = 'En activant cette option, l’IA pourra répondre au message initial qui lance la discussion. Il est également recommandé de sélectionner le rôle Enseignant dans le champ suivant.';
+$string['enablediainitconversation_help'] = 'En activant cette option, l’IA pourra répondre au message initial qui lance la discussion. Il est également recommandé de sélectionner le rôle Enseignant dans le champ suivant. Si le forum est noté et que cette option est désactivée, l’IA ne note pas le message initial de chaque discussion.';
+$string['enablediainitconversation_warning'] = 'Ce forum est noté, mais la réponse de l’IA au sujet de discussion est désactivée : l’IA ne notera pas le message initial de chaque discussion.';
 $string['enableforumai'] = 'Activer Forum IA';
 $string['enableforumai_desc'] = 'Si désactivé, la section "Datacurso Forum IA" est masquée dans les paramètres de l’activité forum et le traitement automatique est mis en pause.';
 $string['error_aidisabled'] = 'Les fonctionnalités d\'IA sont actuellement désactivées par l\'administrateur du site.';
@@ -116,6 +117,16 @@ Pour consulter le message complet et décider de l’approuver ou de le rejeter,
 $string['notification_greeting'] = 'Bonjour {$a->firstname},';
 $string['notification_intro'] = 'Une réponse automatique a été générée pour la discussion "{$a->discussion}" dans le forum "{$a->forum}" du cours "{$a->course}".';
 $string['notification_preview'] = 'Aperçu :';
+$string['notification_reminder_fullmessage'] = 'Bonjour {$a->firstname},
+
+Rappel : une réponse générée par l’IA attend toujours d’être examinée pour la discussion « {$a->discussion} » du forum « {$a->forum} » (Cours : {$a->course}).
+
+Aperçu : {$a->preview}...
+
+Pour examiner le message complet et décider de l’approuver ou de le rejeter, veuillez consulter :
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Rappel : réponse de l’IA toujours en attente dans « {$a->discussion} »';
+$string['notification_reminder_subject'] = 'Rappel : réponse de l’IA en attente d’approbation';
 $string['notification_review_button'] = 'Examiner la réponse';
 $string['notification_smallmessage'] = 'Nouvelle réponse IA en attente dans "{$a->discussion}"';
 $string['notification_subject'] = 'Approbation requise : Réponse IA';
@@ -163,6 +174,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Statut de la public
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Sujet du message.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Date de création de l’enregistrement.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Date de mise à jour de l’enregistrement.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Date du dernier rappel envoyé aux approbateurs au sujet de cette réponse (0 si jamais).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'File d’attente des demandes de traitement différé par IA.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'Charge JSON contenant le module de cours et le message ou la discussion à traiter.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Indique si la demande en file d’attente a été traitée.';
@@ -192,6 +204,7 @@ $string['statuspending'] = 'En attente';
 $string['statusrejected'] = 'Rejeté';
 $string['task_process_ai_queue'] = 'Traiter la file d’attente différée de Forum AI';
 $string['task_process_single_forum_discussion'] = 'Traiter un seul forum de discussion pour l\'IA';
+$string['task_remind_pending_approvals'] = 'Rappeler les réponses du Forum IA en attente d’approbation';
 $string['unknownparticipant'] = 'Participant';
 $string['usedelay'] = 'Utiliser une révision différée';
 $string['usedelay_help'] = 'Si activé, la révision par IA sera exécutée après un délai configurable au lieu d’être exécutée immédiatement.';

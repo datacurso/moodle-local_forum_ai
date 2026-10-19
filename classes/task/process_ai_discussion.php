@@ -96,6 +96,12 @@ class process_ai_discussion extends adhoc_task {
                 }
             }
 
+            if ($enabled && empty($enablediainitconversation) && $forum->assessed != 0) {
+                // Graded forum: the opening post is silently left ungraded, so make it visible.
+                debugging("local_forum_ai: the first post of discussion {$discussionid} in graded forum " .
+                    "{$forum->id} was not graded because \"AI response to the discussion topic\" is off.", DEBUG_NORMAL);
+            }
+
             if (!$enabled || empty($enablediainitconversation)) {
                 mtrace("local_forum_ai: skipping discussion {$discussionid} — AI disabled or initial replies " .
                     "not enabled for forum {$forum->id}.");

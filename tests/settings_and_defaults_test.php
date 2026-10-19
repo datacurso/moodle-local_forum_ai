@@ -198,7 +198,7 @@ final class settings_and_defaults_test extends \advanced_testcase {
             'enableforumai' => '1',
             'default_enabled' => '1',
             'default_require_approval' => '1',
-            'default_enablediainitconversation' => '0',
+            'default_enablediainitconversation' => '1',
             'default_usedelay' => '0',
             'default_delayminutes' => '60',
             'default_question_turns' => '1',

@@ -33,7 +33,7 @@ function xmldb_local_forum_ai_install() {
     set_config('default_enabled', 1, 'local_forum_ai');
     set_config('default_require_approval', 1, 'local_forum_ai');
     set_config('default_reply_message', get_string('default_reply_message', 'local_forum_ai'), 'local_forum_ai');
-    set_config('default_enablediainitconversation', 0, 'local_forum_ai');
+    set_config('default_enablediainitconversation', 1, 'local_forum_ai');
     set_config('default_usedelay', 0, 'local_forum_ai');
     set_config('default_delayminutes', 60, 'local_forum_ai');
     set_config('default_question_turns', 1, 'local_forum_ai');
