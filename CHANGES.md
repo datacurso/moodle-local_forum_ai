@@ -1,3 +1,22 @@
+## [1.2.0] - 2026-10-19
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.2**.
+
+### Added
+
+- Scheduled task `remind_pending_approvals` (daily, 07:30) that reminds approvers of AI responses still pending approval, at most once every three days per response; new `timeremindered` column on `local_forum_ai_pending` (tests: `remind_pending_approvals_test`, `upgrade_test`, `privacy_provider_test`)
+- Warning on the forum settings form when a graded forum has "Enable AI response to the discussion topic" turned off, and a developer-level debugging message when the opening post of a graded forum is skipped (tests: `initconversation_visibility_test`)
+
+### Changed
+
+- "Enable AI response to the discussion topic" is now on by default for new forums, so the opening post of a graded discussion is no longer skipped; the upgrade moves the stored site default from off to on and leaves existing forums untouched (tests: `settings_and_defaults_test`, `upgrade_test`, `initconversation_visibility_test`)
+- The `teacher` archetype now holds `local/forum_ai:approveresponses`; the upgrade grants it on existing sites unless the role already has a decision at system level (tests: `notifications_test`, `upgrade_test`)
+
+### Fixed
+
+- A reply from a student who had already published their own main post in another discussion of the forum no longer asks them to publish one: the reply request now carries the student's own main posts (tests: `utils_own_main_posts_test`, `payload_contract_test`)
+- Non-editing teachers now receive the approval request notification, and a pending response with no eligible approver is logged instead of failing silently (tests: `notifications_test`)
+
 ## [1.1.3] - 2026-10-06
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.2**.
