@@ -63,7 +63,8 @@ $string['discussionmsg'] = 'AI-generated message';
 $string['discussionname'] = 'Subject';
 $string['enabled'] = 'Enable AI';
 $string['enablediainitconversation'] = 'Enable AI response to the discussion topic';
-$string['enablediainitconversation_help'] = 'Enabling this option will allow the AI ​​to respond to the initial message that starts the discussion. It is also recommended to select the Teacher role in the following field.';
+$string['enablediainitconversation_help'] = 'Enabling this option will allow the AI ​​to respond to the initial message that starts the discussion. It is also recommended to select the Teacher role in the following field. If the forum is graded and this option is off, the AI does not grade the opening post of each discussion.';
+$string['enablediainitconversation_warning'] = 'This forum is graded but the AI response to the discussion topic is off: the AI will not grade the opening post of each discussion.';
 $string['enableforumai'] = 'Enable Forum AI';
 $string['enableforumai_desc'] = 'If disabled, the "Datacurso Forum AI" section is hidden from forum activity settings and automatic processing is paused.';
 $string['error_aidisabled'] = 'AI features are currently disabled by the site administrator.';
@@ -116,6 +117,16 @@ To review the complete message and decide whether to approve or reject it, pleas
 $string['notification_greeting'] = 'Hello {$a->firstname},';
 $string['notification_intro'] = 'An automatic response has been generated for the discussion "{$a->discussion}" in the forum "{$a->forum}" of the course "{$a->course}".';
 $string['notification_preview'] = 'Preview:';
+$string['notification_reminder_fullmessage'] = 'Hello {$a->firstname},
+
+Reminder: an AI-generated response is still waiting for review for the discussion "{$a->discussion}" in the forum "{$a->forum}" (Course: {$a->course}).
+
+Preview: {$a->preview}...
+
+To review the complete message and decide whether to approve or reject it, please visit:
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Reminder: AI response still pending in "{$a->discussion}"';
+$string['notification_reminder_subject'] = 'Reminder: AI response pending approval';
 $string['notification_review_button'] = 'Review Response';
 $string['notification_smallmessage'] = 'New pending AI response in "{$a->discussion}"';
 $string['notification_subject'] = 'Approval Required: AI Response';
@@ -163,6 +174,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Post status (approv
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Subject or topic of the message.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Date when the record was created.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Date when the record was updated.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Date of the last reminder sent to the approvers about this response (0 if never).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'Queue of delayed AI processing requests.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'JSON payload with the course module and the post or discussion to process.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Whether the queued request has been processed.';
@@ -192,6 +204,7 @@ $string['statuspending'] = 'Pending';
 $string['statusrejected'] = 'Rejected';
 $string['task_process_ai_queue'] = 'Process delayed Forum AI queue';
 $string['task_process_single_forum_discussion'] = 'Process single forum discussion for AI';
+$string['task_remind_pending_approvals'] = 'Remind about Forum AI responses pending approval';
 $string['unknownparticipant'] = 'Participant';
 $string['usedelay'] = 'Use delayed review';
 $string['usedelay_help'] = 'If enabled, AI review will be executed after a configurable delay instead of immediately.';

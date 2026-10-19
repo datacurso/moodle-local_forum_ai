@@ -404,5 +404,44 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026100600, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026101500) {
+        // Pending approvals are now reminded to the approvers: remember when the last reminder went out.
+        $table = new xmldb_table('local_forum_ai_pending');
+        $field = new xmldb_field('timeremindered', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'approved_at');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // The non-editing teacher archetype now holds the approval capability by default. Roles that
+        // already have a decision recorded for it at system level are left untouched.
+        $systemid = context_system::instance()->id;
+        foreach ($DB->get_records('role', ['archetype' => 'teacher'], '', 'id') as $role) {
+            $decided = $DB->record_exists('role_capabilities', [
+                'roleid' => $role->id,
+                'capability' => 'local/forum_ai:approveresponses',
+                'contextid' => $systemid,
+            ]);
+            if (!$decided) {
+                assign_capability('local/forum_ai:approveresponses', CAP_ALLOW, $role->id, $systemid);
+            }
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026101500, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026101600) {
+        // Responding to (and grading) the opening post of each discussion is now on by default for
+        // new forums. Move the stored global default from "off" to "on"; an unset value is seeded.
+        // Per-forum rows in local_forum_ai_config are intentionally left untouched.
+        $current = get_config('local_forum_ai', 'default_enablediainitconversation');
+        if ($current === false || $current === '' || (int) $current === 0) {
+            set_config('default_enablediainitconversation', 1, 'local_forum_ai');
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026101600, 'local', 'forum_ai');
+    }
+
     return true;
 }

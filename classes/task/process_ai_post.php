@@ -154,6 +154,14 @@ class process_ai_post extends adhoc_task {
                 20,
                 $pseudonymizer,
             );
+            // What the student already submitted in other discussions of this forum.
+            $ownmainposts = utils::get_user_main_posts(
+                (int)$forum->id,
+                (int)$post->userid,
+                (int)$post->created,
+                $pseudonymizer,
+                (int)$discussion->id,
+            );
 
             $payload = [
                 'course' => $course->fullname,
@@ -168,6 +176,7 @@ class process_ai_post extends adhoc_task {
                     'author' => $authorlabel ?? '',
                 ],
                 'thread_history' => $threadhistory,
+                'own_main_posts' => $ownmainposts,
                 // Attribute the request to the post author (rate limits are per user).
                 'userid' => (string)$post->userid,
                 'prompt' => $replymessage,

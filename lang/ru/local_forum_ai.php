@@ -63,7 +63,8 @@ $string['discussionmsg'] = 'Сообщение, сгенерированное �
 $string['discussionname'] = 'Тема';
 $string['enabled'] = 'Включить ИИ';
 $string['enablediainitconversation'] = 'Включить ИИ-ответ на тему обсуждения';
-$string['enablediainitconversation_help'] = 'Если включить эту опцию, ИИ сможет отвечать на первое сообщение, которое начинает обсуждение. Также рекомендуется выбрать роль «Преподаватель» в следующем поле.';
+$string['enablediainitconversation_help'] = 'Если включить эту опцию, ИИ сможет отвечать на первое сообщение, которое начинает обсуждение. Также рекомендуется выбрать роль «Преподаватель» в следующем поле. Если форум оценивается, а эта опция отключена, ИИ не оценивает первое сообщение каждого обсуждения.';
+$string['enablediainitconversation_warning'] = 'Этот форум оценивается, но ответ ИИ на тему обсуждения отключён: ИИ не будет оценивать первое сообщение каждого обсуждения.';
 $string['enableforumai'] = 'Включить Forum AI';
 $string['enableforumai_desc'] = 'Если отключено, раздел "Datacurso Forum AI" скрывается в настройках активности форума, а автоматическая обработка приостанавливается.';
 $string['error_aidisabled'] = 'Функции ИИ в настоящее время отключены администратором сайта.';
@@ -116,6 +117,16 @@ $string['notification_fullmessage'] = 'Здравствуйте, {$a->firstname}
 $string['notification_greeting'] = 'Здравствуйте, {$a->firstname},';
 $string['notification_intro'] = 'Автоматический ответ был сгенерирован для обсуждения "{$a->discussion}" на форуме "{$a->forum}" курса "{$a->course}".';
 $string['notification_preview'] = 'Предпросмотр:';
+$string['notification_reminder_fullmessage'] = 'Здравствуйте, {$a->firstname}!
+
+Напоминание: ответ, созданный ИИ, всё ещё ожидает проверки в обсуждении «{$a->discussion}» форума «{$a->forum}» (Курс: {$a->course}).
+
+Предпросмотр: {$a->preview}...
+
+Чтобы просмотреть сообщение полностью и решить, одобрить его или отклонить, перейдите по ссылке:
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Напоминание: ответ ИИ всё ещё ожидает в обсуждении «{$a->discussion}»';
+$string['notification_reminder_subject'] = 'Напоминание: ответ ИИ ожидает одобрения';
 $string['notification_review_button'] = 'Проверить ответ';
 $string['notification_smallmessage'] = 'Новый ответ ИИ ожидает в "{$a->discussion}"';
 $string['notification_subject'] = 'Требуется одобрение: ответ ИИ';
@@ -163,6 +174,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Статус пуб
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Тема сообщения.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Дата создания записи.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Дата обновления записи.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Дата последнего напоминания утверждающим об этом ответе (0, если не отправлялось).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'Очередь отложенных запросов на обработку ИИ.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'JSON-данные с модулем курса и сообщением или обсуждением для обработки.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Указывает, обработан ли запрос в очереди.';
@@ -192,6 +204,7 @@ $string['statuspending'] = 'Ожидает';
 $string['statusrejected'] = 'Отклонено';
 $string['task_process_ai_queue'] = 'Обработать отложенную очередь Forum AI';
 $string['task_process_single_forum_discussion'] = 'Обработать один форум обсуждений для ИИ';
+$string['task_remind_pending_approvals'] = 'Напоминать об ответах Forum AI, ожидающих одобрения';
 $string['unknownparticipant'] = 'Участник';
 $string['usedelay'] = 'Использовать отложенную проверку';
 $string['usedelay_help'] = 'Если включено, проверка с помощью ИИ будет выполнена после настраиваемой задержки, а не сразу.';

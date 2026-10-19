@@ -63,7 +63,8 @@ $string['discussionmsg'] = 'Mensagem gerada por IA';
 $string['discussionname'] = 'Assunto';
 $string['enabled'] = 'Ativar IA';
 $string['enablediainitconversation'] = 'Ativar resposta de IA ao tópico de discussão';
-$string['enablediainitconversation_help'] = 'Ativar esta opção permitirá que a IA responda à mensagem inicial que inicia a discussão. Também é recomendável selecionar o papel de Professor no campo a seguir.';
+$string['enablediainitconversation_help'] = 'Ativar esta opção permitirá que a IA responda à mensagem inicial que inicia a discussão. Também é recomendável selecionar o papel de Professor no campo a seguir. Se o fórum for avaliável e esta opção estiver desativada, a IA não avaliará a mensagem inicial de cada discussão.';
+$string['enablediainitconversation_warning'] = 'Este fórum é avaliável, mas a resposta da IA ao tópico de discussão está desativada: a IA não avaliará a mensagem inicial de cada discussão.';
 $string['enableforumai'] = 'Habilitar Fórum IA';
 $string['enableforumai_desc'] = 'Se desabilitado, a seção "Datacurso Fórum IA" é ocultada nas configurações da atividade fórum e o processamento automático é pausado.';
 $string['error_aidisabled'] = 'Os recursos de IA estão desativados no momento pelo administrador do site.';
@@ -116,6 +117,16 @@ Para revisar a mensagem completa e decidir se deve aprová-la ou rejeitá-la, po
 $string['notification_greeting'] = 'Olá {$a->firstname},';
 $string['notification_intro'] = 'Uma resposta automática foi gerada para a discussão "{$a->discussion}" no fórum "{$a->forum}" do curso "{$a->course}".';
 $string['notification_preview'] = 'Pré-visualização:';
+$string['notification_reminder_fullmessage'] = 'Olá {$a->firstname},
+
+Lembrete: uma resposta gerada por IA ainda aguarda revisão na discussão "{$a->discussion}" do fórum "{$a->forum}" (Curso: {$a->course}).
+
+Pré-visualização: {$a->preview}...
+
+Para revisar a mensagem completa e decidir se deseja aprová-la ou rejeitá-la, acesse:
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Lembrete: resposta de IA ainda pendente em "{$a->discussion}"';
+$string['notification_reminder_subject'] = 'Lembrete: resposta de IA pendente de aprovação';
 $string['notification_review_button'] = 'Revisar resposta';
 $string['notification_smallmessage'] = 'Nova resposta de IA pendente em "{$a->discussion}"';
 $string['notification_subject'] = 'Aprovação necessária: Resposta de IA';
@@ -163,6 +174,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Status da publicaç
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Assunto ou tema da mensagem.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Data em que o registro foi criado.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Data em que o registro foi atualizado.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Data do último lembrete enviado aos aprovadores sobre esta resposta (0 se nunca).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'Fila de solicitações adiadas de processamento com IA.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'Carga JSON com o módulo do curso e a postagem ou discussão a processar.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Indica se a solicitação na fila já foi processada.';
@@ -192,6 +204,7 @@ $string['statuspending'] = 'Pendente';
 $string['statusrejected'] = 'Rejeitado';
 $string['task_process_ai_queue'] = 'Processar fila adiada do Forum AI';
 $string['task_process_single_forum_discussion'] = 'Processar um único fórum de discussão para IA';
+$string['task_remind_pending_approvals'] = 'Lembrar respostas do Fórum IA pendentes de aprovação';
 $string['unknownparticipant'] = 'Participante';
 $string['usedelay'] = 'Usar revisão atrasada';
 $string['usedelay_help'] = 'Se ativado, a revisão com IA será executada após um tempo de espera configurável, em vez de ser executada imediatamente.';

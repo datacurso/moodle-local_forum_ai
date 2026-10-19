@@ -34,4 +34,13 @@ $tasks = [
         'month' => '*',
         'dayofweek' => '*',
     ],
+    [
+        'classname' => 'local_forum_ai\task\remind_pending_approvals',
+        'blocking' => 0,
+        'minute' => '30',
+        'hour' => '7',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*',
+    ],
 ];
