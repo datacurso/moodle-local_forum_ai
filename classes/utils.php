@@ -651,6 +651,87 @@ class utils {
     }
 
     /**
+     * Returns the user's own main (opening) posts of a forum, as pseudonymised thread entries.
+     *
+     * Used so the AI knows what the student already submitted in other discussions of the
+     * same forum and never asks for a post that already exists. Deleted posts, private
+     * replies, replies and posts created after the cutoff are excluded; in separate groups
+     * mode only discussions of the user's groups are included.
+     *
+     * @param int $forumid Forum ID.
+     * @param int $userid Author of the posts.
+     * @param int $beforetime Only posts created at or before this time are included.
+     * @param payload_pseudonymizer|null $pseudonymizer Request pseudonymiser, so the labels stay
+     *                                                  consistent with the rest of the payload.
+     * @param int|null $excludediscussionid Discussion to skip (already sent as thread history).
+     * @param int $maxposts Maximum number of (most recent) posts returned.
+     * @return array List of entries with id, order, author, message.
+     */
+    public static function get_user_main_posts(
+        int $forumid,
+        int $userid,
+        int $beforetime,
+        ?payload_pseudonymizer $pseudonymizer = null,
+        ?int $excludediscussionid = null,
+        int $maxposts = 10,
+    ): array {
+        global $DB;
+
+        $cm = get_coursemodule_from_instance('forum', $forumid, 0, false, IGNORE_MISSING);
+        if (!$cm) {
+            return [];
+        }
+
+        $where = 'd.forum = :forumid AND p.userid = :userid AND p.parent = 0 AND p.deleted = 0
+                  AND p.privatereplyto = 0 AND p.created <= :beforetime';
+        $params = ['forumid' => $forumid, 'userid' => $userid, 'beforetime' => $beforetime];
+
+        if ($excludediscussionid !== null) {
+            $where .= ' AND d.id <> :excludeid';
+            $params['excludeid'] = $excludediscussionid;
+        }
+
+        $allowedgroupids = \local_forum_ai\local\group_access::get_allowed_discussion_groupids(
+            $cm,
+            get_course($cm->course),
+            $userid
+        );
+        if ($allowedgroupids !== null) {
+            [$insql, $groupparams] = $DB->get_in_or_equal($allowedgroupids, SQL_PARAMS_NAMED, 'grp');
+            $where .= " AND d.groupid {$insql}";
+            $params += $groupparams;
+        }
+
+        $posts = $DB->get_records_sql(
+            "SELECT p.id, p.message, p.userid
+               FROM {forum_posts} p
+               JOIN {forum_discussions} d ON d.id = p.discussion
+              WHERE {$where}
+           ORDER BY p.created DESC, p.id DESC",
+            $params,
+            0,
+            max(1, $maxposts)
+        );
+
+        $pseudonymizer = $pseudonymizer ?? new payload_pseudonymizer();
+        $entries = [];
+        foreach (array_reverse($posts) as $post) {
+            $cleaned = trim(strip_tags($post->message));
+            if ($cleaned === '') {
+                continue;
+            }
+            $entries[] = [
+                'id' => (int) $post->id,
+                'order' => count($entries) + 1,
+                'author' => $pseudonymizer->label_for((int) $post->userid),
+                'message' => $pseudonymizer->pseudonymize_text($cleaned),
+            ];
+        }
+
+        return $entries;
+    }
+
+    /**
      * Returns the posts that are visible to a normal forum participant.
      *
      * Deleted posts and private replies are excluded.

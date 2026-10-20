@@ -145,6 +145,25 @@ final class privacy_provider_test extends provider_testcase {
     }
 
     /**
+     * The reminder timestamp stored per pending response is declared with a lang string.
+     *
+     * @covers ::get_metadata
+     */
+    public function test_metadata_declares_the_reminder_timestamp(): void {
+        $collection = provider::get_metadata(new \core_privacy\local\metadata\collection('local_forum_ai'));
+
+        $fields = [];
+        foreach ($collection->get_collection() as $item) {
+            if ($item->get_name() === 'local_forum_ai_pending') {
+                $fields = $item->get_privacy_fields();
+            }
+        }
+
+        $this->assertArrayHasKey('timeremindered', $fields);
+        $this->assertTrue(get_string_manager()->string_exists($fields['timeremindered'], 'local_forum_ai'));
+    }
+
+    /**
      * The student's pending data resolves to the forum module context.
      *
      * @covers ::get_contexts_for_userid

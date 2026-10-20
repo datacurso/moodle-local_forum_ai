@@ -93,6 +93,7 @@ class provider implements
                 'approval_token' => 'privacy:metadata:local_forum_ai_pending:approval_token',
                 'timecreated'    => 'privacy:metadata:local_forum_ai_pending:timecreated',
                 'timemodified'   => 'privacy:metadata:local_forum_ai_pending:timemodified',
+                'timeremindered' => 'privacy:metadata:local_forum_ai_pending:timeremindered',
             ],
             'privacy:metadata:local_forum_ai_pending'
         );

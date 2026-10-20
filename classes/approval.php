@@ -308,9 +308,42 @@ class approval {
      * @param object $forum The forum object.
      * @param int $pendingid The pending approval ID.
      * @param string $approvaltoken The unique approval token.
-     * @return bool True on success, false on error.
+     * @return bool True when at least one approver was notified, false otherwise.
      */
     public static function send_moodle_notification($discussion, $forum, int $pendingid, string $approvaltoken): bool {
+        return self::notify_approvers($discussion, $forum, $pendingid, false);
+    }
+
+    /**
+     * Reminds the approvers about a pending AI response nobody has reviewed yet.
+     *
+     * Uses the same recipients and message provider as the original notification.
+     *
+     * @param \stdClass $pending Pending AI response row.
+     * @return bool True when at least one approver was reminded, false otherwise.
+     */
+    public static function send_reminder(\stdClass $pending): bool {
+        global $DB;
+
+        $discussion = $DB->get_record('forum_discussions', ['id' => $pending->discussionid]);
+        $forum = $DB->get_record('forum', ['id' => $pending->forumid]);
+        if (!$discussion || !$forum) {
+            return false;
+        }
+
+        return self::notify_approvers($discussion, $forum, (int) $pending->id, true);
+    }
+
+    /**
+     * Notifies every eligible approver about a pending response, as a first notice or a reminder.
+     *
+     * @param object $discussion The discussion object.
+     * @param object $forum The forum object.
+     * @param int $pendingid The pending approval ID.
+     * @param bool $reminder Whether this is a reminder rather than the first notice.
+     * @return bool True when at least one approver was notified, false otherwise.
+     */
+    private static function notify_approvers($discussion, $forum, int $pendingid, bool $reminder): bool {
         global $DB, $PAGE;
 
         try {
@@ -323,39 +356,15 @@ class approval {
             }
 
             $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-            $context = \context_module::instance($cm->id);
-            // Recipients are chosen by capability, never by role shortname, so custom or
-            // renamed roles holding the approval permission are notified as well.
-            $approvers = get_users_by_capability($context, 'local/forum_ai:approveresponses', 'u.*');
-            $repliers = get_users_by_capability($context, 'mod/forum:replypost', 'u.id');
+            $recipients = self::get_approval_recipients($discussion, $cm, $course);
 
-            // The review link and preview must only reach approvers who can access
-            // the discussion group and could publish there on manual approval
-            // (the same group rules approve_response and publish_ai_post apply).
-            $discussiongroupid = isset($discussion->groupid)
-                ? (int) $discussion->groupid
-                : (int) $DB->get_field('forum_discussions', 'groupid', ['id' => $discussion->id], MUST_EXIST);
-            $groupdiscussion = (object) ['groupid' => $discussiongroupid];
-
-            $finalrecipients = [];
-            foreach ($approvers as $approver) {
-                if (!empty($approver->suspended) || !isset($repliers[$approver->id])) {
-                    continue;
-                }
-                if (!local\group_access::can_access_discussion($cm, $course, $discussiongroupid, (int) $approver->id)) {
-                    continue;
-                }
-                if (!utils::can_user_reply_in_discussion_group($cm, $course, $groupdiscussion, (int) $approver->id)) {
-                    continue;
-                }
-                $finalrecipients[$approver->id] = $approver;
-            }
-
-            if (empty($finalrecipients)) {
+            if (empty($recipients)) {
+                mtrace("local_forum_ai: no eligible recipients for pending response {$pendingid} " .
+                    "(forum {$forum->id}, discussion {$discussion->id}); nobody was notified.");
                 return false;
             }
 
-            $reviewurl = new \moodle_url('/local/forum_ai/review.php', ['token' => $approvaltoken]);
+            $reviewurl = new \moodle_url('/local/forum_ai/review.php', ['token' => $pending->approval_token]);
 
             $renderer = null;
             try {
@@ -366,58 +375,17 @@ class approval {
 
             $preview = format_string(substr(strip_tags($pending->message), 0, 150));
 
-            foreach ($finalrecipients as $recipient) {
-                $message = new \core\message\message();
-                $message->component = 'local_forum_ai';
-                $message->name = 'ai_approval_request';
-                $message->userfrom = \core_user::get_noreply_user();
-                $message->userto = $recipient;
-                $message->subject = get_string('notification_subject', 'local_forum_ai');
-
-                $templatedata = [
-                    'str_greeting' => get_string('notification_greeting', 'local_forum_ai', ['firstname' => $recipient->firstname]),
-                    'discussionname' => $discussion->name,
-                    'forumname' => $forum->name,
-                    'preview' => $preview,
-                    'reviewurl' => $reviewurl->out(false),
-                    'coursefullname' => $course->fullname,
-                    'str_subject' => get_string('notification_subject', 'local_forum_ai'),
-                    'str_preview_label' => get_string('notification_preview', 'local_forum_ai'),
-                    'str_review_button' => get_string('notification_review_button', 'local_forum_ai'),
-                    'str_course_label' => get_string('notification_course_label', 'local_forum_ai'),
-                ];
-
-                // Generate plain text message using single string with all parameters.
-                $message->fullmessage = get_string('notification_fullmessage', 'local_forum_ai', [
-                    'firstname' => $recipient->firstname,
-                    'discussion' => $discussion->name,
-                    'forum' => $forum->name,
-                    'course' => $course->fullname,
-                    'preview' => $preview,
-                    'reviewurl' => $reviewurl->out(false),
-                ]);
-
-                $message->fullmessageformat = FORMAT_PLAIN;
-
-                if ($renderer) {
-                    $message->fullmessagehtml = $renderer->render_from_template(
-                        'local_forum_ai/notification',
-                        $templatedata
-                    );
-                } else {
-                    $message->fullmessagehtml = $message->fullmessage;
-                }
-
-                $message->smallmessage = get_string(
-                    'notification_smallmessage',
-                    'local_forum_ai',
-                    ['discussion' => $discussion->name]
-                );
-
-                $message->contexturl = $reviewurl;
-                $message->contexturlname = get_string('notification_review_button', 'local_forum_ai');
-
-                message_send($message);
+            foreach ($recipients as $recipient) {
+                message_send(self::build_approval_message(
+                    $recipient,
+                    $discussion,
+                    $forum,
+                    $course,
+                    $preview,
+                    $reviewurl,
+                    $renderer,
+                    $reminder
+                ));
             }
 
             return true;
@@ -425,6 +393,118 @@ class approval {
             debugging('Error sending Moodle notification: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return false;
         }
+    }
+
+    /**
+     * Returns the users who must review a pending response of a discussion.
+     *
+     * Recipients are chosen by capability, never by role shortname, so custom or renamed
+     * roles holding the approval permission are notified as well. The review link and
+     * preview only reach approvers who can access the discussion group and could publish
+     * there on manual approval (the same group rules approve_response and publish_ai_post apply).
+     *
+     * @param object $discussion The discussion object.
+     * @param object $cm Forum course module.
+     * @param object $course Course record.
+     * @return \stdClass[] Eligible approvers keyed by user id.
+     */
+    private static function get_approval_recipients($discussion, $cm, $course): array {
+        global $DB;
+
+        $context = \context_module::instance($cm->id);
+        $approvers = get_users_by_capability($context, 'local/forum_ai:approveresponses', 'u.*');
+        $repliers = get_users_by_capability($context, 'mod/forum:replypost', 'u.id');
+
+        $discussiongroupid = isset($discussion->groupid)
+            ? (int) $discussion->groupid
+            : (int) $DB->get_field('forum_discussions', 'groupid', ['id' => $discussion->id], MUST_EXIST);
+        $groupdiscussion = (object) ['groupid' => $discussiongroupid];
+
+        $recipients = [];
+        foreach ($approvers as $approver) {
+            if (!empty($approver->suspended) || !isset($repliers[$approver->id])) {
+                continue;
+            }
+            if (!local\group_access::can_access_discussion($cm, $course, $discussiongroupid, (int) $approver->id)) {
+                continue;
+            }
+            if (!utils::can_user_reply_in_discussion_group($cm, $course, $groupdiscussion, (int) $approver->id)) {
+                continue;
+            }
+            $recipients[$approver->id] = $approver;
+        }
+
+        return $recipients;
+    }
+
+    /**
+     * Builds the approval request (or reminder) message for one recipient.
+     *
+     * @param \stdClass $recipient Approver.
+     * @param object $discussion The discussion object.
+     * @param object $forum The forum object.
+     * @param object $course Course record.
+     * @param string $preview Truncated plain-text preview of the AI response.
+     * @param \moodle_url $reviewurl Review page URL carrying the approval token.
+     * @param \renderer_base|null $renderer Plugin renderer, null to fall back to plain text.
+     * @param bool $reminder Whether this is a reminder rather than the first notice.
+     * @return \core\message\message
+     */
+    private static function build_approval_message(
+        \stdClass $recipient,
+        $discussion,
+        $forum,
+        $course,
+        string $preview,
+        \moodle_url $reviewurl,
+        $renderer,
+        bool $reminder
+    ): \core\message\message {
+        $prefix = $reminder ? 'notification_reminder_' : 'notification_';
+        $subject = get_string($prefix . 'subject', 'local_forum_ai');
+
+        $message = new \core\message\message();
+        $message->component = 'local_forum_ai';
+        $message->name = 'ai_approval_request';
+        $message->userfrom = \core_user::get_noreply_user();
+        $message->userto = $recipient;
+        $message->subject = $subject;
+
+        $templatedata = [
+            'str_greeting' => get_string('notification_greeting', 'local_forum_ai', ['firstname' => $recipient->firstname]),
+            'discussionname' => $discussion->name,
+            'forumname' => $forum->name,
+            'preview' => $preview,
+            'reviewurl' => $reviewurl->out(false),
+            'coursefullname' => $course->fullname,
+            'str_subject' => $subject,
+            'str_preview_label' => get_string('notification_preview', 'local_forum_ai'),
+            'str_review_button' => get_string('notification_review_button', 'local_forum_ai'),
+            'str_course_label' => get_string('notification_course_label', 'local_forum_ai'),
+        ];
+
+        // Generate plain text message using single string with all parameters.
+        $message->fullmessage = get_string($prefix . 'fullmessage', 'local_forum_ai', [
+            'firstname' => $recipient->firstname,
+            'discussion' => $discussion->name,
+            'forum' => $forum->name,
+            'course' => $course->fullname,
+            'preview' => $preview,
+            'reviewurl' => $reviewurl->out(false),
+        ]);
+        $message->fullmessageformat = FORMAT_PLAIN;
+        $message->fullmessagehtml = $renderer
+            ? $renderer->render_from_template('local_forum_ai/notification', $templatedata)
+            : $message->fullmessage;
+        $message->smallmessage = get_string(
+            $prefix . 'smallmessage',
+            'local_forum_ai',
+            ['discussion' => $discussion->name]
+        );
+        $message->contexturl = $reviewurl;
+        $message->contexturlname = get_string('notification_review_button', 'local_forum_ai');
+
+        return $message;
     }
 
     /**

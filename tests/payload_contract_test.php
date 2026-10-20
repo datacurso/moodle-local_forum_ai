@@ -205,6 +205,56 @@ final class payload_contract_test extends \advanced_testcase {
     }
 
     /**
+     * Report 3: the student's own main posts of other discussions travel in the chat
+     * payload, so the AI never asks for a post that already exists.
+     */
+    public function test_chat_payload_carries_own_main_posts_of_other_discussions(): void {
+        $this->resetAfterTest();
+
+        $fixture = $this->create_fixture();
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $forumgenerator->create_discussion([
+            'course' => $fixture->course->id,
+            'forum' => $fixture->forum->id,
+            'userid' => $fixture->student->id,
+            'message' => 'My own summary in another discussion',
+        ]);
+        $post = $this->create_reply($fixture, (int) $fixture->student->id, 'Reply in the first discussion');
+
+        $mock = $this->inject_mock(['reply' => 'Own posts check']);
+        $messagesink = $this->redirectMessages();
+        $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
+        $messagesink->close();
+
+        $body = $mock->last_request()['body'];
+        $this->assertSame(
+            ['My own summary in another discussion'],
+            array_column($body['own_main_posts'], 'message')
+        );
+        $this->assertSame('[STUDENT_NAME]', $body['own_main_posts'][0]['author']);
+        $this->assertSame(1, $body['own_main_posts'][0]['order']);
+        // The opening post of the current discussion is not repeated: it is in the thread history.
+        $this->assertNotContains('Opening topic message', array_column($body['own_main_posts'], 'message'));
+    }
+
+    /**
+     * Report 3: without other main posts the field is an empty list, not missing.
+     */
+    public function test_chat_payload_own_main_posts_empty_when_none(): void {
+        $this->resetAfterTest();
+
+        $fixture = $this->create_fixture();
+        $post = $this->create_reply($fixture, (int) $fixture->student->id, 'Only reply');
+
+        $mock = $this->inject_mock(['reply' => 'No own posts']);
+        $messagesink = $this->redirectMessages();
+        $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
+        $messagesink->close();
+
+        $this->assertSame([], $mock->last_request()['body']['own_main_posts']);
+    }
+
+    /**
      * FAI-PRIV-001-R1: no participant name or e-mail address reaches the chat service.
      * Authors travel as stable labels and names inside the texts are replaced.
      */
