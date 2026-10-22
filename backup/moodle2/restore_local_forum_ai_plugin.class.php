@@ -73,6 +73,9 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
 
         mtrace(">> [local_forum_ai] Restoring configuration and pending data...");
 
+        // Defaults come from the tenant that owns the target course (0 on plain Moodle LMS).
+        $tenantid = \local_forum_ai\utils::get_tenant_id($this->get_target_courseid());
+
         // Restore configurations.
         foreach ($this->tempconfigs as $config) {
             $newforumid = $this->get_mappingid('forum', $config->forumid);
@@ -108,7 +111,7 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
             $record->usedelay = $config->usedelay ?? 0;
             $record->delayminutes = isset($config->delayminutes)
                 ? max(1, (int)$config->delayminutes)
-                : \local_forum_ai\utils::get_default_delay_minutes();
+                : \local_forum_ai\utils::get_default_delay_minutes($tenantid);
             // Pre-feature backups carry no value: inherit the site default instead of
             // pinning the restored forum to an explicit "No" it can never leave.
             $record->replyinlocked = $config->replyinlocked ?? \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
@@ -151,7 +154,7 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
                 ? ($this->get_mappingid('forum_post', $pending->postid) ?: null)
                 : null;
             $record->postid = $mappedpostid;
-            $record->status = in_array($pending->status ?? null, ['pending', 'approved', 'rejected', 'expired'], true)
+            $record->status = in_array($pending->status ?? null, ['pending', 'approved', 'rejected', 'expired', 'failed'], true)
                 ? $pending->status
                 : 'pending';
             // Never reuse the source token, and never derive it from time.
@@ -165,5 +168,14 @@ class restore_local_forum_ai_plugin extends restore_local_plugin {
         }
 
         mtrace(">> [local_forum_ai] Restoration finished ✅");
+    }
+
+    /**
+     * Returns the id of the course the backup is being restored into.
+     *
+     * @return int
+     */
+    protected function get_target_courseid(): int {
+        return (int) $this->task->get_courseid();
     }
 }

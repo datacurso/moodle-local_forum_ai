@@ -351,10 +351,12 @@ final class settings_and_defaults_test extends \advanced_testcase {
 
         xmldb_local_forum_ai_upgrade(2026080400);
 
+        // On Moodle Workplace the upgrade moves the site values to the default tenant, where they keep applying.
+        $tenantid = class_exists('\tool_tenant\tenancy') ? \tool_tenant\tenancy::get_default_tenant_id() : 0;
         foreach ($custom as $name => $value) {
             $this->assertSame(
                 $value,
-                (string) get_config('local_forum_ai', $name),
+                (string) \local_forum_ai\local\tenant_config::get($name, $tenantid),
                 "Upgrade must not revert the deliberate value of {$name}."
             );
         }

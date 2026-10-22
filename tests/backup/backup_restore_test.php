@@ -681,6 +681,38 @@ final class backup_restore_test extends \advanced_testcase {
     }
 
     /**
+     * A failed history row stays failed after restore instead of becoming a pending response.
+     */
+    public function test_restore_keeps_failed_status(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $restore = new restore_local_forum_ai_plugin_test_double();
+        $restore->seed_mappings([
+            'forum' => [1001 => 2001],
+            'forum_discussion' => [5001 => 6001],
+            'user' => [3001 => 4001],
+        ]);
+        $restore->seed_temppendings([
+            (object) [
+                'forumid' => 1001,
+                'discussionid' => 5001,
+                'creator_userid' => 3001,
+                'subject' => 'Re: Failed thread',
+                'message' => '',
+                'status' => 'failed',
+                'approval_token' => str_repeat('b', 64),
+                'timecreated' => 1710000000,
+            ],
+        ]);
+
+        $this->expectOutputRegex('/.*/s');
+        $restore->after_restore_course();
+
+        $this->assertSame('failed', $DB->get_field('local_forum_ai_pending', 'status', ['forumid' => 2001], MUST_EXIST));
+    }
+
+    /**
      * Restore fallback must match the direct default delay helper.
      */
     public function test_restored_delay_matches_direct_default_delay_minutes(): void {
@@ -715,5 +747,54 @@ final class backup_restore_test extends \advanced_testcase {
         $config = $DB->get_record('local_forum_ai_config', ['forumid' => 2001], '*', MUST_EXIST);
 
         $this->assertSame(\local_forum_ai\utils::get_default_delay_minutes(), (int) $config->delayminutes);
+    }
+
+    /**
+     * On Workplace a backup without delayminutes takes the default delay of the tenant that owns the target course.
+     *
+     * Covers: MDL-INT-044 — Restore fallback uses the target tenant default delay.
+     */
+    public function test_restore_uses_target_tenant_default_delay_when_field_missing(): void {
+        global $DB;
+
+        if (!class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Moodle Workplace (tool_tenant) is not installed.');
+        }
+
+        $this->resetAfterTest();
+        $tenantgenerator = $this->getDataGenerator()->get_plugin_generator('tool_tenant');
+        $courses = [];
+        foreach (['a' => 15, 'b' => 40] as $key => $delay) {
+            $category = $this->getDataGenerator()->create_category();
+            $tenant = $tenantgenerator->create_tenant([
+                'name' => 'Restore tenant ' . $key,
+                'categoryid' => $category->id,
+            ]);
+            \local_forum_ai\local\tenant_config::set('default_delayminutes', (int) $tenant->id, $delay);
+            $courses[$key] = $this->getDataGenerator()->create_course(['category' => $category->id]);
+        }
+
+        $this->expectOutputRegex('/.*/s');
+        foreach (['a' => 2001, 'b' => 2002] as $key => $newforumid) {
+            $restore = new restore_local_forum_ai_plugin_test_double();
+            $restore->seed_courseid((int) $courses[$key]->id);
+            $restore->seed_mappings([
+                'forum' => [1001 => $newforumid],
+            ]);
+            $restore->seed_tempconfigs([
+                (object) [
+                    'forumid' => 1001,
+                    'enabled' => 1,
+                    'require_approval' => 1,
+                    'reply_message' => 'Restored config',
+                    'timecreated' => 1710000000,
+                    'timemodified' => 1710000000,
+                ],
+            ]);
+            $restore->after_restore_course();
+        }
+
+        $this->assertSame(15, (int) $DB->get_field('local_forum_ai_config', 'delayminutes', ['forumid' => 2001], MUST_EXIST));
+        $this->assertSame(40, (int) $DB->get_field('local_forum_ai_config', 'delayminutes', ['forumid' => 2002], MUST_EXIST));
     }
 }

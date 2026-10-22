@@ -442,5 +442,14 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101302, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026101303) {
+        // Moodle Workplace: hand the former site settings to the default tenant, so its users keep the configuration
+        // they had; the other tenants start from the plugin defaults. Nothing is done on a plain Moodle LMS.
+        \local_forum_ai\local\tenant_migration::migrate_site_data_to_default_tenant();
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026101303, 'local', 'forum_ai');
+    }
+
     return true;
 }
