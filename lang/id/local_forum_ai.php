@@ -61,6 +61,7 @@ $string['discussion_label'] = 'Diskusi: {$a}';
 $string['discussioninfo'] = 'Informasi diskusi';
 $string['discussionmsg'] = 'Pesan yang dihasilkan AI';
 $string['discussionname'] = 'Subjek';
+$string['editingtenant'] = 'Anda sedang mengedit konfigurasi global tenant: {$a}';
 $string['enabled'] = 'Aktifkan AI';
 $string['enablediainitconversation'] = 'Aktifkan respons AI terhadap topik diskusi';
 $string['enablediainitconversation_help'] = 'Mengaktifkan opsi ini akan memungkinkan AI merespons pesan awal yang memulai diskusi. Disarankan juga untuk memilih peran Guru pada kolom berikutnya.';
@@ -87,8 +88,17 @@ $string['eventaireviewrequested'] = 'Tinjauan AI diminta';
 $string['eventresponseapproved'] = 'Respon AI disetujui';
 $string['eventresponserejected'] = 'Respon AI ditolak';
 $string['eventresponseupdated'] = 'Respon AI diedit';
+$string['failure_licence_record'] = 'Respons AI tidak dapat dibuat karena lisensi layanan AI tidak ada atau tidak valid.';
+$string['failure_notification_fullmessage'] = 'Halo {$a->firstname},
+
+Forum AI tidak dapat membuat respons di diskusi "{$a->discussion}" pada forum "{$a->forum}" (kursus "{$a->course}") karena lisensi layanan AI tidak ada atau tidak valid. Kiriman tersebut tidak dibalas oleh AI. Mintalah administrator Anda untuk memeriksa lisensi.
+
+Riwayat: {$a->historyurl}';
+$string['failure_notification_smallmessage'] = 'Respons AI tidak dibuat di "{$a}"';
+$string['failure_notification_subject'] = 'Forum AI tidak dapat membuat respons';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Setujui atau tolak respons forum yang dihasilkan oleh AI';
+$string['forum_ai:managetenantsettings'] = 'Kelola pengaturan Forum AI tenant';
 $string['forum_ai:useaireview'] = 'Gunakan fitur peninjauan AI untuk menilai forum';
 $string['forumname'] = 'Forum';
 $string['grade'] = 'Nilai';
@@ -98,12 +108,14 @@ $string['invalidaction'] = 'Tindakan yang ditentukan tidak valid.';
 $string['level'] = 'Tingkat: {$a}';
 $string['managedby'] = 'Dikelola oleh';
 $string['messageprovider:ai_approval_request'] = 'Permintaan Persetujuan AI';
+$string['messageprovider:ai_failure'] = 'Respons AI tidak dapat dibuat';
 $string['modal_title'] = 'Detail Riwayat Diskusi';
 $string['modal_title_pending'] = 'Detail Diskusi';
 $string['no'] = 'Tidak';
 $string['no_posts'] = 'Tidak ada posting dalam diskusi ini.';
 $string['nohistory'] = 'Tidak ada riwayat respon AI yang disetujui, ditolak, atau kedaluwarsa.';
 $string['noresponses'] = 'Tidak ada respon yang menunggu persetujuan.';
+$string['notenantselected'] = 'Tidak ada tenant yang dipilih. Gunakan pemilih tenant untuk memilih tenant yang akan dikonfigurasi. Sampai saat itu, nilai yang ditampilkan adalah nilai bawaan plugin dan tidak dapat disimpan.';
 $string['notification_course_label'] = 'Kursus';
 $string['notification_fullmessage'] = 'Halo {$a->firstname},
 
@@ -188,6 +200,7 @@ $string['settings'] = 'Pengaturan untuk: ';
 $string['status'] = 'Status';
 $string['statusapproved'] = 'Disetujui';
 $string['statusexpired'] = 'Kedaluwarsa';
+$string['statusfailed'] = 'Gagal';
 $string['statuspending'] = 'Menunggu';
 $string['statusrejected'] = 'Ditolak';
 $string['task_process_ai_queue'] = 'Proses antrean tertunda Forum AI';

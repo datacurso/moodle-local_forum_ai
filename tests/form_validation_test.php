@@ -130,6 +130,9 @@ final class form_validation_test extends \advanced_testcase {
      * With global AI disabled the forum fields are forced off, so nothing is validated.
      */
     public function test_global_ai_disabled_skips_validation(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
         set_config('default_enabled', 0, 'local_forum_ai');
 

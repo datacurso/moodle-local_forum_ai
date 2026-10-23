@@ -19,6 +19,8 @@ namespace local_forum_ai;
 use local_forum_ai\helper\rubric;
 use local_forum_ai\helper\guide;
 use local_forum_ai\local\payload_pseudonymizer;
+use local_forum_ai\local\tenant_config;
+use local_forum_ai\local\tenant_context;
 use core_text;
 
 /**
@@ -141,12 +143,39 @@ class utils {
     }
 
     /**
-     * Checks whether forum AI feature is globally enabled.
+     * Returns a plugin default setting for a tenant.
      *
+     * This is the single reader of the nine plugin settings. A tenant above zero gets the value it saved, else the
+     * plugin built-in default, never the site value nor the value of another tenant. Tenant 0 reads the site
+     * configuration on a plain Moodle LMS and the plugin defaults under Moodle Workplace.
+     *
+     * @param string $name Setting name.
+     * @param int $tenantid Tenant id, 0 when there is no tenant.
+     * @return mixed The stored value, the plugin default, or false when it is not defined.
+     */
+    public static function get_default(string $name, int $tenantid = 0) {
+        return tenant_config::get($name, $tenantid);
+    }
+
+    /**
+     * Resolves the tenant a course belongs to: the tenant of its category, else the tenant of the user.
+     *
+     * @param int $courseid Course id.
+     * @param int $userid User id used as fallback, 0 for none.
+     * @return int Tenant id, 0 without Moodle Workplace.
+     */
+    public static function get_tenant_id(int $courseid, int $userid = 0): int {
+        return tenant_context::resolve($courseid, $userid);
+    }
+
+    /**
+     * Checks whether forum AI feature is enabled for a tenant.
+     *
+     * @param int $tenantid Tenant id, 0 when there is no tenant.
      * @return bool
      */
-    public static function is_feature_enabled(): bool {
-        $enabled = get_config('local_forum_ai', 'enableforumai');
+    public static function is_feature_enabled(int $tenantid = 0): bool {
+        $enabled = self::get_default('enableforumai', $tenantid);
         if ($enabled === false || $enabled === '') {
             return true;
         }
@@ -155,12 +184,13 @@ class utils {
     }
 
     /**
-     * Checks whether forum AI can be enabled globally per forum.
+     * Checks whether forum AI can be enabled per forum for a tenant.
      *
+     * @param int $tenantid Tenant id, 0 when there is no tenant.
      * @return bool
      */
-    public static function is_global_ai_enabled(): bool {
-        $enabled = get_config('local_forum_ai', 'default_enabled');
+    public static function is_global_ai_enabled(int $tenantid = 0): bool {
+        $enabled = self::get_default('default_enabled', $tenantid);
         if ($enabled === false || $enabled === '') {
             return true;
         }
@@ -170,32 +200,39 @@ class utils {
 
     /**
      * Checks whether AI features may run: both the Forum AI master switch
-     * and the global AI switch must be on.
+     * and the global AI switch must be on. Under Moodle Workplace both switches
+     * belong to the tenant and never affect another tenant.
      *
+     * @param int $tenantid Tenant id, 0 when there is no tenant.
      * @return bool
      */
-    public static function is_ai_available(): bool {
-        return self::is_feature_enabled() && self::is_global_ai_enabled();
+    public static function is_ai_available(int $tenantid = 0): bool {
+        return self::is_feature_enabled($tenantid) && self::is_global_ai_enabled($tenantid);
     }
 
     /**
      * Ensures AI features may run before any data is sent to the AI service.
      *
+     * @param int $tenantid Tenant id, 0 when there is no tenant.
      * @return void
      * @throws \moodle_exception When an AI switch is off.
      */
-    public static function require_ai_available(): void {
-        if (!self::is_ai_available()) {
+    public static function require_ai_available(int $tenantid = 0): void {
+        if (!self::is_ai_available($tenantid)) {
             throw new \moodle_exception('error_aidisabled', 'local_forum_ai');
         }
     }
 
     /**
-     * Disables AI in all existing forum configurations.
+     * Disables AI in the existing forum configurations.
      *
+     * Without a tenant every configuration is disabled, as on a plain Moodle LMS. With a tenant only the forums of
+     * the courses of that tenant are disabled and the forums of every other tenant are left untouched.
+     *
+     * @param int|null $tenantid Tenant id, null or 0 for every forum of the site.
      * @return void
      */
-    public static function disable_all_forums_ai(): void {
+    public static function disable_all_forums_ai(?int $tenantid = null): void {
         global $DB;
 
         $records = $DB->get_records('local_forum_ai_config');
@@ -205,6 +242,9 @@ class utils {
 
         $now = time();
         foreach ($records as $record) {
+            if ($tenantid && tenant_context::get_tenant_id_for_forum((int) $record->forumid) !== $tenantid) {
+                continue;
+            }
             $record->enabled = 0;
             $record->timemodified = $now;
             $DB->update_record('local_forum_ai_config', $record);
@@ -229,12 +269,13 @@ class utils {
     }
 
     /**
-     * Gets global default for "question turns with follow-up".
+     * Gets the default for "question turns with follow-up" of a tenant.
      *
+     * @param int $tenantid Tenant id, 0 when there is no tenant.
      * @return int
      */
-    public static function get_default_question_turns(): int {
-        $raw = get_config('local_forum_ai', 'default_question_turns');
+    public static function get_default_question_turns(int $tenantid = 0): int {
+        $raw = self::get_default('default_question_turns', $tenantid);
         if ($raw === false || $raw === '') {
             return 1;
         }
@@ -243,12 +284,13 @@ class utils {
     }
 
     /**
-     * Gets the global default delay for AI responses in minutes.
+     * Gets the default delay for AI responses in minutes of a tenant.
      *
+     * @param int $tenantid Tenant id, 0 when there is no tenant.
      * @return int
      */
-    public static function get_default_delay_minutes(): int {
-        $raw = get_config('local_forum_ai', 'default_delayminutes');
+    public static function get_default_delay_minutes(int $tenantid = 0): int {
+        $raw = self::get_default('default_delayminutes', $tenantid);
         if ($raw === false || $raw === '') {
             return 60;
         }
@@ -260,14 +302,15 @@ class utils {
      * Gets effective question-turn limit using forum config or global fallback.
      *
      * @param \stdClass|null $config Forum config row.
+     * @param int $tenantid Tenant id of the forum, 0 when there is no tenant.
      * @return int
      */
-    public static function get_effective_question_turns(?\stdClass $config): int {
+    public static function get_effective_question_turns(?\stdClass $config, int $tenantid = 0): int {
         if ($config && isset($config->questionturns)) {
             return self::normalize_question_turns($config->questionturns);
         }
 
-        return self::get_default_question_turns();
+        return self::get_default_question_turns($tenantid);
     }
 
     /**
@@ -304,12 +347,13 @@ class utils {
     }
 
     /**
-     * Gets global default for "reply in locked discussions".
+     * Gets the default for "reply in locked discussions" of a tenant.
      *
+     * @param int $tenantid Tenant id, 0 when there is no tenant.
      * @return bool
      */
-    public static function get_default_reply_in_locked(): bool {
-        $raw = get_config('local_forum_ai', 'default_replyinlocked');
+    public static function get_default_reply_in_locked(int $tenantid = 0): bool {
+        $raw = self::get_default('default_replyinlocked', $tenantid);
         if ($raw === false || $raw === '') {
             return false;
         }
@@ -321,9 +365,10 @@ class utils {
      * Gets effective "reply in locked discussions" value using forum config or global fallback.
      *
      * @param \stdClass|null $config Forum config row.
+     * @param int $tenantid Tenant id of the forum, 0 when there is no tenant.
      * @return bool
      */
-    public static function get_effective_reply_in_locked(?\stdClass $config): bool {
+    public static function get_effective_reply_in_locked(?\stdClass $config, int $tenantid = 0): bool {
         if ($config && isset($config->replyinlocked)) {
             $value = (int) $config->replyinlocked;
             if ($value !== self::REPLY_IN_LOCKED_INHERIT) {
@@ -331,7 +376,7 @@ class utils {
             }
         }
 
-        return self::get_default_reply_in_locked();
+        return self::get_default_reply_in_locked($tenantid);
     }
 
     /**
@@ -404,9 +449,15 @@ class utils {
      * @param \stdClass $forum Forum record.
      * @param \stdClass $discussion Discussion record.
      * @param \stdClass|null $config Forum config row.
+     * @param int|null $tenantid Tenant id of the forum, null to resolve it from the course of the forum.
      * @return bool
      */
-    public static function can_reply_in_discussion(\stdClass $forum, \stdClass $discussion, ?\stdClass $config): bool {
+    public static function can_reply_in_discussion(
+        \stdClass $forum,
+        \stdClass $discussion,
+        ?\stdClass $config,
+        ?int $tenantid = null
+    ): bool {
         global $CFG;
 
         require_once($CFG->dirroot . '/mod/forum/lib.php');
@@ -415,7 +466,8 @@ class utils {
             return true;
         }
 
-        return self::get_effective_reply_in_locked($config);
+        $tenantid ??= self::get_tenant_id((int) ($forum->course ?? 0));
+        return self::get_effective_reply_in_locked($config, $tenantid);
     }
 
     /**
@@ -520,19 +572,20 @@ class utils {
         }
 
         [$insql, $inparams] = $DB->get_in_or_equal($ancestorids, SQL_PARAMS_NAMED);
-        // Expired rows are excluded like rejected ones: they were never published
+        // Expired and failed rows are excluded like rejected ones: they were never published
         // (before the traceable 'expired' status they were deleted and never counted).
         $params = [
             'discussionid' => $discussionid,
             'rejected' => 'rejected',
             'expired' => 'expired',
+            'failed' => 'failed',
         ] + $inparams;
 
         $sql = "SELECT COUNT(1)
                   FROM {local_forum_ai_pending}
                  WHERE discussionid = :discussionid
                    AND parentpostid $insql
-                   AND status NOT IN (:rejected, :expired)";
+                   AND status NOT IN (:rejected, :expired, :failed)";
 
         return (int)$DB->count_records_sql($sql, $params);
     }

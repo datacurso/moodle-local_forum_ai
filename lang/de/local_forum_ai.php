@@ -61,6 +61,7 @@ $string['discussion_label'] = 'Diskussion: {$a}';
 $string['discussioninfo'] = 'Diskussionsinformationen';
 $string['discussionmsg'] = 'KI-generierte Nachricht';
 $string['discussionname'] = 'Thema';
+$string['editingtenant'] = 'Sie bearbeiten die globale Konfiguration des Mandanten: {$a}';
 $string['enabled'] = 'KI aktivieren';
 $string['enablediainitconversation'] = 'KI-Antworten auf das Diskussionsthema aktivieren';
 $string['enablediainitconversation_help'] = 'Wenn diese Option aktiviert ist, kann die KI auf die erste Nachricht antworten, die die Diskussion startet. Es wird außerdem empfohlen, im folgenden Feld die Rolle „Lehrer“ auszuwählen.';
@@ -87,8 +88,17 @@ $string['eventaireviewrequested'] = 'KI-Überprüfung angefordert';
 $string['eventresponseapproved'] = 'KI-Antwort genehmigt';
 $string['eventresponserejected'] = 'KI-Antwort abgelehnt';
 $string['eventresponseupdated'] = 'KI-Antwort bearbeitet';
+$string['failure_licence_record'] = 'Die KI-Antwort konnte nicht erzeugt werden, weil die Lizenz des KI-Dienstes fehlt oder ungültig ist.';
+$string['failure_notification_fullmessage'] = 'Hallo {$a->firstname},
+
+Forum-KI konnte in der Diskussion "{$a->discussion}" des Forums "{$a->forum}" (Kurs "{$a->course}") keine Antwort erzeugen, weil die Lizenz des KI-Dienstes fehlt oder ungültig ist. Der Beitrag wurde von der KI nicht beantwortet. Bitten Sie Ihre Administration, die Lizenz zu prüfen.
+
+Verlauf: {$a->historyurl}';
+$string['failure_notification_smallmessage'] = 'KI-Antwort nicht erzeugt in "{$a}"';
+$string['failure_notification_subject'] = 'Forum-KI konnte keine Antwort erzeugen';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'KI-generierte Forenantworten genehmigen oder ablehnen';
+$string['forum_ai:managetenantsettings'] = 'Mandanteneinstellungen für Forum AI verwalten';
 $string['forum_ai:useaireview'] = 'Verwenden Sie die KI-Überprüfungsfunktion, um das Forum zu bewerten';
 $string['forumname'] = 'Forum';
 $string['grade'] = 'Bewertung';
@@ -98,12 +108,14 @@ $string['invalidaction'] = 'Die angegebene Aktion ist ungültig.';
 $string['level'] = 'Stufe: {$a}';
 $string['managedby'] = 'Bearbeitet von';
 $string['messageprovider:ai_approval_request'] = 'KI-Genehmigungsanfrage';
+$string['messageprovider:ai_failure'] = 'KI-Antwort konnte nicht erzeugt werden';
 $string['modal_title'] = 'Details zum Diskussionsverlauf';
 $string['modal_title_pending'] = 'Diskussionsdetails';
 $string['no'] = 'Nein';
 $string['no_posts'] = 'Keine Beiträge in dieser Diskussion gefunden.';
 $string['nohistory'] = 'Kein Verlauf genehmigter, abgelehnter oder abgelaufener KI-Antworten.';
 $string['noresponses'] = 'Keine Antworten zur Genehmigung ausstehend.';
+$string['notenantselected'] = 'Es ist kein Mandant ausgewählt. Wählen Sie mit der Mandantenauswahl den zu konfigurierenden Mandanten aus. Bis dahin sind die angezeigten Werte die Plugin-Standardwerte und können nicht gespeichert werden.';
 $string['notification_course_label'] = 'Kurs';
 $string['notification_fullmessage'] = 'Hallo {$a->firstname},
 
@@ -188,6 +200,7 @@ $string['settings'] = 'Einstellungen für: ';
 $string['status'] = 'Status';
 $string['statusapproved'] = 'Genehmigt';
 $string['statusexpired'] = 'Abgelaufen';
+$string['statusfailed'] = 'Fehlgeschlagen';
 $string['statuspending'] = 'Ausstehend';
 $string['statusrejected'] = 'Abgelehnt';
 $string['task_process_ai_queue'] = 'Verzögerte Warteschlange von Forum AI verarbeiten';

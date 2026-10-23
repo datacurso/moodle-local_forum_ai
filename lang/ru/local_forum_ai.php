@@ -61,6 +61,7 @@ $string['discussion_label'] = 'Обсуждение: {$a}';
 $string['discussioninfo'] = 'Информация об обсуждении';
 $string['discussionmsg'] = 'Сообщение, сгенерированное ИИ';
 $string['discussionname'] = 'Тема';
+$string['editingtenant'] = 'Вы редактируете глобальную конфигурацию арендатора: {$a}';
 $string['enabled'] = 'Включить ИИ';
 $string['enablediainitconversation'] = 'Включить ИИ-ответ на тему обсуждения';
 $string['enablediainitconversation_help'] = 'Если включить эту опцию, ИИ сможет отвечать на первое сообщение, которое начинает обсуждение. Также рекомендуется выбрать роль «Преподаватель» в следующем поле.';
@@ -87,8 +88,17 @@ $string['eventaireviewrequested'] = 'Запрошена проверка с по
 $string['eventresponseapproved'] = 'Ответ ИИ одобрен';
 $string['eventresponserejected'] = 'Ответ ИИ отклонён';
 $string['eventresponseupdated'] = 'Ответ ИИ отредактирован';
+$string['failure_licence_record'] = 'Не удалось сформировать ответ ИИ, потому что лицензия сервиса ИИ отсутствует или недействительна.';
+$string['failure_notification_fullmessage'] = 'Здравствуйте, {$a->firstname}!
+
+Forum AI не удалось сформировать ответ в обсуждении "{$a->discussion}" форума "{$a->forum}" (курс "{$a->course}"), потому что лицензия сервиса ИИ отсутствует или недействительна. ИИ не ответил на сообщение. Попросите администратора проверить лицензию.
+
+История: {$a->historyurl}';
+$string['failure_notification_smallmessage'] = 'Ответ ИИ не сформирован в "{$a}"';
+$string['failure_notification_subject'] = 'Forum AI не удалось сформировать ответ';
 $string['forum'] = 'Форум';
 $string['forum_ai:approveresponses'] = 'Одобрить или отклонить ответы форума, сгенерированные ИИ';
+$string['forum_ai:managetenantsettings'] = 'Управление настройками Forum AI арендатора';
 $string['forum_ai:useaireview'] = 'Используйте функцию проверки ИИ для оценки форума';
 $string['forumname'] = 'Форум';
 $string['grade'] = 'Оценка';
@@ -98,12 +108,14 @@ $string['invalidaction'] = 'Указанное действие недопуст
 $string['level'] = 'Уровень: {$a}';
 $string['managedby'] = 'Обработано';
 $string['messageprovider:ai_approval_request'] = 'Запрос на одобрение ИИ';
+$string['messageprovider:ai_failure'] = 'Не удалось сформировать ответ ИИ';
 $string['modal_title'] = 'Подробности истории обсуждения';
 $string['modal_title_pending'] = 'Подробности обсуждения';
 $string['no'] = 'Нет';
 $string['no_posts'] = 'В этом обсуждении сообщений не найдено.';
 $string['nohistory'] = 'Нет истории одобренных, отклонённых или истёкших ответов ИИ.';
 $string['noresponses'] = 'Нет ожидающих одобрения ответов.';
+$string['notenantselected'] = 'Арендатор не выбран. Используйте переключатель арендаторов, чтобы выбрать арендатора для настройки. До этого отображаются значения плагина по умолчанию, и сохранить их нельзя.';
 $string['notification_course_label'] = 'Курс';
 $string['notification_fullmessage'] = 'Здравствуйте, {$a->firstname},
 
@@ -188,6 +200,7 @@ $string['settings'] = 'Настройки для: ';
 $string['status'] = 'Статус';
 $string['statusapproved'] = 'Одобрено';
 $string['statusexpired'] = 'Истёк';
+$string['statusfailed'] = 'Ошибка';
 $string['statuspending'] = 'Ожидает';
 $string['statusrejected'] = 'Отклонено';
 $string['task_process_ai_queue'] = 'Обработать отложенную очередь Forum AI';

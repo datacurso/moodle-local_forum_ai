@@ -78,7 +78,8 @@ class process_review extends external_api {
         $context = \context_module::instance($params['cmid']);
         self::validate_context($context);
         // Refuse while AI is switched off, before any data is gathered or audited.
-        utils::require_ai_available();
+        $tenantid = utils::get_tenant_id((int) $context->get_course_context()->instanceid, (int) $USER->id);
+        utils::require_ai_available($tenantid);
         require_capability('local/forum_ai:useaireview', $context);
 
         // The target user must belong to the forum's course.
@@ -114,7 +115,7 @@ class process_review extends external_api {
         ])->trigger();
 
         // Only the free-text 'reply' feedback is restored: criterion texts must stay as sent.
-        $response = $pseudonymizer->restore_replies(ai_service::call_ai_service_global($payload));
+        $response = $pseudonymizer->restore_replies(ai_service::call_ai_service_global($payload, $tenantid));
 
         // Simple grade.
         if (isset($response['grade'])) {

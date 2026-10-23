@@ -61,6 +61,7 @@ $string['discussion_label'] = 'Discussion : {$a}';
 $string['discussioninfo'] = 'Informations sur la discussion';
 $string['discussionmsg'] = 'Message généré par l’IA';
 $string['discussionname'] = 'Sujet';
+$string['editingtenant'] = 'Vous modifiez la configuration globale du locataire : {$a}';
 $string['enabled'] = 'Activer l’IA';
 $string['enablediainitconversation'] = 'Activer la réponse de l’IA au sujet de discussion';
 $string['enablediainitconversation_help'] = 'En activant cette option, l’IA pourra répondre au message initial qui lance la discussion. Il est également recommandé de sélectionner le rôle Enseignant dans le champ suivant.';
@@ -87,8 +88,17 @@ $string['eventaireviewrequested'] = 'Révision par l’IA demandée';
 $string['eventresponseapproved'] = 'Réponse IA approuvée';
 $string['eventresponserejected'] = 'Réponse IA rejetée';
 $string['eventresponseupdated'] = 'Réponse IA modifiée';
+$string['failure_licence_record'] = 'La réponse de l’IA n’a pas pu être générée, car la licence du service d’IA est absente ou non valide.';
+$string['failure_notification_fullmessage'] = 'Bonjour {$a->firstname},
+
+Forum IA n’a pas pu générer de réponse dans la discussion "{$a->discussion}" du forum "{$a->forum}" (cours "{$a->course}") car la licence du service d’IA est absente ou non valide. Le message n’a pas reçu de réponse de l’IA. Demandez à votre administrateur de vérifier la licence.
+
+Historique : {$a->historyurl}';
+$string['failure_notification_smallmessage'] = 'Réponse de l’IA non générée dans "{$a}"';
+$string['failure_notification_subject'] = 'Forum IA n’a pas pu générer de réponse';
 $string['forum'] = 'Forum';
 $string['forum_ai:approveresponses'] = 'Approuver ou rejeter les réponses générées par l’IA dans le forum';
+$string['forum_ai:managetenantsettings'] = 'Gérer les paramètres Forum AI du tenant';
 $string['forum_ai:useaireview'] = 'Utilisez la fonction de révision par IA pour évaluer le forum';
 $string['forumname'] = 'Forum';
 $string['grade'] = 'Note';
@@ -98,12 +108,14 @@ $string['invalidaction'] = 'L’action indiquée n’est pas valide.';
 $string['level'] = 'Niveau : {$a}';
 $string['managedby'] = 'Géré par';
 $string['messageprovider:ai_approval_request'] = 'Demande d’approbation IA';
+$string['messageprovider:ai_failure'] = 'La réponse de l’IA n’a pas pu être générée';
 $string['modal_title'] = 'Détails de l’historique de la discussion';
 $string['modal_title_pending'] = 'Détails de la discussion';
 $string['no'] = 'Non';
 $string['no_posts'] = 'Aucun message trouvé dans cette discussion.';
 $string['nohistory'] = 'Aucun historique de réponses IA approuvées, rejetées ou expirées.';
 $string['noresponses'] = 'Aucune réponse en attente d’approbation.';
+$string['notenantselected'] = 'Aucun locataire n’est sélectionné. Utilisez le sélecteur de locataire pour choisir le locataire à configurer. D’ici là, les valeurs affichées sont celles par défaut du plugin et elles ne peuvent pas être enregistrées.';
 $string['notification_course_label'] = 'Cours';
 $string['notification_fullmessage'] = 'Bonjour {$a->firstname},
 
@@ -188,6 +200,7 @@ $string['settings'] = 'Paramètres pour : ';
 $string['status'] = 'Statut';
 $string['statusapproved'] = 'Approuvé';
 $string['statusexpired'] = 'Expiré';
+$string['statusfailed'] = 'Échec';
 $string['statuspending'] = 'En attente';
 $string['statusrejected'] = 'Rejeté';
 $string['task_process_ai_queue'] = 'Traiter la file d’attente différée de Forum AI';

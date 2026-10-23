@@ -42,6 +42,9 @@ final class utils_reply_in_locked_test extends \advanced_testcase {
      * The global default must be false when unset, empty or zero, and true when enabled.
      */
     public function test_get_default_reply_in_locked(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
 
         unset_config('default_replyinlocked', 'local_forum_ai');
@@ -61,6 +64,9 @@ final class utils_reply_in_locked_test extends \advanced_testcase {
      * The effective value must fall back to the global default and honour per-forum overrides.
      */
     public function test_get_effective_reply_in_locked(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
 
         // No config row at all: global default applies.
@@ -115,6 +121,9 @@ final class utils_reply_in_locked_test extends \advanced_testcase {
      * Manually locked discussions only allow AI replies when the option is enabled.
      */
     public function test_can_reply_in_discussion_manual_lock(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         global $DB;
 
         $this->resetAfterTest();

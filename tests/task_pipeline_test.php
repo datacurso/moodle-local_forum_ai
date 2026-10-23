@@ -617,6 +617,9 @@ final class task_pipeline_test extends \advanced_testcase {
      * global AI flag is disabled, leaving the queue untouched.
      */
     public function test_queue_aborts_when_globally_disabled(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         global $DB;
 
         $this->resetAfterTest();

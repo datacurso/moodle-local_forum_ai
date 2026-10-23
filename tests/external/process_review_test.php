@@ -348,6 +348,9 @@ final class process_review_test extends externallib_advanced_testcase {
      * ai_review_requested event is recorded.
      */
     public function test_execute_refused_when_forum_ai_disabled(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
         set_config('enableforumai', 0, 'local_forum_ai');
 
@@ -358,6 +361,9 @@ final class process_review_test extends externallib_advanced_testcase {
      * A review request must be refused when the global AI switch is off.
      */
     public function test_execute_refused_when_global_ai_disabled(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
         set_config('default_enabled', 0, 'local_forum_ai');
 

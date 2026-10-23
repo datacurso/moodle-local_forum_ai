@@ -1,3 +1,27 @@
+## [1.1.3-wp] - 2026-10-13
+
+**Compatibility note:** Moodle Workplace 4.5 branch (`-wp` release). The plugin still loads on a plain Moodle LMS, where the site settings page and site values keep working as before.
+
+### Added
+
+- Moodle Workplace: every tenant has a completely independent configuration, stored in the new `local_forum_ai_tenant_config` table. A setting resolves to the value the tenant saved, or otherwise to the plugin built-in default; it never reads the site value and never the value of another tenant. Per-forum configuration is unchanged
+- Moodle Workplace: when the AI licence of a tenant is missing or invalid, the student reply is no longer lost silently. The failed attempt is listed in the history with the status "Failed" and the users who approve responses in that forum are notified (new message provider `ai_failure`); the notification carries a fixed text, never the provider error message
+- New capability `local/forum_ai:managetenantsettings`, granted to the manager archetype and to the Workplace Tenant administrator role, both on a fresh install and on upgrade
+- Moodle Workplace: the upgrade moves the former site settings of the plugin to the Workplace default tenant only, so its users keep the configuration they had; a value the default tenant already stores is kept, the site rows are removed from `config_plugins` and every other tenant starts from the plugin built-in defaults. A plain Moodle LMS keeps its site settings untouched
+
+### Changed
+
+- Moodle Workplace: the nine plugin settings are read through one resolver using the tenant of the forum course (its course category, otherwise the tenant of the user). Nothing is stored at site level, no site defaults are seeded and nothing at site level can switch on, switch off or change all tenants at once
+- Moodle Workplace: the switches "Enable Forum AI" and "Enable AI by default" only gate their own tenant in the observers, the ad hoc tasks, the delayed queue, the manual review service and button, the forum settings form and the navigation. The delayed queue items of a tenant with the AI disabled are dropped, and the other tenants are not affected
+- Moodle Workplace: turning off "Enable AI by default" disables the existing forum configurations of the active tenant only, never those of other tenants. A plain Moodle LMS still disables every forum
+- Moodle Workplace: the configuration of each tenant is the standard Forum AI settings page of Moodle LMS (`/admin/settings.php?section=local_forum_ai_settings`, same fields and help), now read and written per tenant. Site administrators find it in Site administration > Plugins > Local plugins > "Forum AI"; tenant administrators, who cannot see Local plugins, find the same page under Site administration > AI. A notice names the tenant being edited, which is the tenant selected with the Workplace tenant switcher or the own tenant of a tenant administrator
+- Moodle Workplace: the AI service client is created for the resolved tenant, so cron and ad hoc tasks use the licence of the tenant of the forum
+
+### Fixed
+
+- Course restore keeps the status "Failed" of restored history rows instead of turning them into pending responses
+- Moodle Workplace: when a backup carries no delay value, course restore uses the default delay of the tenant that owns the target course instead of the plugin built-in default
+
 ## [1.1.3] - 2026-10-06
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.2**.

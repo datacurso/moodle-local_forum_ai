@@ -38,5 +38,12 @@ function xmldb_local_forum_ai_install() {
     set_config('default_delayminutes', 60, 'local_forum_ai');
     set_config('default_question_turns', 1, 'local_forum_ai');
 
+    // Allow tenant administrators to manage their tenant settings (only when Workplace is present).
+    if (class_exists('\tool_tenant\manager')) {
+        // Capabilities are normally installed after this hook runs; load them now so they can be assigned.
+        update_capabilities('local_forum_ai');
+        \tool_tenant\manager::add_plugin_capabilities_to_tenant_admin_role('local_forum_ai');
+    }
+
     return true;
 }

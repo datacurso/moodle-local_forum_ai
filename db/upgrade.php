@@ -404,5 +404,52 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026100600, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026101300) {
+        // Tenant scoped defaults for the plugin settings (Moodle Workplace). No data is copied from the site settings.
+        $table = new xmldb_table('local_forum_ai_tenant_config');
+
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('tenantid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('name', XMLDB_TYPE_CHAR, '100', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('value', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_key('tenantid_name_uniq', XMLDB_KEY_UNIQUE, ['tenantid', 'name']);
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026101300, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026101301) {
+        // Allow tenant administrators to manage their tenant settings (only when Workplace is present).
+        if (class_exists('\tool_tenant\manager')) {
+            // The capability must exist before it can be assigned; core registers it only after this step.
+            update_capabilities('local_forum_ai');
+            \tool_tenant\manager::add_plugin_capabilities_to_tenant_admin_role('local_forum_ai');
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026101301, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026101302) {
+        // The ai_failure message provider (db/messages.php) is registered by the plugin version change itself.
+        upgrade_plugin_savepoint(true, 2026101302, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026101303) {
+        // Moodle Workplace: hand the former site settings to the default tenant, so its users keep the configuration
+        // they had; the other tenants start from the plugin defaults. Nothing is done on a plain Moodle LMS.
+        \local_forum_ai\local\tenant_migration::migrate_site_data_to_default_tenant();
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026101303, 'local', 'forum_ai');
+    }
+
     return true;
 }

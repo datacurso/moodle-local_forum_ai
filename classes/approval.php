@@ -302,6 +302,130 @@ class approval {
     }
 
     /**
+     * Returns the users who approve the AI responses of a discussion.
+     *
+     * Recipients are chosen by capability, never by role shortname, so custom or renamed roles holding the
+     * approval permission are notified as well. Links and previews must only reach approvers who can access the
+     * discussion group and could publish there on manual approval (the same group rules approve_response and
+     * publish_ai_post apply).
+     *
+     * @param object $discussion The discussion object.
+     * @param object $cm The forum course module.
+     * @param object $course The course object.
+     * @return \stdClass[] User records keyed by id.
+     */
+    private static function get_approval_recipients($discussion, $cm, $course): array {
+        global $DB;
+
+        $context = \context_module::instance($cm->id);
+        $approvers = get_users_by_capability($context, 'local/forum_ai:approveresponses', 'u.*');
+        $repliers = get_users_by_capability($context, 'mod/forum:replypost', 'u.id');
+
+        $discussiongroupid = isset($discussion->groupid)
+            ? (int) $discussion->groupid
+            : (int) $DB->get_field('forum_discussions', 'groupid', ['id' => $discussion->id], MUST_EXIST);
+        $groupdiscussion = (object) ['groupid' => $discussiongroupid];
+
+        $recipients = [];
+        foreach ($approvers as $approver) {
+            if (!empty($approver->suspended) || !isset($repliers[$approver->id])) {
+                continue;
+            }
+            if (!local\group_access::can_access_discussion($cm, $course, $discussiongroupid, (int) $approver->id)) {
+                continue;
+            }
+            if (!utils::can_user_reply_in_discussion_group($cm, $course, $groupdiscussion, (int) $approver->id)) {
+                continue;
+            }
+            $recipients[$approver->id] = $approver;
+        }
+
+        return $recipients;
+    }
+
+    /**
+     * Records that the AI response of a post could not be generated because the AI licence is missing or invalid.
+     *
+     * The failed attempt becomes a history row with the status 'failed' and the approvers are notified, so the
+     * student reply is not lost silently. Only a sanitized fixed text is stored and sent: the provider error
+     * message is never copied. A post is recorded once, so a task retry does not notify again.
+     *
+     * @param object $discussion The discussion object.
+     * @param object $forum The forum object.
+     * @param int $parentpostid The ID of the post that could not be answered.
+     * @param int $creatoruserid The author of that post.
+     * @return int The failed row id, or 0 when it was already recorded or could not be stored.
+     */
+    public static function record_failed_attempt($discussion, $forum, int $parentpostid, int $creatoruserid): int {
+        global $DB;
+
+        try {
+            $existing = ['forumid' => $forum->id, 'parentpostid' => $parentpostid, 'status' => 'failed'];
+            if ($DB->record_exists('local_forum_ai_pending', $existing)) {
+                return 0;
+            }
+
+            $row = new \stdClass();
+            $row->discussionid = $discussion->id;
+            $row->forumid = $forum->id;
+            $row->parentpostid = $parentpostid;
+            $row->creator_userid = $creatoruserid;
+            $row->subject = "Re: " . $discussion->name;
+            $row->message = get_string('failure_licence_record', 'local_forum_ai');
+            $row->status = 'failed';
+            $row->approval_token = self::generate_approval_token();
+            $row->timecreated = time();
+            $rowid = (int) $DB->insert_record('local_forum_ai_pending', $row);
+
+            self::send_failure_notification($discussion, $forum);
+
+            return $rowid;
+        } catch (\Exception $e) {
+            debugging('Error recording the failed AI attempt: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return 0;
+        }
+    }
+
+    /**
+     * Notifies the approvers that an AI response could not be generated.
+     *
+     * @param object $discussion The discussion object.
+     * @param object $forum The forum object.
+     * @return void
+     */
+    private static function send_failure_notification($discussion, $forum): void {
+        global $DB;
+
+        $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
+        $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
+        $historyurl = new \moodle_url('/local/forum_ai/history.php', ['courseid' => $course->id, 'forumid' => $forum->id]);
+
+        foreach (self::get_approval_recipients($discussion, $cm, $course) as $recipient) {
+            $strings = [
+                'firstname' => $recipient->firstname,
+                'discussion' => format_string($discussion->name),
+                'forum' => format_string($forum->name),
+                'course' => format_string($course->fullname),
+                'historyurl' => $historyurl->out(false),
+            ];
+            $message = new \core\message\message();
+            $message->component = 'local_forum_ai';
+            $message->name = 'ai_failure';
+            $message->userfrom = \core_user::get_noreply_user();
+            $message->userto = $recipient;
+            $message->subject = get_string('failure_notification_subject', 'local_forum_ai');
+            $message->fullmessage = get_string('failure_notification_fullmessage', 'local_forum_ai', $strings);
+            $message->fullmessageformat = FORMAT_PLAIN;
+            $message->fullmessagehtml = nl2br(s($message->fullmessage));
+            $message->smallmessage = get_string('failure_notification_smallmessage', 'local_forum_ai', $strings['discussion']);
+            $message->contexturl = $historyurl;
+            $message->contexturlname = get_string('historyresponses', 'local_forum_ai');
+            $message->courseid = $course->id;
+            message_send($message);
+        }
+    }
+
+    /**
      * Sends a notification using Moodle's messaging system.
      *
      * @param object $discussion The discussion object.
@@ -323,33 +447,7 @@ class approval {
             }
 
             $cm = get_coursemodule_from_instance('forum', $forum->id, $course->id, false, MUST_EXIST);
-            $context = \context_module::instance($cm->id);
-            // Recipients are chosen by capability, never by role shortname, so custom or
-            // renamed roles holding the approval permission are notified as well.
-            $approvers = get_users_by_capability($context, 'local/forum_ai:approveresponses', 'u.*');
-            $repliers = get_users_by_capability($context, 'mod/forum:replypost', 'u.id');
-
-            // The review link and preview must only reach approvers who can access
-            // the discussion group and could publish there on manual approval
-            // (the same group rules approve_response and publish_ai_post apply).
-            $discussiongroupid = isset($discussion->groupid)
-                ? (int) $discussion->groupid
-                : (int) $DB->get_field('forum_discussions', 'groupid', ['id' => $discussion->id], MUST_EXIST);
-            $groupdiscussion = (object) ['groupid' => $discussiongroupid];
-
-            $finalrecipients = [];
-            foreach ($approvers as $approver) {
-                if (!empty($approver->suspended) || !isset($repliers[$approver->id])) {
-                    continue;
-                }
-                if (!local\group_access::can_access_discussion($cm, $course, $discussiongroupid, (int) $approver->id)) {
-                    continue;
-                }
-                if (!utils::can_user_reply_in_discussion_group($cm, $course, $groupdiscussion, (int) $approver->id)) {
-                    continue;
-                }
-                $finalrecipients[$approver->id] = $approver;
-            }
+            $finalrecipients = self::get_approval_recipients($discussion, $cm, $course);
 
             if (empty($finalrecipients)) {
                 return false;

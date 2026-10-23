@@ -100,6 +100,9 @@ final class utils_test extends \advanced_testcase {
      * The default delay helper must use the plugin default and minimum-1 clamp.
      */
     public function test_get_default_delay_minutes(): void {
+        if (class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Site level settings do not exist on Moodle Workplace; see master_switch_test.');
+        }
         $this->resetAfterTest();
 
         unset_config('default_delayminutes', 'local_forum_ai');

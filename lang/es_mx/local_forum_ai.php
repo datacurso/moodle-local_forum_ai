@@ -61,6 +61,7 @@ $string['discussion_label'] = 'Debate: {$a}';
 $string['discussioninfo'] = 'Información del debate';
 $string['discussionmsg'] = 'Mensaje hecho por IA';
 $string['discussionname'] = 'Asunto';
+$string['editingtenant'] = 'Estás editando la configuración global del tenant: {$a}';
 $string['enabled'] = 'Habilitar IA';
 $string['enablediainitconversation'] = 'Habilitar respuesta IA al tema de discusión';
 $string['enablediainitconversation_help'] = 'Al habilitar esta opción, la IA podrá responder al mensaje inicial que inicia la discusión. También se recomienda seleccionar el rol de Profesor en el campo siguiente.';
@@ -87,8 +88,17 @@ $string['eventaireviewrequested'] = 'Revisión con IA solicitada';
 $string['eventresponseapproved'] = 'Respuesta de IA aprobada';
 $string['eventresponserejected'] = 'Respuesta de IA rechazada';
 $string['eventresponseupdated'] = 'Respuesta de IA editada';
+$string['failure_licence_record'] = 'No se pudo generar la respuesta de IA porque la licencia del servicio de IA falta o no es válida.';
+$string['failure_notification_fullmessage'] = 'Hola {$a->firstname},
+
+Foro IA no pudo generar una respuesta en el debate "{$a->discussion}" del foro "{$a->forum}" (curso "{$a->course}") porque la licencia del servicio de IA falta o no es válida. La IA no respondió a la publicación. Pide a tu administrador que revise la licencia.
+
+Historial: {$a->historyurl}';
+$string['failure_notification_smallmessage'] = 'Respuesta de IA no generada en "{$a}"';
+$string['failure_notification_subject'] = 'Foro IA no pudo generar una respuesta';
 $string['forum'] = 'Foro';
 $string['forum_ai:approveresponses'] = 'Aprobar o rechazar respuestas generadas por IA en los foros';
+$string['forum_ai:managetenantsettings'] = 'Gestionar la configuración de Forum AI del tenant';
 $string['forum_ai:useaireview'] = 'Utilice la función de revisión de IA para calificar el foro';
 $string['forumname'] = 'Foro';
 $string['grade'] = 'Calificación';
@@ -98,12 +108,14 @@ $string['invalidaction'] = 'La acción indicada no es válida.';
 $string['level'] = 'Nivel: {$a}';
 $string['managedby'] = 'Gestionado por';
 $string['messageprovider:ai_approval_request'] = 'Solicitud de aprobación de IA';
+$string['messageprovider:ai_failure'] = 'No se pudo generar la respuesta de IA';
 $string['modal_title'] = 'Detalles del historial de debate';
 $string['modal_title_pending'] = 'Detalles del debate';
 $string['no'] = 'No';
 $string['no_posts'] = 'No se encontraron posts en este debate.';
 $string['nohistory'] = 'No hay historial de respuestas IA aprobadas, rechazadas o vencidas.';
 $string['noresponses'] = 'No hay respuestas pendientes de aprobación.';
+$string['notenantselected'] = 'No hay ningún tenant seleccionado. Usa el selector de tenant para elegir el tenant que quieres configurar. Mientras tanto, los valores mostrados son los predeterminados del plugin y no se pueden guardar.';
 $string['notification_course_label'] = 'Curso';
 $string['notification_fullmessage'] = 'Hola {$a->firstname},
 
@@ -188,6 +200,7 @@ $string['settings'] = 'Configuración para: ';
 $string['status'] = 'Estado';
 $string['statusapproved'] = 'Aprobado';
 $string['statusexpired'] = 'Vencido';
+$string['statusfailed'] = 'Fallido';
 $string['statuspending'] = 'Pendiente';
 $string['statusrejected'] = 'Rechazado';
 $string['task_process_ai_queue'] = 'Procesar cola diferida de Foro IA';

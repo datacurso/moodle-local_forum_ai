@@ -189,6 +189,26 @@ final class upgrade_test extends \advanced_testcase {
     }
 
     /**
+     * Moodle Workplace: the 2026101303 step hands the site settings to the default tenant.
+     */
+    public function test_upgrade_moves_site_settings_to_default_tenant(): void {
+        if (!class_exists('\tool_tenant\tenancy')) {
+            $this->markTestSkipped('Moodle Workplace (tool_tenant) is not installed.');
+        }
+        $this->resetAfterTest();
+
+        set_config('enableforumai', 0, 'local_forum_ai');
+        set_config('default_reply_message', 'Site reply message', 'local_forum_ai');
+        $tenantid = \tool_tenant\tenancy::get_default_tenant_id();
+
+        set_config('version', 2026101302, 'local_forum_ai');
+        xmldb_local_forum_ai_upgrade(2026101302);
+
+        $this->assertSame('0', \local_forum_ai\local\tenant_config::get('enableforumai', $tenantid));
+        $this->assertSame('Site reply message', \local_forum_ai\local\tenant_config::get('default_reply_message', $tenantid));
+    }
+
+    /**
      * Creates two forums for migration tests.
      *
      * @return array{0: \stdClass, 1: \stdClass}

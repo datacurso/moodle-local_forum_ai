@@ -28,6 +28,9 @@ final class restore_local_forum_ai_plugin_test_double extends \restore_local_for
     /** @var array<int, array<int, int|null>> */
     private array $mappings = [];
 
+    /** @var int Id of the course the restore targets. */
+    private int $courseid = 0;
+
     /**
      * Build a test double without running the parent restore constructor.
      */
@@ -42,6 +45,16 @@ final class restore_local_forum_ai_plugin_test_double extends \restore_local_for
      */
     public function seed_mappings(array $mappings): void {
         $this->mappings = $mappings;
+    }
+
+    /**
+     * Seed the id of the course the restore targets.
+     *
+     * @param int $courseid Target course id.
+     * @return void
+     */
+    public function seed_courseid(int $courseid): void {
+        $this->courseid = $courseid;
     }
 
     /**
@@ -74,5 +87,14 @@ final class restore_local_forum_ai_plugin_test_double extends \restore_local_for
      */
     protected function get_mappingid($itemname, $oldid, $ifnotfound = false) {
         return $this->mappings[$itemname][$oldid] ?? $ifnotfound;
+    }
+
+    /**
+     * Return the seeded target course id.
+     *
+     * @return int
+     */
+    protected function get_target_courseid(): int {
+        return $this->courseid;
     }
 }
