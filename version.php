@@ -25,11 +25,11 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_forum_ai';
-$plugin->release = '1.1.4';
-$plugin->version = 2026101900;
+$plugin->release = '1.1.5';
+$plugin->version = 2026110500;
 $plugin->requires = 2024100700;
 $plugin->maturity = MATURITY_STABLE;
-$plugin->supported = [405, 502];
+$plugin->supported = [405, 503];
 $plugin->dependencies = [
     'aiprovider_datacurso' => 2025100201,
 ];

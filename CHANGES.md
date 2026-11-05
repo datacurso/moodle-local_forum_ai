@@ -1,4 +1,12 @@
-## [1.2.0] - 2026-10-19
+## [1.1.5] - 2026-11-05
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
+
+### Changed
+
+- Declared compatibility with Moodle 5.3 (`$plugin->supported` is now `[405, 503]`). Manual and automated checks on Moodle 5.3 found no regressions caused by the new core version.
+
+## [1.1.4] - 2026-10-19
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.2**.
 
