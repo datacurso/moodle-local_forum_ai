@@ -175,6 +175,8 @@ final class upgrade_test extends \advanced_testcase {
     public function test_upgrade_repairs_auto_mode_identities(): void {
         global $DB;
 
+        $this->require_provider();
+
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
@@ -222,6 +224,8 @@ final class upgrade_test extends \advanced_testcase {
     public function test_upgrade_migrates_empty_allowedroles_to_student_roles(): void {
         global $DB;
 
+        $this->require_provider();
+
         $this->resetAfterTest();
 
         $studentroleids = array_keys($DB->get_records('role', ['archetype' => 'student'], 'id', 'id'));
@@ -261,6 +265,8 @@ final class upgrade_test extends \advanced_testcase {
      */
     public function test_upgrade_enables_initconversation_default_without_touching_forums(): void {
         global $DB;
+
+        $this->require_provider();
 
         $this->resetAfterTest();
 
@@ -319,6 +325,8 @@ final class upgrade_test extends \advanced_testcase {
     private function create_forums(): array {
         global $DB;
 
+        $this->require_provider();
+
         $course = $this->getDataGenerator()->create_course();
         $forumdefault = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
         $forumoverride = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
@@ -355,5 +363,17 @@ final class upgrade_test extends \advanced_testcase {
             'timecreated' => $now,
             'timemodified' => $now,
         ]);
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

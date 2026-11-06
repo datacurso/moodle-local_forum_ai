@@ -20,6 +20,7 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/../../locallib.php');
 
+use aiprovider_datacurso\local\plugin_settings;
 use core\event\course_module_created;
 use core\event\course_module_deleted;
 
@@ -45,8 +46,8 @@ class module {
         global $DB;
 
         try {
-            // Only process forum modules.
-            if ($event->other['modulename'] !== 'forum') {
+            // Only process forum modules, and only while the plugin is enabled in the provider.
+            if ($event->other['modulename'] !== 'forum' || !plugin_settings::is_enabled('local_forum_ai')) {
                 return true;
             }
 

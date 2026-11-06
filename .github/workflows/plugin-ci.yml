@@ -1,11 +1,6 @@
 name: Moodle Plugin CI
 
 on:
-  push:
-    branches:
-      - main
-      - MOODLE_*_STABLE
-  pull_request:
   workflow_dispatch:
 
 jobs:

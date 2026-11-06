@@ -16,6 +16,7 @@
 
 namespace local_forum_ai;
 
+use aiprovider_datacurso\local\plugin_settings;
 use local_forum_ai\helper\rubric;
 use local_forum_ai\helper\guide;
 use local_forum_ai\local\payload_pseudonymizer;
@@ -141,20 +142,6 @@ class utils {
     }
 
     /**
-     * Checks whether forum AI feature is globally enabled.
-     *
-     * @return bool
-     */
-    public static function is_feature_enabled(): bool {
-        $enabled = get_config('local_forum_ai', 'enableforumai');
-        if ($enabled === false || $enabled === '') {
-            return true;
-        }
-
-        return !empty($enabled);
-    }
-
-    /**
      * Checks whether forum AI can be enabled globally per forum.
      *
      * @return bool
@@ -169,23 +156,25 @@ class utils {
     }
 
     /**
-     * Checks whether AI features may run: both the Forum AI master switch
-     * and the global AI switch must be on.
+     * Checks whether AI features may run: Forum AI must be enabled in the Datacurso AI provider
+     * and the global AI switch of the plugin must be on.
      *
      * @return bool
      */
     public static function is_ai_available(): bool {
-        return self::is_feature_enabled() && self::is_global_ai_enabled();
+        return plugin_settings::is_enabled('local_forum_ai') && self::is_global_ai_enabled();
     }
 
     /**
      * Ensures AI features may run before any data is sent to the AI service.
      *
      * @return void
-     * @throws \moodle_exception When an AI switch is off.
+     * @throws \moodle_exception plugindisabled or plugindisabled_admin (aiprovider_datacurso) when Forum AI
+     *                           is disabled in the provider, error_aidisabled when the global AI switch is off.
      */
     public static function require_ai_available(): void {
-        if (!self::is_ai_available()) {
+        plugin_settings::require_enabled('local_forum_ai');
+        if (!self::is_global_ai_enabled()) {
             throw new \moodle_exception('error_aidisabled', 'local_forum_ai');
         }
     }

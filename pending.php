@@ -43,6 +43,8 @@ if ($forumid) {
     $context = context_course::instance($course->id);
 }
 
+\aiprovider_datacurso\local\plugin_settings::require_enabled('local_forum_ai');
+
 require_capability('local/forum_ai:approveresponses', $context);
 
 $PAGE->set_url('/local/forum_ai/pending.php', ['forumid' => $forumid]);

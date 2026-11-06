@@ -453,6 +453,8 @@ final class notifications_test extends \advanced_testcase {
     private function create_setup(array $forumoptions = []): stdClass {
         global $DB;
 
+        $this->require_provider();
+
         $setup = new stdClass();
         $setup->course = $this->getDataGenerator()->create_course();
         $setup->student = $this->getDataGenerator()->create_and_enrol($setup->course, 'student');
@@ -499,5 +501,17 @@ final class notifications_test extends \advanced_testcase {
         $pending->id = $DB->insert_record('local_forum_ai_pending', $pending);
 
         return $pending;
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

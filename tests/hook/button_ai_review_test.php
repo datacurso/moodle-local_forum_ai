@@ -38,6 +38,17 @@ use core\hook\output\before_footer_html_generation;
  */
 final class button_ai_review_test extends \advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * A teacher with the review capability gets the button on the forum view page.
      */
     public function test_button_injected_for_teacher_when_ai_enabled(): void {
@@ -53,11 +64,12 @@ final class button_ai_review_test extends \advanced_testcase {
      * The button must not be injected while either AI switch is off.
      *
      * @dataProvider disabled_switch_provider
+     * @param string $plugin Component that owns the switch.
      * @param string $switch Config name of the switch turned off.
      */
-    public function test_button_not_injected_when_ai_disabled(string $switch): void {
+    public function test_button_not_injected_when_ai_disabled(string $plugin, string $switch): void {
         $this->resetAfterTest();
-        set_config($switch, 0, 'local_forum_ai');
+        set_config($switch, 0, $plugin);
 
         [$cm, $teacher] = $this->create_forum_with_teacher();
         $this->setUser($teacher);
@@ -91,8 +103,8 @@ final class button_ai_review_test extends \advanced_testcase {
      */
     public static function disabled_switch_provider(): array {
         return [
-            'forum ai disabled' => ['enableforumai'],
-            'global ai disabled' => ['default_enabled'],
+            'forum ai disabled' => ['aiprovider_datacurso', 'plugin_enabled_local_forum_ai'],
+            'global ai disabled' => ['local_forum_ai', 'default_enabled'],
         ];
     }
 
