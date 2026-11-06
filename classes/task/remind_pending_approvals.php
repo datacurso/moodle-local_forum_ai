@@ -16,8 +16,8 @@
 
 namespace local_forum_ai\task;
 
+use aiprovider_datacurso\local\plugin_settings;
 use local_forum_ai\approval;
-use local_forum_ai\utils;
 
 /**
  * Scheduled task that reminds the approvers about AI responses still waiting for review.
@@ -55,7 +55,8 @@ class remind_pending_approvals extends \core\task\scheduled_task {
     public function execute() {
         global $DB;
 
-        if (!utils::is_feature_enabled()) {
+        if (!plugin_settings::is_enabled('local_forum_ai')) {
+            mtrace(get_string('task_skipped_plugindisabled', 'local_forum_ai'));
             return;
         }
 

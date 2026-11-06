@@ -93,11 +93,13 @@ final class ai_service_test extends \advanced_testcase {
      * Both service calls must refuse to transfer data while either AI switch is off.
      *
      * @dataProvider disabled_switch_provider
+     * @param string $plugin Component that owns the switch.
      * @param string $switch Config name of the switch turned off.
+     * @param string $errorcode Expected error code of the refusal.
      */
-    public function test_calls_refused_when_ai_disabled(string $switch): void {
+    public function test_calls_refused_when_ai_disabled(string $plugin, string $switch, string $errorcode): void {
         $this->resetAfterTest();
-        set_config($switch, 0, 'local_forum_ai');
+        set_config($switch, 0, $plugin);
 
         $client = new mock_ai_client();
         ai_service::set_client_for_testing($client);
@@ -111,7 +113,7 @@ final class ai_service_test extends \advanced_testcase {
                 $call();
                 $this->fail("{$name}() was expected to be refused.");
             } catch (\moodle_exception $e) {
-                $this->assertSame('error_aidisabled', $e->errorcode, $name);
+                $this->assertSame($errorcode, $e->errorcode, $name);
             }
         }
 
@@ -125,8 +127,8 @@ final class ai_service_test extends \advanced_testcase {
      */
     public static function disabled_switch_provider(): array {
         return [
-            'forum ai disabled' => ['enableforumai'],
-            'global ai disabled' => ['default_enabled'],
+            'forum ai disabled' => ['aiprovider_datacurso', 'plugin_enabled_local_forum_ai', 'plugindisabled'],
+            'global ai disabled' => ['local_forum_ai', 'default_enabled', 'error_aidisabled'],
         ];
     }
 }

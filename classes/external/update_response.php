@@ -16,6 +16,7 @@
 
 namespace local_forum_ai\external;
 
+use aiprovider_datacurso\local\plugin_settings;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
@@ -78,6 +79,9 @@ class update_response extends external_api {
             'message' => $message,
             'plaintext' => $plaintext,
         ]);
+
+        // Refuse while the plugin is disabled in the Datacurso AI provider.
+        plugin_settings::require_enabled('local_forum_ai');
 
         // Token, capability and discussion group are enforced in one place.
         $loaded = approval::load_pending_for_user($params['token']);

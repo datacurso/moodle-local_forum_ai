@@ -443,5 +443,14 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101600, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026110600) {
+        // The "Enabled" switch of the plugin is now kept by the Datacurso AI provider, which copied
+        // the value of enableforumai into its own setting before this upgrade, so the old setting is removed.
+        unset_config('enableforumai', 'local_forum_ai');
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026110600, 'local', 'forum_ai');
+    }
+
     return true;
 }

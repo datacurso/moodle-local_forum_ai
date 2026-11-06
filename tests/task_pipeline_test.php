@@ -627,12 +627,12 @@ final class task_pipeline_test extends \advanced_testcase {
 
         $queue = new task\process_ai_queue();
 
-        set_config('enableforumai', 0, 'local_forum_ai');
+        set_config('plugin_enabled_local_forum_ai', '0', 'aiprovider_datacurso');
         $this->run_task_capturing_output($queue);
         $this->assertTrue($DB->record_exists('local_forum_ai_queue', ['id' => $rowid]));
         $this->assertSame(0, $DB->count_records('task_adhoc', ['component' => 'local_forum_ai']));
 
-        set_config('enableforumai', 1, 'local_forum_ai');
+        set_config('plugin_enabled_local_forum_ai', '1', 'aiprovider_datacurso');
         set_config('default_enabled', 0, 'local_forum_ai');
         $this->run_task_capturing_output($queue);
         $this->assertTrue($DB->record_exists('local_forum_ai_queue', ['id' => $rowid]));

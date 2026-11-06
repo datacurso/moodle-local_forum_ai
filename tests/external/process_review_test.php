@@ -349,9 +349,9 @@ final class process_review_test extends externallib_advanced_testcase {
      */
     public function test_execute_refused_when_forum_ai_disabled(): void {
         $this->resetAfterTest();
-        set_config('enableforumai', 0, 'local_forum_ai');
+        set_config('plugin_enabled_local_forum_ai', '0', 'aiprovider_datacurso');
 
-        $this->assert_execute_refused_without_transfer();
+        $this->assert_execute_refused_without_transfer('plugindisabled');
     }
 
     /**
@@ -361,15 +361,16 @@ final class process_review_test extends externallib_advanced_testcase {
         $this->resetAfterTest();
         set_config('default_enabled', 0, 'local_forum_ai');
 
-        $this->assert_execute_refused_without_transfer();
+        $this->assert_execute_refused_without_transfer('error_aidisabled');
     }
 
     /**
      * Runs execute() as an authorized teacher and asserts it is refused before any transfer.
      *
+     * @param string $errorcode Expected error code of the refusal.
      * @return void
      */
-    private function assert_execute_refused_without_transfer(): void {
+    private function assert_execute_refused_without_transfer(string $errorcode): void {
         [$cm, $student, $teacher] = $this->create_forum_course();
 
         $client = new mock_ai_client(['feedback' => 'Mock AI feedback']);
@@ -387,7 +388,7 @@ final class process_review_test extends externallib_advanced_testcase {
         $sink->close();
 
         $this->assertNotNull($thrown, 'Expected moodle_exception was not thrown.');
-        $this->assertSame('error_aidisabled', $thrown->errorcode);
+        $this->assertSame($errorcode, $thrown->errorcode);
         $this->assertSame([], $client->requests);
 
         $reviewevents = array_filter($events, static function ($event) {

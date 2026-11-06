@@ -148,8 +148,9 @@ final class remind_pending_approvals_test extends \advanced_testcase {
         $this->resetAfterTest();
         $f = $this->create_fixture();
         $this->create_pending($f, ['timecreated' => time() - 4 * DAYSECS]);
-        set_config('enableforumai', 0, 'local_forum_ai');
+        set_config('plugin_enabled_local_forum_ai', '0', 'aiprovider_datacurso');
 
+        $this->expectOutputString(get_string('task_skipped_plugindisabled', 'local_forum_ai') . "\n");
         $this->assertCount(0, $this->run_task());
     }
 

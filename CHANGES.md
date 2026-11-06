@@ -1,3 +1,17 @@
+## [1.1.6] - 2026-11-06
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
+
+### Changed
+
+- The "Enable Forum AI" switch moved to the Datacurso AI provider: it is now the Enabled switch of Forum AI in Site administration > AI > Datacurso plugins list, and the plugin reads it through `\aiprovider_datacurso\local\plugin_settings::is_enabled('local_forum_ai')`. Disabling it still hides the forum settings section and pauses automatic processing, and now also stops the plugin's pages and web services (below) (`provider_plugin_state_test::test_feature_follows_the_provider_state`, `provider_plugin_state_test::test_former_setting_is_ignored`)
+- The former `local_forum_ai/enableforumai` setting is removed from the plugin settings page and deleted on upgrade (2026110600), with its strings `enableforumai` and `enableforumai_desc`; its value is preserved, because the provider copies it into its own setting before the plugin upgrades (`provider_plugin_state_test::test_settings_page_no_longer_defines_the_setting`, `provider_plugin_state_test::test_upgrade_removes_the_former_setting`)
+- The per-forum default "Enable AI" (`default_enabled`) is unchanged and stays in the plugin settings
+- The minimum required version of `aiprovider_datacurso` is raised to 1.7.0 (2026110400), the first release that keeps the state of the suite plugins and shows the shared "plugin disabled" message
+- Show the Datacurso AI provider message when Forum AI is disabled: the pending, history and review pages and the `get_details`, `approve_response`, `update_response` and `get_discussion_data` web services are refused, creating a single simple discussion forum no longer queues its AI task, and that task skips before queuing any retry; cleanup on course module deletion still runs. The single simple discussion forum task and the pending approvals reminder task log a translatable message (`task_skipped_plugindisabled`) when they skip (`plugin_disabled_guard_test`, `remind_pending_approvals_test::test_disabled_feature_sends_nothing`)
+- The `process_review` web service and the AI service calls now refuse with the provider message (`plugindisabled`, or `plugindisabled_admin` for site administrators) when Forum AI is disabled in the provider; `error_aidisabled` is kept for the per-forum default "Enable AI" switch (`ai_service_test::test_calls_refused_when_ai_disabled`, `process_review_test::test_execute_refused_when_forum_ai_disabled`)
+- `\local_forum_ai\utils::is_feature_enabled()` is removed; code that called it uses `plugin_settings::is_enabled('local_forum_ai')`
+
 ## [1.1.5] - 2026-11-05
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.

@@ -23,6 +23,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use aiprovider_datacurso\local\plugin_settings;
+
 /**
  * Extends the settings navigation (the "More" menu in forum activities).
  *
@@ -32,7 +34,7 @@
 function local_forum_ai_extend_settings_navigation(settings_navigation $nav, context $context) {
     global $PAGE, $DB, $USER;
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    if (!plugin_settings::is_enabled('local_forum_ai')) {
         return;
     }
 
@@ -90,7 +92,7 @@ function local_forum_ai_extend_settings_navigation(settings_navigation $nav, con
 function local_forum_ai_extend_navigation_course($navigation, $course, $context) {
     global $USER;
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    if (!plugin_settings::is_enabled('local_forum_ai')) {
         return;
     }
 
@@ -128,7 +130,7 @@ function local_forum_ai_extend_navigation_course($navigation, $course, $context)
 function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     global $DB, $USER;
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    if (!plugin_settings::is_enabled('local_forum_ai')) {
         return;
     }
 
@@ -460,7 +462,7 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         return $data;
     }
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    if (!plugin_settings::is_enabled('local_forum_ai')) {
         return $data;
     }
 
