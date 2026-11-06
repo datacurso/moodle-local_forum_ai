@@ -51,6 +51,8 @@ final class provider_plugin_state_test extends \advanced_testcase {
      * @return void
      */
     public function test_feature_follows_the_provider_state(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
         set_config('default_enabled', 1, 'local_forum_ai');
 
@@ -70,6 +72,8 @@ final class provider_plugin_state_test extends \advanced_testcase {
      * @return void
      */
     public function test_former_setting_is_ignored(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
         set_config('default_enabled', 1, 'local_forum_ai');
 
@@ -120,5 +124,17 @@ final class provider_plugin_state_test extends \advanced_testcase {
         xmldb_local_forum_ai_upgrade(2026110500);
 
         $this->assertFalse(get_config('local_forum_ai', 'enableforumai'));
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

@@ -71,6 +71,8 @@ final class plugin_disabled_guard_test extends \externallib_advanced_testcase {
     public function test_web_service_refused_when_disabled(string $classname, array $args): void {
         global $DB;
 
+        $this->require_provider();
+
         $this->resetAfterTest();
         [$pending, $teacher] = $this->create_pending_response();
         $this->setUser($teacher);
@@ -99,6 +101,8 @@ final class plugin_disabled_guard_test extends \externallib_advanced_testcase {
      * @return void
      */
     public function test_web_service_works_when_enabled(string $classname, array $args): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
         [$pending, $teacher] = $this->create_pending_response();
         $this->setUser($teacher);
@@ -119,6 +123,8 @@ final class plugin_disabled_guard_test extends \externallib_advanced_testcase {
      * @return void
      */
     public function test_single_forum_creation_queues_nothing_when_disabled(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
         plugin_settings::set_enabled('local_forum_ai', false);
 
@@ -134,6 +140,8 @@ final class plugin_disabled_guard_test extends \externallib_advanced_testcase {
      * @return void
      */
     public function test_single_forum_creation_queues_task_when_enabled(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
         plugin_settings::set_enabled('local_forum_ai', true);
 
@@ -149,6 +157,8 @@ final class plugin_disabled_guard_test extends \externallib_advanced_testcase {
      * @return void
      */
     public function test_single_forum_task_skips_without_requeue_when_disabled(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
         plugin_settings::set_enabled('local_forum_ai', false);
 
@@ -166,6 +176,8 @@ final class plugin_disabled_guard_test extends \externallib_advanced_testcase {
      * @return void
      */
     public function test_single_forum_task_requeues_when_enabled(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
         plugin_settings::set_enabled('local_forum_ai', true);
 
@@ -258,5 +270,17 @@ final class plugin_disabled_guard_test extends \externallib_advanced_testcase {
         ]);
 
         return [$pending, $teacher];
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

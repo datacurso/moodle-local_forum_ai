@@ -37,6 +37,17 @@ use stdClass;
  */
 final class utils_own_main_posts_test extends \advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * Only the user's own parent posts of other discussions are returned, pseudonymised.
      */
     public function test_returns_own_main_posts_of_other_discussions(): void {

@@ -43,6 +43,17 @@ require_once($CFG->dirroot . '/local/forum_ai/lib.php');
  */
 final class initconversation_visibility_test extends \advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * The task reports the skipped first post when the forum is graded and the option is off.
      */
     public function test_task_reports_skipped_first_post_of_graded_forum(): void {

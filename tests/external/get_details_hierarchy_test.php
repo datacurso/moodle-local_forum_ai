@@ -45,6 +45,17 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  */
 final class get_details_hierarchy_test extends externallib_advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * MDL-UNIT-012 (steps 1-2): posts are ordered by their parent chain and nested
      * replies get an increasing level, while siblings stay at the same level.
      */

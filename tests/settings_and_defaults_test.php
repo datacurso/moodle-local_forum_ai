@@ -57,6 +57,8 @@ final class settings_and_defaults_test extends \advanced_testcase {
     public function test_disable_all_forums_ai_disables_every_config_row(): void {
         global $DB;
 
+        $this->require_provider();
+
         $this->resetAfterTest();
 
         $course = $this->getDataGenerator()->create_course();
@@ -141,6 +143,8 @@ final class settings_and_defaults_test extends \advanced_testcase {
      */
     private function create_enabled_forum_configs(int $count): array {
         global $DB;
+
+        $this->require_provider();
 
         $course = $this->getDataGenerator()->create_course();
         $ids = [];
@@ -255,6 +259,8 @@ final class settings_and_defaults_test extends \advanced_testcase {
      * @return void
      */
     public function test_global_flags_fail_open_when_unconfigured(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
 
         $providerstate = 'plugin_enabled_local_forum_ai';
@@ -354,5 +360,17 @@ final class settings_and_defaults_test extends \advanced_testcase {
             '1.0.6 reactiva "Habilitar IA" aunque estuviera desactivado; afecta solo esa ' .
             'transicion — documentar en notas de version.'
         );
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

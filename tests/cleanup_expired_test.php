@@ -46,6 +46,17 @@ require_once($CFG->dirroot . '/local/forum_ai/locallib.php');
  */
 final class cleanup_expired_test extends \advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * Cleaning one course must never touch another course's rows.
      */
     public function test_cleanup_scopes_to_course(): void {

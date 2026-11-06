@@ -188,6 +188,8 @@ final class remind_pending_approvals_test extends \advanced_testcase {
      * @return stdClass Holder (course, forum, discussion, teacher).
      */
     private function create_fixture(bool $withteacher = true): stdClass {
+        $this->require_provider();
+
         $generator = $this->getDataGenerator();
         $f = new stdClass();
         $f->course = $generator->create_course();
@@ -214,5 +216,17 @@ final class remind_pending_approvals_test extends \advanced_testcase {
         return $this->getDataGenerator()->get_plugin_generator('local_forum_ai')->create_pending_response(
             ['discussionid' => $f->discussion->id] + $overrides
         );
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

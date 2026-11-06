@@ -38,6 +38,17 @@ use core\hook\output\before_footer_html_generation;
  */
 final class button_ai_review_test extends \advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * A teacher with the review capability gets the button on the forum view page.
      */
     public function test_button_injected_for_teacher_when_ai_enabled(): void {

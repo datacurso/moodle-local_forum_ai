@@ -46,6 +46,17 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  */
 final class update_response_events_test extends externallib_advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * Editing must trigger exactly one response_updated event with full audit data.
      */
     public function test_teacher_edit_triggers_response_updated_event(): void {
