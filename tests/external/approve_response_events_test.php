@@ -48,6 +48,17 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  */
 final class approve_response_events_test extends externallib_advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * A user whose role only grants mod/forum:viewdiscussion must not approve or reject.
      */
     public function test_viewdiscussion_only_role_cannot_approve_or_reject(): void {

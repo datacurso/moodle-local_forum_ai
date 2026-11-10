@@ -195,7 +195,7 @@ final class tenant_aware_setting_test extends \advanced_testcase {
     }
 
     /**
-     * The page has the nine settings with the tenant aware types, in the LMS order, plus the tenant notice.
+     * The page has the eight settings with the tenant aware types, in the LMS order, plus the tenant notice.
      */
     public function test_page_contains_the_tenant_aware_settings(): void {
         $this->require_tenancy();
@@ -206,7 +206,6 @@ final class tenant_aware_setting_test extends \advanced_testcase {
 
         $this->assertInstanceOf(tenant_notice::class, $settings->local_forum_aitenantnotice);
         $checkboxes = [
-            'enableforumai',
             'default_enabled',
             'default_enablediainitconversation',
             'default_require_approval',
@@ -222,6 +221,8 @@ final class tenant_aware_setting_test extends \advanced_testcase {
         foreach (tenant_config::SETTING_NAMES as $name) {
             $this->assertInstanceOf(\admin_setting::class, $settings->{'local_forum_ai' . $name});
         }
+        // Forum AI is switched on and off from the Datacurso AI provider; the page has no switch of its own.
+        $this->assertFalse(isset($settings->local_forum_aienableforumai));
     }
 
     /**
@@ -236,7 +237,7 @@ final class tenant_aware_setting_test extends \advanced_testcase {
         $property->setAccessible(true);
         $dependencies = $property->getValue($this->load_page());
 
-        $this->assertCount(18, $dependencies);
+        $this->assertCount(10, $dependencies);
     }
 
     /**
@@ -249,7 +250,6 @@ final class tenant_aware_setting_test extends \advanced_testcase {
         $tenant = $this->create_tenant('Tenant defaults');
         set_config('default_delayminutes', 5, 'local_forum_ai');
         set_config('default_reply_message', 'Site message', 'local_forum_ai');
-        set_config('enableforumai', 0, 'local_forum_ai');
         $this->switch_to((int) $tenant->id);
 
         foreach (tenant_config::SETTING_NAMES as $name) {
@@ -273,7 +273,7 @@ final class tenant_aware_setting_test extends \advanced_testcase {
         $this->switch_to((int) $tenanta->id);
         $this->assertSame('', $this->get_setting('default_reply_message')->write_setting('Prompt of A'));
         $this->assertSame('', $this->get_setting('default_delayminutes')->write_setting('15'));
-        $this->assertSame('', $this->get_setting('enableforumai')->write_setting('0'));
+        $this->assertSame('', $this->get_setting('default_enabled')->write_setting('0'));
 
         $this->switch_to((int) $tenantb->id);
         $this->assertSame(
@@ -281,13 +281,13 @@ final class tenant_aware_setting_test extends \advanced_testcase {
             $this->get_setting('default_reply_message')->get_setting()
         );
         $this->assertEquals(60, $this->get_setting('default_delayminutes')->get_setting());
-        $this->assertEquals(1, $this->get_setting('enableforumai')->get_setting());
+        $this->assertEquals(1, $this->get_setting('default_enabled')->get_setting());
         $this->assertSame('', $this->get_setting('default_reply_message')->write_setting('Prompt of B'));
 
         $this->switch_to((int) $tenanta->id);
         $this->assertSame('Prompt of A', $this->get_setting('default_reply_message')->get_setting());
         $this->assertSame('15', $this->get_setting('default_delayminutes')->get_setting());
-        $this->assertSame('0', $this->get_setting('enableforumai')->get_setting());
+        $this->assertSame('0', $this->get_setting('default_enabled')->get_setting());
 
         $this->assertSame('Prompt of B', tenant_config::get('default_reply_message', (int) $tenantb->id));
         $this->assertFalse($DB->record_exists('local_forum_ai_tenant_config', ['tenantid' => 0]));
@@ -308,7 +308,6 @@ final class tenant_aware_setting_test extends \advanced_testcase {
         $this->switch_to((int) $tenanta->id);
 
         $changed = admin_write_settings([
-            's_local_forum_ai_enableforumai' => '1',
             's_local_forum_ai_default_enabled' => '1',
             's_local_forum_ai_default_require_approval' => '1',
             's_local_forum_ai_default_usedelay' => '1',
@@ -423,7 +422,7 @@ final class tenant_aware_setting_test extends \advanced_testcase {
         $tenant = $this->create_tenant('Tenant I');
         $this->switch_to((int) $tenant->id);
         tenant_config::set('default_reply_message', (int) $tenant->id, 'Prompt kept');
-        tenant_config::set('enableforumai', (int) $tenant->id, 0);
+        tenant_config::set('default_enabled', (int) $tenant->id, 0);
         $before = tenant_config::get_all((int) $tenant->id);
         $rowsbefore = $DB->count_records('local_forum_ai_tenant_config');
 
@@ -537,6 +536,7 @@ final class tenant_aware_setting_test extends \advanced_testcase {
         global $DB;
 
         $this->require_tenancy();
+        $this->require_provider();
         $this->resetAfterTest();
         $this->setAdminUser();
         $tenanta = $this->create_tenant('Tenant Disable A');
@@ -572,6 +572,7 @@ final class tenant_aware_setting_test extends \advanced_testcase {
         global $DB;
 
         $this->require_tenancy();
+        $this->require_provider();
         $this->resetAfterTest();
         $this->setAdminUser();
         $course = $this->getDataGenerator()->create_course();
@@ -590,5 +591,17 @@ final class tenant_aware_setting_test extends \advanced_testcase {
         $setting->write_setting('0');
 
         $this->assertEquals(1, $DB->get_field('local_forum_ai_config', 'enabled', ['forumid' => $forum->id]));
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

@@ -160,6 +160,8 @@ final class utils_test extends \advanced_testcase {
     private function setup_whole_forum_grading(int $gradeforum): array {
         global $DB;
 
+        $this->require_provider();
+
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
         $student = $generator->create_user();
@@ -242,6 +244,8 @@ final class utils_test extends \advanced_testcase {
      * verbatim in every field (forum, discussion names and student answers).
      */
     public function test_build_forum_ai_payload_preserves_accents(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -274,6 +278,8 @@ final class utils_test extends \advanced_testcase {
      * The thread context must keep accents verbatim in message bodies.
      */
     public function test_build_thread_context_preserves_accents(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -308,6 +314,8 @@ final class utils_test extends \advanced_testcase {
      * kept along with the most recent posts.
      */
     public function test_build_thread_context_cap_keeps_root_post(): void {
+        $this->require_provider();
+
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -339,5 +347,17 @@ final class utils_test extends \advanced_testcase {
         $this->assertStringContainsString('Root topic message', $entries[0]['message']);
         $this->assertStringContainsString('Reply number 3', $entries[1]['message']);
         $this->assertStringContainsString('Reply number 4', $entries[2]['message']);
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

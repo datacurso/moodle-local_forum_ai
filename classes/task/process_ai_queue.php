@@ -106,8 +106,9 @@ class process_ai_queue extends \core\task\scheduled_task {
         // Under Workplace every tenant has its own switches: the items of a tenant with AI disabled are dropped,
         // exactly like the ad hoc tasks of that tenant, and the items of the other tenants are not affected.
         if ($authorid !== null && tenant_context::is_tenancy_available()) {
+            // Provider switch of the tenant of the author, plugin settings of the tenant of the course.
             $tenantid = utils::get_tenant_id($this->resolve_course_id($item->type, $data), $authorid);
-            if (!utils::is_ai_available($tenantid)) {
+            if (!utils::is_ai_available($tenantid, utils::get_user_tenant_id($authorid))) {
                 $DB->delete_records('local_forum_ai_queue', ['id' => $item->id]);
                 return;
             }

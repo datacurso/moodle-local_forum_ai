@@ -72,7 +72,6 @@ final class tenant_config_test extends \advanced_testcase {
      * Site values that differ from every plugin default.
      */
     private function set_divergent_site_config(): void {
-        set_config('enableforumai', 0, 'local_forum_ai');
         set_config('default_enabled', 0, 'local_forum_ai');
         set_config('default_enablediainitconversation', 1, 'local_forum_ai');
         set_config('default_require_approval', 0, 'local_forum_ai');
@@ -90,7 +89,6 @@ final class tenant_config_test extends \advanced_testcase {
      */
     public static function plugin_defaults_provider(): array {
         return [
-            'enableforumai' => ['enableforumai', 1],
             'default_enabled' => ['default_enabled', 1],
             'default_enablediainitconversation' => ['default_enablediainitconversation', 0],
             'default_require_approval' => ['default_require_approval', 1],
@@ -211,10 +209,10 @@ final class tenant_config_test extends \advanced_testcase {
     public function test_stored_zero_overrides_the_default(): void {
         $this->resetAfterTest();
 
-        tenant_config::set('enableforumai', 5, 0);
+        tenant_config::set('default_enabled', 5, 0);
 
-        $this->assertSame('0', tenant_config::get('enableforumai', 5));
-        $this->assertEquals(1, tenant_config::get('enableforumai', 6));
+        $this->assertSame('0', tenant_config::get('default_enabled', 5));
+        $this->assertEquals(1, tenant_config::get('default_enabled', 6));
     }
 
     /**
@@ -295,6 +293,7 @@ final class tenant_config_test extends \advanced_testcase {
      */
     public function test_resolver_finds_the_tenant_of_a_forum(): void {
         $this->require_tenancy();
+        $this->require_provider();
         $this->resetAfterTest();
 
         $tenant = $this->create_tenant('Tenant Forum');
@@ -372,5 +371,17 @@ final class tenant_config_test extends \advanced_testcase {
         $this->assertFalse(tenant_context::can_manage_tenant_settings((int) $tenantb->id, (int) $tenantadmin->id));
         $this->assertFalse(tenant_context::can_manage_tenant_settings((int) $tenanta->id, (int) $plainuser->id));
         $this->assertTrue(tenant_context::can_manage_tenant_settings((int) $tenantb->id, (int) $admin->id));
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

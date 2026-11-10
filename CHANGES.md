@@ -1,3 +1,20 @@
+## [1.1.4-wp] - 2026-11-09
+
+**Compatibility note:** Moodle Workplace 4.5 branch (`-wp` release). The plugin still loads on a plain Moodle LMS, where the site settings page and site values keep working as before.
+
+### Changed
+
+- Forum AI is switched on and off only from the Datacurso AI provider (the Enabled switch of Forum AI in Site administration > AI > Datacurso plugins list), per tenant on Moodle Workplace, read through `\aiprovider_datacurso\local\plugin_settings::is_enabled('local_forum_ai', $tenantid)`. The provider switch always follows the tenant of the user, never the tenant of the course: the current user in the pages, web services, navigation, forum form and review button; the post or discussion author in the observers, ad hoc tasks, delayed queue and AI service calls; the forum creator in the single simple discussion forum observer and task. Turning Forum AI off for one tenant never affects another tenant, and a user of a disabled tenant is refused even in a course of an enabled tenant. The plugin settings still use the tenant of the forum course (its course category, otherwise the tenant of the user)
+- AI calls are charged to the tenant of the user, matching the provider switch: the provider client (licence, region, credits) is built for the tenant of the current user in the review service and for the tenant of the post or discussion author in the ad hoc tasks, never for the tenant of the course. `ai_service::get_provider_client_arguments()` takes the user tenant (null for the current user)
+- New `\local_forum_ai\utils::get_user_tenant_id()`; `utils::is_ai_available()`, `utils::require_ai_available()`, `ai_service::call_ai_service()` and `ai_service::call_ai_service_global()` take an optional user tenant for the provider switch (null for the current user)
+- The single simple discussion forum task stores the user who created the forum (`userid` custom data), keeps it in its retries and gates on that user's tenant instead of the cron user (FORUMAI-WP-INFO-001)
+- Removed the plugin's own "Enable Forum AI" switch (`enableforumai`): the checkbox and its hide rules on the settings page, the per-tenant value, the install default, the `enableforumai` and `enableforumai_desc` strings and `\local_forum_ai\utils::is_feature_enabled()`. `utils::is_ai_available()` and `utils::require_ai_available()` now combine the provider state of the tenant with the per-tenant "Enable AI by default" switch (`default_enabled`), which is kept
+- Upgrade: the former "Enable Forum AI" values are copied into the provider (each tenant value to that tenant, a remaining site value to the provider site default) without overwriting a value the provider already holds, and are then removed from the plugin
+- The minimum required version of `aiprovider_datacurso` is raised to 2026110901, the first release that keeps the state of the suite plugins per tenant and shows the shared "plugin disabled" message
+- Show the Datacurso AI provider message when Forum AI is disabled in the provider for the tenant: the pending, history and review pages and the `get_details`, `approve_response`, `update_response` and `get_discussion_data` web services are refused, creating a single simple discussion forum no longer queues its AI task, and that task skips before queuing any retry, logging a translatable message (`task_skipped_plugindisabled`); cleanup on course module deletion still runs
+- The `process_review` web service and the AI service calls refuse with the provider message (`plugindisabled`, or `plugindisabled_admin` for site administrators) when Forum AI is disabled in the provider; `error_aidisabled` is kept for the per-tenant "Enable AI by default" switch
+- Tests skip with `aiprovider_datacurso is not installed.` when the provider is missing, as the CI pipeline does not install declared dependencies
+
 ## [1.1.3-wp] - 2026-10-13
 
 **Compatibility note:** Moodle Workplace 4.5 branch (`-wp` release). The plugin still loads on a plain Moodle LMS, where the site settings page and site values keep working as before.

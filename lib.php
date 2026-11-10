@@ -23,6 +23,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use aiprovider_datacurso\local\plugin_settings;
+
 /**
  * Extends the settings navigation (the "More" menu in forum activities).
  *
@@ -37,8 +39,9 @@ function local_forum_ai_extend_settings_navigation(settings_navigation $nav, con
         return;
     }
 
-    $tenantid = \local_forum_ai\utils::get_tenant_id((int) $PAGE->course->id, (int) $USER->id);
-    if (!\local_forum_ai\utils::is_feature_enabled($tenantid)) {
+    // Off while Forum AI is disabled in the Datacurso AI provider for the tenant of the current user (never the
+    // tenant of the course).
+    if (!plugin_settings::is_enabled('local_forum_ai')) {
         return;
     }
 
@@ -91,8 +94,9 @@ function local_forum_ai_extend_settings_navigation(settings_navigation $nav, con
 function local_forum_ai_extend_navigation_course($navigation, $course, $context) {
     global $USER;
 
-    $tenantid = \local_forum_ai\utils::get_tenant_id((int) $course->id, (int) $USER->id);
-    if (!\local_forum_ai\utils::is_feature_enabled($tenantid)) {
+    // Off while Forum AI is disabled in the Datacurso AI provider for the tenant of the current user (never the
+    // tenant of the course).
+    if (!plugin_settings::is_enabled('local_forum_ai')) {
         return;
     }
 
@@ -136,8 +140,11 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     }
 
     $cm = $formwrapper->get_current();
+    // The tenant of the course keeps resolving the plugin settings of the forum below.
     $tenantid = \local_forum_ai\utils::get_tenant_id((int) $cm->course, (int) $USER->id);
-    if (!\local_forum_ai\utils::is_feature_enabled($tenantid)) {
+    // Off while Forum AI is disabled in the Datacurso AI provider for the tenant of the current user (never the
+    // tenant of the course).
+    if (!plugin_settings::is_enabled('local_forum_ai')) {
         return;
     }
 
@@ -459,8 +466,11 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         return $data;
     }
 
+    // The tenant of the course keeps resolving the plugin settings of the forum below.
     $tenantid = \local_forum_ai\utils::get_tenant_id((int) $course->id, (int) $USER->id);
-    if (!\local_forum_ai\utils::is_feature_enabled($tenantid)) {
+    // Off while Forum AI is disabled in the Datacurso AI provider for the tenant of the current user (never the
+    // tenant of the course).
+    if (!plugin_settings::is_enabled('local_forum_ai')) {
         return $data;
     }
 

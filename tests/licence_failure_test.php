@@ -42,6 +42,17 @@ require_once(__DIR__ . '/fixtures/mock_ai_client.php');
  */
 final class licence_failure_test extends \advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * Always restore the real AI client after each test.
      */
     protected function tearDown(): void {
@@ -169,7 +180,7 @@ final class licence_failure_test extends \advanced_testcase {
     }
 
     /**
-     * The provider client is built for the resolved tenant so cron and ad hoc tasks use its licence.
+     * The provider client is built for the tenant of the user so cron and ad hoc tasks use the licence of the author.
      */
     public function test_client_arguments_carry_the_resolved_tenant(): void {
         $this->assertSame([null, 42], ai_service::get_provider_client_arguments(42));
@@ -180,6 +191,7 @@ final class licence_failure_test extends \advanced_testcase {
      */
     public function test_client_arguments_without_tenant_keep_provider_default(): void {
         $this->assertSame([], ai_service::get_provider_client_arguments(0));
+        $this->assertSame([], ai_service::get_provider_client_arguments(null), 'Null leaves the current user to the provider.');
     }
 
     /**

@@ -26,8 +26,8 @@ Feature: Forum AI settings in the admin page and the forum edit form
   Scenario: Admin sees the Forum AI settings page under Local plugins
     Given I log in as "admin"
     When I navigate to "Plugins > Local plugins > Forum AI" in site administration
-    Then I should see "Enable Forum AI"
-    And I should see "Enable AI"
+    Then I should see "Enable AI"
+    And I should not see "Enable Forum AI"
     And I should see "Enable AI response to the discussion topic"
     And I should see "Review AI Response"
     And I should see "Use delayed review"
@@ -35,18 +35,6 @@ Feature: Forum AI settings in the admin page and the forum edit form
     And I should see "Reply in locked discussions"
     And I should see "AI replies with guiding question (per thread)"
     And I should see "Give instructions to the AI"
-
-  @javascript @MDL-INT-001
-  Scenario: Disabling Enable Forum AI hides all dependent global settings
-    Given I log in as "admin"
-    And I navigate to "Plugins > Local plugins > Forum AI" in site administration
-    When I set the field "Enable Forum AI" to "0"
-    Then "Enable AI" "field" should not be visible
-    And "Enable AI response to the discussion topic" "field" should not be visible
-    And "Review AI Response" "field" should not be visible
-    And "Reply in locked discussions" "field" should not be visible
-    And "AI replies with guiding question (per thread)" "field" should not be visible
-    And "Give instructions to the AI" "field" should not be visible
 
   @javascript @MDL-INT-001
   Scenario: Disabling global Enable AI hides the settings dependent on it
@@ -58,7 +46,7 @@ Feature: Forum AI settings in the admin page and the forum edit form
     And "Reply in locked discussions" "field" should not be visible
     And "AI replies with guiding question (per thread)" "field" should not be visible
     And "Give instructions to the AI" "field" should not be visible
-    But "Enable Forum AI" "field" should be visible
+    But "Enable AI" "field" should be visible
 
   @MDL-INT-002
   Scenario: The Datacurso Forum AI section appears for an editing teacher when the plugin is enabled
@@ -70,9 +58,9 @@ Feature: Forum AI settings in the admin page and the forum edit form
     And I should see "Give instructions to the AI"
 
   @MDL-INT-002
-  Scenario: The Datacurso Forum AI section is hidden when Enable Forum AI is globally disabled
+  Scenario: The Datacurso Forum AI section is hidden when Forum AI is disabled in the Datacurso AI provider
     Given the following config values are set as admin:
-      | enableforumai | 0 | local_forum_ai |
+      | plugin_enabled_local_forum_ai | 0 | aiprovider_datacurso |
     When I am on the "Test forum" "forum activity editing" page logged in as "teacher1"
     Then I should not see "Datacurso Forum AI"
 

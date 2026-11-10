@@ -31,6 +31,9 @@ class ai_service {
     /** @var object|null Test-only replacement for the AI HTTP client. */
     private static ?object $testclient = null;
 
+    /** @var \Closure|null Test-only factory receiving the provider client constructor arguments. */
+    private static ?\Closure $testclientfactory = null;
+
     /**
      * Injects a stub HTTP client for PHPUnit runs.
      *
@@ -50,19 +53,45 @@ class ai_service {
     }
 
     /**
+     * Injects a factory that builds the HTTP client for PHPUnit runs.
+     *
+     * The factory receives the constructor arguments the real ai_services_api would get (see
+     * get_provider_client_arguments()), so tests can assert which tenant the request is charged to.
+     * Pass null to restore the real client (do this in tearDown).
+     *
+     * @param \Closure|null $factory function(array $arguments): object, or null to reset.
+     * @return void
+     * @throws \coding_exception When called outside a PHPUnit run.
+     */
+    public static function set_client_factory_for_testing(?\Closure $factory): void {
+        if (!(defined('PHPUNIT_TEST') && PHPUNIT_TEST)) {
+            throw new \coding_exception('set_client_factory_for_testing() is only available during PHPUnit runs.');
+        }
+        self::$testclientfactory = $factory;
+    }
+
+    /**
      * Returns the HTTP client used to reach the AI service.
      *
-     * @param int $tenantid Tenant the request belongs to, 0 when there is no tenant.
+     * The client is bound to the tenant of the user the request is for, the same tenant as the provider switch,
+     * so the licence, region and credits of that tenant are used; never the tenant of the course.
+     *
+     * @param int|null $usertenantid Tenant of the user the request is for, null for the current user.
      * @return object The injected test client, or a real ai_services_api.
      */
-    private static function get_client(int $tenantid = 0): object {
+    private static function get_client(?int $usertenantid = null): object {
         if (self::$testclient !== null) {
             return self::$testclient;
         }
 
-        // The provider resolves the licence of the tenant of the current user by default; the tenant of the
-        // forum is passed explicitly because cron and ad hoc tasks do not run as a user of that tenant.
-        return new ai_services_api(...self::get_provider_client_arguments($tenantid));
+        $arguments = self::get_provider_client_arguments($usertenantid);
+        if (self::$testclientfactory !== null) {
+            return (self::$testclientfactory)($arguments);
+        }
+
+        // Without a tenant the provider resolves the licence of the tenant of the current user; tasks pass the
+        // tenant of the author explicitly because cron does not run as that user.
+        return new ai_services_api(...$arguments);
     }
 
     /**
@@ -84,31 +113,36 @@ class ai_service {
     }
 
     /**
-     * Returns the constructor arguments of the provider client for a tenant.
+     * Returns the constructor arguments of the provider client for the tenant of a user.
      *
-     * @param int $tenantid Tenant the request belongs to, 0 when there is no tenant.
-     * @return array Empty when there is no tenant, so the provider keeps its default behaviour.
+     * @param int|null $usertenantid Tenant of the user the request is for; null for the current user, 0 when
+     *                               there is no tenant.
+     * @return array Empty without an explicit tenant, so the provider resolves the tenant of the current user.
      */
-    public static function get_provider_client_arguments(int $tenantid): array {
-        return $tenantid > 0 ? [null, $tenantid] : [];
+    public static function get_provider_client_arguments(?int $usertenantid): array {
+        return $usertenantid !== null && $usertenantid > 0 ? [null, $usertenantid] : [];
     }
 
     /**
      * Send the payload to the external AI service and return its response for post rating individually.
      *
      * @param array $payload Data to send to the AI service.
-     * @param int $tenantid Tenant the request belongs to, 0 when there is no tenant.
+     * @param int $tenantid Tenant of the forum, for the plugin settings only ("Enable AI by default"), 0 when
+     *                      there is no tenant.
+     * @param int|null $usertenantid Tenant of the user the request is for, null for the current user. It decides
+     *                               both the Datacurso AI provider switch and the tenant the call is charged to
+     *                               (licence, region, credits).
      * @return array The AI-generated reply.
      * @throws \moodle_exception If an AI switch is off or the request fails.
      */
-    public static function call_ai_service(array $payload, int $tenantid = 0): array {
+    public static function call_ai_service(array $payload, int $tenantid = 0, ?int $usertenantid = null): array {
         // Every transfer to the AI provider goes through here, so this is
         // the choke point that honours the site AI switches.
-        utils::require_ai_available($tenantid);
+        utils::require_ai_available($tenantid, $usertenantid);
 
         // The payload travels verbatim: the HTTP client sends UTF-8 JSON, so
         // accents and special characters must reach the AI service intact.
-        $client = self::get_client($tenantid);
+        $client = self::get_client($usertenantid);
         $response = $client->request('POST', '/forum/chat/v2', $payload);
 
         return self::format_chat_response($response);
@@ -136,16 +170,20 @@ class ai_service {
      * Send the payload to the external AI service and return its response for rating all of the user's posts.
      *
      * @param array $payload Data to send to the AI service.
-     * @param int $tenantid Tenant the request belongs to, 0 when there is no tenant.
+     * @param int $tenantid Tenant of the forum, for the plugin settings only ("Enable AI by default"), 0 when
+     *                      there is no tenant.
+     * @param int|null $usertenantid Tenant of the user the request is for, null for the current user. It decides
+     *                               both the Datacurso AI provider switch and the tenant the call is charged to
+     *                               (licence, region, credits).
      * @return array The AI-generated reply.
      * @throws \moodle_exception If an AI switch is off or the request fails.
      */
-    public static function call_ai_service_global(array $payload, int $tenantid = 0): array {
-        utils::require_ai_available($tenantid);
+    public static function call_ai_service_global(array $payload, int $tenantid = 0, ?int $usertenantid = null): array {
+        utils::require_ai_available($tenantid, $usertenantid);
 
         // The payload travels verbatim: rubric and guide criteria must keep
         // their accents so the AI echoes them exactly as the form shows them.
-        $client = self::get_client($tenantid);
+        $client = self::get_client($usertenantid);
         $response = $client->request('POST', '/forum/grade', $payload);
 
         if (is_array($response)) {

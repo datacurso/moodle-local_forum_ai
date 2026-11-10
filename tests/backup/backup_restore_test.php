@@ -51,6 +51,8 @@ final class backup_restore_test extends \advanced_testcase {
     public function test_pending_response_round_trips_with_reply_target_and_grade(): void {
         global $CFG, $DB, $USER;
 
+        $this->require_provider();
+
         $this->resetAfterTest();
         $this->setAdminUser();
         $CFG->backup_file_logger_level = \backup::LOG_NONE;
@@ -280,6 +282,8 @@ final class backup_restore_test extends \advanced_testcase {
      */
     public function test_backup_without_user_data_excludes_pending_responses(): void {
         global $CFG, $DB, $USER;
+
+        $this->require_provider();
 
         $this->resetAfterTest();
         $this->setAdminUser();
@@ -796,5 +800,17 @@ final class backup_restore_test extends \advanced_testcase {
 
         $this->assertSame(15, (int) $DB->get_field('local_forum_ai_config', 'delayminutes', ['forumid' => 2001], MUST_EXIST));
         $this->assertSame(40, (int) $DB->get_field('local_forum_ai_config', 'delayminutes', ['forumid' => 2002], MUST_EXIST));
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

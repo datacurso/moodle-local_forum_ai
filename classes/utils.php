@@ -16,6 +16,7 @@
 
 namespace local_forum_ai;
 
+use aiprovider_datacurso\local\plugin_settings;
 use local_forum_ai\helper\rubric;
 use local_forum_ai\helper\guide;
 use local_forum_ai\local\payload_pseudonymizer;
@@ -160,6 +161,9 @@ class utils {
     /**
      * Resolves the tenant a course belongs to: the tenant of its category, else the tenant of the user.
      *
+     * This tenant resolves the plugin settings of a forum only. It never decides the Datacurso AI provider switch
+     * nor the tenant an AI call is charged to: both follow the tenant of the user (see get_user_tenant_id()).
+     *
      * @param int $courseid Course id.
      * @param int $userid User id used as fallback, 0 for none.
      * @return int Tenant id, 0 without Moodle Workplace.
@@ -169,18 +173,17 @@ class utils {
     }
 
     /**
-     * Checks whether forum AI feature is enabled for a tenant.
+     * Resolves the tenant of a user, the tenant that decides the Datacurso AI provider switch of Forum AI.
      *
-     * @param int $tenantid Tenant id, 0 when there is no tenant.
-     * @return bool
+     * The provider switch and the tenant an AI call is charged to (licence, region, credits) always belong to
+     * the tenant of the user the work is done for (the current user in interactive code, the author or creator
+     * in observers and tasks), never to the tenant of the course.
+     *
+     * @param int $userid User id.
+     * @return int Tenant id, 0 without Moodle Workplace or without a user.
      */
-    public static function is_feature_enabled(int $tenantid = 0): bool {
-        $enabled = self::get_default('enableforumai', $tenantid);
-        if ($enabled === false || $enabled === '') {
-            return true;
-        }
-
-        return !empty($enabled);
+    public static function get_user_tenant_id(int $userid): int {
+        return tenant_context::get_tenant_id_for_user($userid);
     }
 
     /**
@@ -199,26 +202,35 @@ class utils {
     }
 
     /**
-     * Checks whether AI features may run: both the Forum AI master switch
-     * and the global AI switch must be on. Under Moodle Workplace both switches
-     * belong to the tenant and never affect another tenant.
+     * Checks whether AI features may run: Forum AI must be enabled in the Datacurso AI provider for the tenant
+     * of the user, and the "Enable AI by default" switch of the forum tenant must be on.
      *
-     * @param int $tenantid Tenant id, 0 when there is no tenant.
+     * The provider switch always follows the tenant of the user the work is done for, never the tenant of the
+     * course. Interactive code leaves $usertenantid null (the tenant of the current user); observers and tasks
+     * pass the tenant of the author or creator, because the current user of cron is not meaningful.
+     *
+     * @param int $tenantid Tenant of the forum (plugin settings), 0 when there is no tenant.
+     * @param int|null $usertenantid Tenant of the user for the provider switch, null for the current user.
      * @return bool
      */
-    public static function is_ai_available(int $tenantid = 0): bool {
-        return self::is_feature_enabled($tenantid) && self::is_global_ai_enabled($tenantid);
+    public static function is_ai_available(int $tenantid = 0, ?int $usertenantid = null): bool {
+        return plugin_settings::is_enabled('local_forum_ai', $usertenantid)
+            && self::is_global_ai_enabled($tenantid);
     }
 
     /**
      * Ensures AI features may run before any data is sent to the AI service.
      *
-     * @param int $tenantid Tenant id, 0 when there is no tenant.
+     * @param int $tenantid Tenant of the forum (plugin settings), 0 when there is no tenant.
+     * @param int|null $usertenantid Tenant of the user for the provider switch, null for the current user.
      * @return void
-     * @throws \moodle_exception When an AI switch is off.
+     * @throws \moodle_exception plugindisabled or plugindisabled_admin (aiprovider_datacurso) when Forum AI
+     *                           is disabled in the provider for the tenant of the user, error_aidisabled when
+     *                           the "Enable AI by default" switch of the forum tenant is off.
      */
-    public static function require_ai_available(int $tenantid = 0): void {
-        if (!self::is_ai_available($tenantid)) {
+    public static function require_ai_available(int $tenantid = 0, ?int $usertenantid = null): void {
+        plugin_settings::require_enabled('local_forum_ai', $usertenantid);
+        if (!self::is_global_ai_enabled($tenantid)) {
             throw new \moodle_exception('error_aidisabled', 'local_forum_ai');
         }
     }

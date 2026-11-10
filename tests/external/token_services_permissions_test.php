@@ -55,6 +55,17 @@ require_once(__DIR__ . '/../fixtures/xss_payload_fixture.php');
  */
 final class token_services_permissions_test extends externallib_advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * A student holding a valid token must not be able to approve or reject the response.
      */
     public function test_student_cannot_approve_or_reject(): void {

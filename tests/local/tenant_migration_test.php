@@ -54,7 +54,7 @@ final class tenant_migration_test extends \advanced_testcase {
      * Site values customised before the upgrade.
      */
     private function set_custom_site_config(): void {
-        set_config('enableforumai', 0, 'local_forum_ai');
+        set_config('default_enabled', 0, 'local_forum_ai');
         set_config('default_reply_message', 'Site reply message', 'local_forum_ai');
         set_config('default_delayminutes', 15, 'local_forum_ai');
     }
@@ -72,12 +72,12 @@ final class tenant_migration_test extends \advanced_testcase {
 
         tenant_migration::migrate_site_data_to_default_tenant();
 
-        $this->assertSame('0', tenant_config::get('enableforumai', $defaulttenantid));
+        $this->assertSame('0', tenant_config::get('default_enabled', $defaulttenantid));
         $this->assertSame('Site reply message', tenant_config::get('default_reply_message', $defaulttenantid));
         $this->assertSame('15', tenant_config::get('default_delayminutes', $defaulttenantid));
 
         $this->assertSame([], tenant_config::get_all((int) $other->id));
-        $this->assertSame(1, tenant_config::get('enableforumai', (int) $other->id));
+        $this->assertSame(1, tenant_config::get('default_enabled', (int) $other->id));
         $this->assertSame(60, tenant_config::get('default_delayminutes', (int) $other->id));
         $this->assertSame(
             get_string('default_reply_message', 'local_forum_ai'),
@@ -118,7 +118,7 @@ final class tenant_migration_test extends \advanced_testcase {
         tenant_migration::migrate_site_data_to_default_tenant();
 
         $this->assertSame($first, tenant_config::get_all($defaulttenantid));
-        $this->assertSame('0', tenant_config::get('enableforumai', $defaulttenantid));
+        $this->assertSame('0', tenant_config::get('default_enabled', $defaulttenantid));
         $this->assertSame('Site reply message', tenant_config::get('default_reply_message', $defaulttenantid));
     }
 

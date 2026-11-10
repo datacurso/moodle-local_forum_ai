@@ -62,6 +62,17 @@ require_once(__DIR__ . '/fixtures/mock_ai_client.php');
  */
 final class group_isolation_test extends externallib_advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * Always restore the real AI client after each test.
      */
     protected function tearDown(): void {

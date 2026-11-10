@@ -33,7 +33,6 @@ class tenant_config {
 
     /** @var string[] Settings that can be overridden per tenant. */
     public const SETTING_NAMES = [
-        'enableforumai',
         'default_enabled',
         'default_enablediainitconversation',
         'default_require_approval',
@@ -46,7 +45,6 @@ class tenant_config {
 
     /** @var array Built-in plugin defaults; the default reply message is the language string 'default_reply_message'. */
     public const DEFAULTS = [
-        'enableforumai' => 1,
         'default_enabled' => 1,
         'default_enablediainitconversation' => 0,
         'default_require_approval' => 1,
