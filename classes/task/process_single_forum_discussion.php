@@ -16,6 +16,8 @@
 
 namespace local_forum_ai\task;
 
+use aiprovider_datacurso\local\plugin_settings;
+
 /**
  * Adhoc task to process single forum discussions asynchronously.
  *
@@ -58,6 +60,16 @@ class process_single_forum_discussion extends \core\task\adhoc_task {
             return;
         }
 
+        // Skip before any retry is queued while the plugin is disabled in the provider for the tenant of the user
+        // who created the forum, never the tenant of the course nor the cron user. Tasks queued before the creator
+        // was stored fall back to the task user, else to the site default; the tenant of the discussion author is
+        // checked again by observer\discussion::process_discussion().
+        $creatorid = (int) ($data->userid ?? $this->get_userid() ?? 0);
+        if (!plugin_settings::is_enabled('local_forum_ai', \local_forum_ai\utils::get_user_tenant_id($creatorid))) {
+            mtrace(get_string('task_skipped_plugindisabled', 'local_forum_ai'));
+            return;
+        }
+
         try {
             // Attempt to retrieve the discussion for this forum.
             $discussion = $DB->get_record(
@@ -75,7 +87,9 @@ class process_single_forum_discussion extends \core\task\adhoc_task {
                     // Requeue the task for another attempt.
                     mtrace("Discussion not found for forum {$data->forumid}. Retry {$retries}/" . self::MAX_RETRIES);
 
+                    // The retry keeps the creator, so it gates on the same tenant as this run.
                     $newtask = new self();
+                    $data->userid = $creatorid;
                     $data->retries = $retries + 1;
                     $newtask->set_custom_data($data);
                     $newtask->set_next_run_time(time() + self::RETRY_DELAY);

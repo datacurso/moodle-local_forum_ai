@@ -47,6 +47,17 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  */
 final class approve_response_locked_test extends externallib_advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * Approving while the discussion is locked and the option is disabled must fail.
      */
     public function test_approve_fails_when_discussion_locked_and_option_disabled(): void {

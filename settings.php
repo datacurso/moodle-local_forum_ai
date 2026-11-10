@@ -71,13 +71,7 @@ if ($parentcategory !== null) {
             $settings->add(new \local_forum_ai\admin\tenant_notice('local_forum_ai/tenantnotice'));
         }
 
-        $settings->add(new $checkbox(
-            'local_forum_ai/enableforumai',
-            get_string('enableforumai', 'local_forum_ai'),
-            get_string('enableforumai_desc', 'local_forum_ai'),
-            1
-        ));
-
+        // Forum AI is switched on and off, per tenant, from the Datacurso AI provider; the plugin has no switch of its own.
         $globalenableaisetting = new $checkbox(
             'local_forum_ai/default_enabled',
             get_string('defaultenableai', 'local_forum_ai'),
@@ -158,15 +152,6 @@ if ($parentcategory !== null) {
             3,
             3
         ));
-
-        $settings->hide_if('local_forum_ai/default_enabled', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_enablediainitconversation', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_require_approval', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_usedelay', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_delayminutes', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_question_turns', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_replyinlocked', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_reply_message', 'local_forum_ai/enableforumai', 'eq', 0);
 
         $settings->hide_if('local_forum_ai/default_enablediainitconversation', 'local_forum_ai/default_enabled', 'eq', 0);
         $settings->hide_if('local_forum_ai/default_require_approval', 'local_forum_ai/default_enabled', 'eq', 0);

@@ -77,7 +77,9 @@ class process_review extends external_api {
 
         $context = \context_module::instance($params['cmid']);
         self::validate_context($context);
-        // Refuse while AI is switched off, before any data is gathered or audited.
+        // Refuse while AI is switched off, before any data is gathered or audited. The provider switch follows
+        // the tenant of the caller, like the tenant the AI call is charged to; the plugin settings follow the tenant
+        // of the course.
         $tenantid = utils::get_tenant_id((int) $context->get_course_context()->instanceid, (int) $USER->id);
         utils::require_ai_available($tenantid);
         require_capability('local/forum_ai:useaireview', $context);

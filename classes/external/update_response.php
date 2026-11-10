@@ -16,6 +16,7 @@
 
 namespace local_forum_ai\external;
 
+use aiprovider_datacurso\local\plugin_settings;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
@@ -83,6 +84,10 @@ class update_response extends external_api {
         $loaded = approval::load_pending_for_user($params['token']);
         $context = $loaded->context;
         self::validate_context($context);
+
+        // Refuse while the plugin is disabled in the Datacurso AI provider for the tenant of the caller (never the
+        // tenant of the course), before any data is returned or changed.
+        plugin_settings::require_enabled('local_forum_ai');
 
         // The edit shares the approval lock and only writes while the row is still pending,
         // so it can never revert a concurrent approval (status and postid are never written).

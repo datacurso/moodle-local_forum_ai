@@ -44,7 +44,6 @@ require_once($CFG->dirroot . '/local/forum_ai/db/upgrade.php');
  *
  * @group local_forum_ai
  * @covers \local_forum_ai\utils::disable_all_forums_ai
- * @covers \local_forum_ai\utils::is_feature_enabled
  * @covers \local_forum_ai\utils::is_global_ai_enabled
  * @covers \local_forum_ai\utils::get_default_question_turns
  * @covers \local_forum_ai\utils::get_effective_question_turns
@@ -56,6 +55,8 @@ final class settings_and_defaults_test extends \advanced_testcase {
      */
     public function test_disable_all_forums_ai_disables_every_config_row(): void {
         global $DB;
+
+        $this->require_provider();
 
         $this->resetAfterTest();
 
@@ -151,6 +152,8 @@ final class settings_and_defaults_test extends \advanced_testcase {
     private function create_enabled_forum_configs(int $count): array {
         global $DB;
 
+        $this->require_provider();
+
         $course = $this->getDataGenerator()->create_course();
         $ids = [];
         for ($i = 0; $i < $count; $i++) {
@@ -204,7 +207,6 @@ final class settings_and_defaults_test extends \advanced_testcase {
     public function test_install_seeds_documented_defaults(): void {
         // The phpunit site runs db/install.php, so all install-time defaults exist.
         $expected = [
-            'enableforumai' => '1',
             'default_enabled' => '1',
             'default_require_approval' => '1',
             'default_enablediainitconversation' => '0',
@@ -220,6 +222,9 @@ final class settings_and_defaults_test extends \advanced_testcase {
                 "Setting {$name} must be seeded with its documented default."
             );
         }
+
+        // Forum AI has no switch of its own: it is switched on and off from the Datacurso AI provider.
+        $this->assertFalse(get_config('local_forum_ai', 'enableforumai'));
 
         // The default instructions text is seeded from the language string.
         $this->assertSame(
@@ -270,27 +275,19 @@ final class settings_and_defaults_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         // Unset: enabled (fail-open, documented behavior).
-        unset_config('enableforumai', 'local_forum_ai');
         unset_config('default_enabled', 'local_forum_ai');
-        $this->assertTrue(utils::is_feature_enabled());
         $this->assertTrue(utils::is_global_ai_enabled());
 
         // Empty string: still enabled.
-        set_config('enableforumai', '', 'local_forum_ai');
         set_config('default_enabled', '', 'local_forum_ai');
-        $this->assertTrue(utils::is_feature_enabled());
         $this->assertTrue(utils::is_global_ai_enabled());
 
         // Explicit zero: disabled.
-        set_config('enableforumai', 0, 'local_forum_ai');
         set_config('default_enabled', 0, 'local_forum_ai');
-        $this->assertFalse(utils::is_feature_enabled());
         $this->assertFalse(utils::is_global_ai_enabled());
 
         // Explicit one: enabled.
-        set_config('enableforumai', 1, 'local_forum_ai');
         set_config('default_enabled', 1, 'local_forum_ai');
-        $this->assertTrue(utils::is_feature_enabled());
         $this->assertTrue(utils::is_global_ai_enabled());
     }
 
@@ -335,7 +332,6 @@ final class settings_and_defaults_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $custom = [
-            'enableforumai' => '0',
             'default_enabled' => '0',
             'default_require_approval' => '0',
             'default_usedelay' => '1',
@@ -363,6 +359,23 @@ final class settings_and_defaults_test extends \advanced_testcase {
     }
 
     /**
+     * MDL-INT-033 (step 1): a deliberately disabled former "Enable Forum AI" switch stays disabled after the
+     * upgrade, now in the Datacurso AI provider, and the former value is removed from the plugin.
+     */
+    public function test_upgrade_moves_disabled_feature_switch_to_provider(): void {
+        $this->require_provider();
+        $this->resetAfterTest();
+
+        set_config('enableforumai', 0, 'local_forum_ai');
+        set_config('version', 2026080400, 'local_forum_ai');
+
+        xmldb_local_forum_ai_upgrade(2026080400);
+
+        $this->assertFalse(get_config('local_forum_ai', 'enableforumai'));
+        $this->assertFalse(\aiprovider_datacurso\local\plugin_settings::is_enabled('local_forum_ai'));
+    }
+
+    /**
      * MDL-INT-033 (step 2): the transition from versions before 1.0.6 with
      * "Habilitar IA" disabled.
      */
@@ -372,5 +385,17 @@ final class settings_and_defaults_test extends \advanced_testcase {
             '1.0.6 reactiva "Habilitar IA" aunque estuviera desactivado; afecta solo esa ' .
             'transicion — documentar en notas de version.'
         );
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

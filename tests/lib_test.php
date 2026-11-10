@@ -382,6 +382,8 @@ final class lib_test extends \advanced_testcase {
     private function create_course_forum(): array {
         global $DB;
 
+        $this->require_provider();
+
         $course = $this->getDataGenerator()->create_course();
         $forummodule = $this->getDataGenerator()->create_module('forum', ['course' => $course->id]);
         $forum = $DB->get_record('forum', ['id' => $forummodule->id], '*', MUST_EXIST);
@@ -432,5 +434,17 @@ final class lib_test extends \advanced_testcase {
             'instance' => $forumid,
             'course' => $courseid,
         ], $overrides);
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

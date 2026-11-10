@@ -451,5 +451,17 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101303, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026110902) {
+        // Forum AI is now switched on and off, per tenant, only from the Datacurso AI provider. Copy the former
+        // "Enable Forum AI" values (per tenant, and the site value) into the provider without overwriting a value the
+        // provider already holds, then remove them. Nothing is done while the provider is missing.
+        if (class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            \local_forum_ai\local\provider_switch_migration::migrate();
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026110902, 'local', 'forum_ai');
+    }
+
     return true;
 }

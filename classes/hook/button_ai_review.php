@@ -58,6 +58,7 @@ class button_ai_review {
             return;
         }
 
+        // The provider switch follows the tenant of the current user, the plugin settings the tenant of the course.
         $tenantid = utils::get_tenant_id((int) $PAGE->course->id, (int) $USER->id);
         if (!utils::is_ai_available($tenantid)) {
             return;

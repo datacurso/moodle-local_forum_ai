@@ -51,6 +51,17 @@ require_once(__DIR__ . '/fixtures/mock_ai_client.php');
  */
 final class task_pipeline_test extends \advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * Always restore the real AI client after each test.
      */
     protected function tearDown(): void {
@@ -630,12 +641,12 @@ final class task_pipeline_test extends \advanced_testcase {
 
         $queue = new task\process_ai_queue();
 
-        set_config('enableforumai', 0, 'local_forum_ai');
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_forum_ai', false);
         $this->run_task_capturing_output($queue);
         $this->assertTrue($DB->record_exists('local_forum_ai_queue', ['id' => $rowid]));
         $this->assertSame(0, $DB->count_records('task_adhoc', ['component' => 'local_forum_ai']));
 
-        set_config('enableforumai', 1, 'local_forum_ai');
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_forum_ai', true);
         set_config('default_enabled', 0, 'local_forum_ai');
         $this->run_task_capturing_output($queue);
         $this->assertTrue($DB->record_exists('local_forum_ai_queue', ['id' => $rowid]));

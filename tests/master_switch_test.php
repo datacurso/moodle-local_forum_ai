@@ -25,6 +25,7 @@
 
 namespace local_forum_ai;
 
+use aiprovider_datacurso\local\plugin_settings;
 use local_forum_ai\local\tenant_config;
 use stdClass;
 
@@ -41,13 +42,26 @@ require_once(__DIR__ . '/fixtures/mock_ai_client.php');
  * @covers \local_forum_ai\task\process_ai_post
  * @covers \local_forum_ai\task\process_ai_discussion
  * @covers \local_forum_ai\task\process_ai_queue
+ * @covers \local_forum_ai\ai_service
  */
 final class master_switch_test extends \advanced_testcase {
+    /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
     /**
      * Always restore the real AI client after each test.
      */
     protected function tearDown(): void {
         ai_service::set_client_for_testing(null);
+        ai_service::set_client_factory_for_testing(null);
         parent::tearDown();
     }
 
@@ -91,8 +105,9 @@ final class master_switch_test extends \advanced_testcase {
             $options['category'] = $category->id;
         }
         $env->course = $this->getDataGenerator()->create_course($options);
-        $env->student = $this->getDataGenerator()->create_and_enrol($env->course, 'student');
-        $env->teacher = $this->getDataGenerator()->create_and_enrol($env->course, 'editingteacher');
+        // Members of the tenant, because the provider switch follows the tenant of the user.
+        $env->student = $this->create_member($env, 'student');
+        $env->teacher = $this->create_member($env, 'editingteacher');
         $module = $this->getDataGenerator()->create_module('forum', ['course' => $env->course->id]);
         $env->cm = get_coursemodule_from_instance('forum', $module->id, $env->course->id, false, MUST_EXIST);
         $env->forum = $DB->get_record('forum', ['id' => $module->id], '*', MUST_EXIST);
@@ -116,6 +131,23 @@ final class master_switch_test extends \advanced_testcase {
     }
 
     /**
+     * Creates a user of the tenant of an environment (a plain user without tenant) enrolled in its course.
+     *
+     * @param stdClass $env Environment with course and tenantid.
+     * @param string $role Role short name.
+     * @return stdClass User record.
+     */
+    private function create_member(stdClass $env, string $role): stdClass {
+        if (!$env->tenantid) {
+            return $this->getDataGenerator()->create_and_enrol($env->course, $role);
+        }
+        $user = $this->getDataGenerator()->get_plugin_generator('tool_tenant')->create_user(['tenantid' => $env->tenantid]);
+        $this->getDataGenerator()->enrol_user($user->id, $env->course->id, $role);
+
+        return $user;
+    }
+
+    /**
      * Creates a reply of the student in the discussion of an environment.
      *
      * @param stdClass $env Environment.
@@ -134,10 +166,12 @@ final class master_switch_test extends \advanced_testcase {
      * Turns a master switch off for a tenant (or for the site when there is no tenant).
      *
      * @param int $tenantid Tenant id, 0 for the site.
-     * @param string $setting Setting name (enableforumai or default_enabled).
+     * @param string $setting Switch: provider (the Datacurso AI provider state of Forum AI) or default_enabled.
      */
     private function switch_off(int $tenantid, string $setting): void {
-        if ($tenantid) {
+        if ($setting === 'provider') {
+            plugin_settings::set_enabled('local_forum_ai', false, $tenantid ?: null);
+        } else if ($tenantid) {
             tenant_config::set($setting, $tenantid, 0);
         } else {
             set_config($setting, 0, 'local_forum_ai');
@@ -151,9 +185,9 @@ final class master_switch_test extends \advanced_testcase {
      */
     public static function switch_provider(): array {
         return [
-            'site, feature switch' => [false, 'enableforumai'],
+            'site, provider switch' => [false, 'provider'],
             'site, default ai switch' => [false, 'default_enabled'],
-            'tenant, feature switch' => [true, 'enableforumai'],
+            'tenant, provider switch' => [true, 'provider'],
             'tenant, default ai switch' => [true, 'default_enabled'],
         ];
     }
@@ -183,13 +217,13 @@ final class master_switch_test extends \advanced_testcase {
         $this->require_case($intenant);
         $env = $this->create_environment($intenant);
 
-        $this->assertTrue(utils::is_ai_available($env->tenantid));
+        $this->assertTrue(utils::is_ai_available($env->tenantid, $env->tenantid));
 
         $this->switch_off($env->tenantid, $setting);
 
-        $this->assertFalse(utils::is_ai_available($env->tenantid));
+        $this->assertFalse(utils::is_ai_available($env->tenantid, $env->tenantid));
         $this->expectException(\moodle_exception::class);
-        utils::require_ai_available($env->tenantid);
+        utils::require_ai_available($env->tenantid, $env->tenantid);
     }
 
     /**
@@ -202,12 +236,12 @@ final class master_switch_test extends \advanced_testcase {
         $enva = $this->create_environment(true);
         $siteconfig = get_config('local_forum_ai');
 
-        tenant_config::set('enableforumai', $enva->tenantid, 0);
+        plugin_settings::set_enabled('local_forum_ai', false, $enva->tenantid);
         tenant_config::set('default_enabled', $enva->tenantid, 0);
 
-        $this->assertFalse(utils::is_ai_available($enva->tenantid));
-        $this->assertTrue(utils::is_ai_available($envb->tenantid));
-        $this->assertTrue(utils::is_feature_enabled($envb->tenantid));
+        $this->assertFalse(utils::is_ai_available($enva->tenantid, $enva->tenantid));
+        $this->assertTrue(utils::is_ai_available($envb->tenantid, $envb->tenantid));
+        $this->assertTrue(plugin_settings::is_enabled('local_forum_ai', $envb->tenantid));
         $this->assertTrue(utils::is_global_ai_enabled($envb->tenantid));
         $this->assertEquals($siteconfig, get_config('local_forum_ai'));
     }
@@ -220,7 +254,6 @@ final class master_switch_test extends \advanced_testcase {
         $this->require_tenancy();
         $env = $this->create_environment(true);
 
-        set_config('enableforumai', 0, 'local_forum_ai');
         set_config('default_enabled', 0, 'local_forum_ai');
 
         $this->assertTrue(utils::is_ai_available($env->tenantid));
@@ -239,7 +272,7 @@ final class master_switch_test extends \advanced_testcase {
         set_config('default_enabled', 0, 'local_forum_ai');
         $this->assertFalse(utils::is_ai_available());
         $this->assertFalse(utils::is_ai_available(0));
-        $this->assertTrue(utils::is_feature_enabled());
+        $this->assertTrue(plugin_settings::is_enabled('local_forum_ai'));
     }
 
     /**
@@ -399,7 +432,7 @@ final class master_switch_test extends \advanced_testcase {
         $this->require_tenancy();
         $enva = $this->create_environment(true);
         $envb = $this->create_environment(true);
-        tenant_config::set('enableforumai', $enva->tenantid, 0);
+        plugin_settings::set_enabled('local_forum_ai', false, $enva->tenantid);
         $posta = $this->create_reply($enva);
         $postb = $this->create_reply($envb);
 
@@ -521,6 +554,50 @@ final class master_switch_test extends \advanced_testcase {
         $this->assertCount(0, $mock->requests);
 
         $this->assertSame('Answer', ai_service::call_ai_service(['prompt' => 'x'], $envb->tenantid)['reply']);
+        $this->assertCount(1, $mock->requests);
+    }
+
+    /**
+     * The AI call of a post is charged to the tenant of its author, the same tenant as the provider switch: a user
+     * of tenant B posting in a course of tenant A gets a provider client built for tenant B.
+     */
+    public function test_post_task_charges_the_tenant_of_the_author(): void {
+        $this->resetAfterTest();
+        $this->require_tenancy();
+        $enva = $this->create_environment(true);
+        $categoryb = $this->getDataGenerator()->create_category();
+        $tenantb = (int) $this->getDataGenerator()->get_plugin_generator('tool_tenant')->create_tenant([
+            'name' => 'Author tenant ' . random_string(5),
+            'categoryid' => $categoryb->id,
+        ])->id;
+        $authorb = $this->getDataGenerator()->get_plugin_generator('tool_tenant')->create_user(['tenantid' => $tenantb]);
+        $this->getDataGenerator()->enrol_user($authorb->id, $enva->course->id, 'student');
+        $post = $this->getDataGenerator()->get_plugin_generator('mod_forum')->create_post([
+            'discussion' => $enva->discussion->id,
+            'parent' => $enva->discussion->firstpost,
+            'userid' => $authorb->id,
+            'message' => 'Reply from another tenant',
+        ]);
+
+        $mock = new mock_ai_client(['reply' => 'Answer']);
+        $arguments = [];
+        ai_service::set_client_factory_for_testing(static function (array $args) use ($mock, &$arguments): object {
+            $arguments[] = $args;
+            return $mock;
+        });
+        $task = new task\process_ai_post();
+        $task->set_custom_data((object) ['postid' => $post->id, 'cmid' => $enva->cm->id]);
+        $messagesink = $this->redirectMessages();
+        ob_start();
+        try {
+            $task->execute();
+        } finally {
+            ob_end_clean();
+            $messagesink->close();
+        }
+
+        $this->assertNotSame($enva->tenantid, $tenantb);
+        $this->assertSame([[null, $tenantb]], $arguments);
         $this->assertCount(1, $mock->requests);
     }
 

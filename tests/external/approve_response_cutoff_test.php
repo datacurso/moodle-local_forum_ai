@@ -51,6 +51,17 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  */
 final class approve_response_cutoff_test extends externallib_advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * Approving after the forum cut-off date must fail and expire the row.
      */
     public function test_approve_fails_when_cutoff_passed(): void {

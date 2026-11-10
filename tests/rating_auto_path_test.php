@@ -52,6 +52,17 @@ require_once($CFG->dirroot . '/rating/lib.php');
  */
 final class rating_auto_path_test extends \advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * MDL-INT-016 (step 2) [Pendiente:fail]: the automatic writer must respect the
      * forum assessment date window (assesstimestart/assesstimefinish).
      *

@@ -61,9 +61,12 @@ class process_ai_discussion extends adhoc_task {
             $course = $DB->get_record('course', ['id' => $forum->course], '*', MUST_EXIST);
             $post = $DB->get_record('forum_posts', ['id' => $discussion->firstpost], '*', MUST_EXIST);
 
-            // The AI switches belong to the tenant of the forum: the course tenant, else the tenant of the author.
+            // The provider switch and the tenant the AI call is charged to belong to the tenant of the author, never
+            // to the tenant of the course (cron has no meaningful user); the plugin settings belong to the tenant of
+            // the forum: the course tenant, else the tenant of the author.
             $tenantid = utils::get_tenant_id((int) $course->id, (int) $post->userid);
-            if (!utils::is_ai_available($tenantid)) {
+            $authortenantid = utils::get_user_tenant_id((int) $post->userid);
+            if (!utils::is_ai_available($tenantid, $authortenantid)) {
                 return;
             }
 
@@ -171,7 +174,7 @@ class process_ai_discussion extends adhoc_task {
             ];
 
             try {
-                $airesponse = ai_service::call_ai_service($payload, $tenantid);
+                $airesponse = ai_service::call_ai_service($payload, $tenantid, $authortenantid);
             } catch (\moodle_exception $e) {
                 if (!ai_service::is_licence_failure($e)) {
                     throw $e;

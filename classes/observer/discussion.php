@@ -39,9 +39,10 @@ class discussion {
      * @return bool True on success, false on error.
      */
     public static function discussion_created(discussion_created $event): bool {
-        // The AI switches belong to the tenant of the course: its category tenant, else the tenant of the author.
+        // The provider switch belongs to the tenant of the author, never to the tenant of the course; the plugin
+        // settings belong to the tenant of the course (its category tenant, else the tenant of the author).
         $tenantid = utils::get_tenant_id((int) $event->courseid, (int) $event->userid);
-        if (!utils::is_ai_available($tenantid)) {
+        if (!utils::is_ai_available($tenantid, utils::get_user_tenant_id((int) $event->userid))) {
             return true;
         }
 
@@ -81,7 +82,9 @@ class discussion {
             // Get discussion, forum and course records.
             $discussion = $DB->get_record('forum_discussions', ['id' => $discussionid], '*', MUST_EXIST);
 
-            if (!utils::is_ai_available(utils::get_tenant_id($courseid, (int) $discussion->userid))) {
+            // Provider switch of the tenant of the discussion author, plugin settings of the course tenant.
+            $authorid = (int) $discussion->userid;
+            if (!utils::is_ai_available(utils::get_tenant_id($courseid, $authorid), utils::get_user_tenant_id($authorid))) {
                 return;
             }
 
