@@ -1,6 +1,6 @@
 ## [1.1.7] - 2026-11-11
 
-**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
+**Compatibility note:** This version is compatible with **Moodle 4.5** only.
 
 ### Security
 
@@ -18,6 +18,7 @@
 
 ### Removed
 
+- Repository maintenance, no finding code: declared compatibility narrowed to Moodle 4.5 (`$plugin->supported` is now `[405, 405]`), the only version the Jenkins pipeline tests. No test applies
 - Repository maintenance, no finding code: the `.github` folder (GitHub `plugin-ci.yml` and `moodle-release.yml` workflows and issue templates) is removed; CI runs in Jenkins (`Jenkinsfile.moodleplugin`). No test applies
 
 ## [1.1.6] - 2026-11-06
