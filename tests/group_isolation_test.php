@@ -458,6 +458,7 @@ final class group_isolation_test extends externallib_advanced_testcase {
      * @param stdClass $forum Forum record.
      * @param stdClass $user Author.
      * @param int $groupid Discussion group (-1 for all participants).
+     * @param string|null $name Discussion name; the generator picks one when null.
      * @return stdClass Discussion record.
      */
     private function create_discussion(
