@@ -558,7 +558,7 @@ class utils {
      * The list is capped to the root post (which defines the topic) plus
      * the most recent posts, to keep the payload bounded in long threads.
      *
-     * Each entry contains the post id, chronological order, author label
+     * Each entry contains its position, chronological order, author label
      * and cleaned message text. Authors are third parties: they travel only as
      * pseudonymised labels, their names inside the texts are replaced and
      * e-mail addresses are masked (FAI-PRIV-001-R1).
@@ -627,8 +627,9 @@ class utils {
         $threadentries = [];
         $order = 1;
         foreach ($entries as [$post, $cleaned, $label]) {
+            // FAI-PRIV-001-R1: the id is the position in the thread, never the Moodle post id.
             $threadentries[] = [
-                'id' => (int)$post->id,
+                'id' => $order,
                 'order' => $order,
                 'author' => $label,
                 'message' => $pseudonymizer->pseudonymize_text($cleaned),
@@ -709,8 +710,9 @@ class utils {
             if ($cleaned === '') {
                 continue;
             }
+            // FAI-PRIV-001-R1: the id is the position in the list, never the Moodle post id.
             $entries[] = [
-                'id' => (int) $post->id,
+                'id' => count($entries) + 1,
                 'order' => count($entries) + 1,
                 'author' => $pseudonymizer->label_for((int) $post->userid),
                 'message' => $pseudonymizer->pseudonymize_text($cleaned),
@@ -845,7 +847,6 @@ class utils {
         foreach ($posts as $p) {
             $discussions[] = [
                 'discussion' => $pseudonymizer->pseudonymize_text($p->name),
-                'discussion_id' => $p->id,
                 'answer' => $pseudonymizer->pseudonymize_text(trim(strip_tags($p->message))),
             ];
         }
@@ -853,7 +854,8 @@ class utils {
         $participation = [
             'userid' => (string)$userid,
             'participation' => [
-                'forum_id' => (string)$forum->id,
+                // FAI-PRIV-001-R1: a request-local reference, never the Moodle forum id.
+                'forum_id' => \local_forum_ai\local\outbound_payload::FORUM_REFERENCE,
                 'forum' => $forum->name,
                 // Whole forum grading setting (not the per-post ratings scale):
                 // numeric maximum, or the option list for named scales.

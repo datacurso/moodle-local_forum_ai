@@ -65,7 +65,8 @@ final class utils_own_main_posts_test extends \advanced_testcase {
         );
 
         $this->assertCount(1, $entries);
-        $this->assertSame((int) $other->firstpost, $entries[0]['id']);
+        // FAI-PRIV-001-R1: the entry id is its position, never the Moodle post id.
+        $this->assertSame(1, $entries[0]['id']);
         $this->assertSame(1, $entries[0]['order']);
         $this->assertSame('My unit summary', $entries[0]['message']);
     }

@@ -391,9 +391,9 @@ final class group_isolation_test extends externallib_advanced_testcase {
         $studentab = $this->getDataGenerator()->create_and_enrol($fixture->course, 'student');
         $this->getDataGenerator()->create_group_member(['groupid' => $fixture->groupa->id, 'userid' => $studentab->id]);
         $this->getDataGenerator()->create_group_member(['groupid' => $fixture->groupb->id, 'userid' => $studentab->id]);
-        $owna = $this->create_discussion($fixture, $fixture->forum, $studentab, (int) $fixture->groupa->id);
-        $ownb = $this->create_discussion($fixture, $fixture->forum, $studentab, (int) $fixture->groupb->id);
-        $ownall = $this->create_discussion($fixture, $fixture->forum, $studentab, -1);
+        $owna = $this->create_discussion($fixture, $fixture->forum, $studentab, (int) $fixture->groupa->id, 'Own group A topic');
+        $ownb = $this->create_discussion($fixture, $fixture->forum, $studentab, (int) $fixture->groupb->id, 'Own group B topic');
+        $ownall = $this->create_discussion($fixture, $fixture->forum, $studentab, -1, 'Own all groups topic');
 
         $client = new mock_ai_client(['feedback' => 'Mock AI feedback']);
         ai_service::set_client_for_testing($client);
@@ -403,21 +403,16 @@ final class group_isolation_test extends externallib_advanced_testcase {
 
         $request = $client->last_request();
         $this->assertNotNull($request);
-        $ids = array_map(
-            static fn($entry) => (int) $entry['discussion_id'],
-            $request['body']['forum_participations'][0]['participation']['discussions']
-        );
-        $this->assertContains((int) $owna->id, $ids);
-        $this->assertContains((int) $ownall->id, $ids);
-        $this->assertNotContains((int) $ownb->id, $ids);
+        // Discussion ids never leave the site (FAI-PRIV-001-R1): the discussions are told apart by name.
+        $names = array_column($request['body']['forum_participations'][0]['participation']['discussions'], 'discussion');
+        $this->assertContains($owna->name, $names);
+        $this->assertContains($ownall->name, $names);
+        $this->assertNotContains($ownb->name, $names);
 
         // Without a viewer the payload keeps every discussion of the student.
         $payload = utils::build_forum_ai_payload((int) $fixture->cm->id, (int) $studentab->id);
-        $ids = array_map(
-            static fn($entry) => (int) $entry['discussion_id'],
-            $payload['forum_participations'][0]['participation']['discussions']
-        );
-        $this->assertContains((int) $ownb->id, $ids);
+        $names = array_column($payload['forum_participations'][0]['participation']['discussions'], 'discussion');
+        $this->assertContains($ownb->name, $names);
     }
 
     /**
@@ -465,13 +460,23 @@ final class group_isolation_test extends externallib_advanced_testcase {
      * @param int $groupid Discussion group (-1 for all participants).
      * @return stdClass Discussion record.
      */
-    private function create_discussion(stdClass $fixture, stdClass $forum, stdClass $user, int $groupid): stdClass {
-        return $this->getDataGenerator()->get_plugin_generator('mod_forum')->create_discussion([
+    private function create_discussion(
+        stdClass $fixture,
+        stdClass $forum,
+        stdClass $user,
+        int $groupid,
+        ?string $name = null
+    ): stdClass {
+        $record = [
             'course' => $fixture->course->id,
             'forum' => $forum->id,
             'userid' => $user->id,
             'groupid' => $groupid,
-        ]);
+        ];
+        if ($name !== null) {
+            $record['name'] = $name;
+        }
+        return $this->getDataGenerator()->get_plugin_generator('mod_forum')->create_discussion($record);
     }
 
     /**

@@ -157,8 +157,6 @@ class process_ai_discussion extends adhoc_task {
                 'course' => $course->fullname,
                 'forum' => $forum->name,
                 'discussion' => $pseudonymizer->pseudonymize_text((string)$discussion->name),
-                'discussion_id' => $discussionid,
-                'postid' => $post->id,
                 'post' => [
                     'subject' => $pseudonymizer->pseudonymize_text((string)$post->subject),
                     'message' => $pseudonymizer->pseudonymize_text($postmessage),

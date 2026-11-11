@@ -168,6 +168,30 @@ final class privacy_provider_test extends provider_testcase {
     }
 
     /**
+     * FAI-PRIV-001-R1: the AI service declaration says user ids travel as pseudonyms.
+     *
+     * @covers ::get_metadata
+     */
+    public function test_metadata_declares_pseudonymised_identifiers_for_the_ai_service(): void {
+        $collection = provider::get_metadata(new \core_privacy\local\metadata\collection('local_forum_ai'));
+
+        $fields = [];
+        foreach ($collection->get_collection() as $item) {
+            if ($item->get_name() === 'datacurso_ai') {
+                $fields = $item->get_privacy_fields();
+            }
+        }
+
+        foreach (['userid', 'evaluated_userid', 'provider_fields'] as $field) {
+            $this->assertArrayHasKey($field, $fields);
+            $this->assertStringContainsStringIgnoringCase(
+                'pseudonym',
+                get_string_manager()->get_string($fields[$field], 'local_forum_ai', null, 'en')
+            );
+        }
+    }
+
+    /**
      * The student's pending data resolves to the forum module context.
      *
      * @covers ::get_contexts_for_userid
