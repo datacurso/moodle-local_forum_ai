@@ -30,7 +30,7 @@ require_once(__DIR__ . '/locallib.php');
 $token = required_param('token', PARAM_ALPHANUMEXT);
 
 require_login();
-\aiprovider_datacurso\local\plugin_settings::require_enabled('local_forum_ai');
+\local_forum_ai\local\provider_state::require_enabled();
 
 // Token, capability and discussion group are enforced in one place. Only data
 // errors are wrapped: the standard 403 (required_capability_exception) and the

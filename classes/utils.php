@@ -16,7 +16,7 @@
 
 namespace local_forum_ai;
 
-use aiprovider_datacurso\local\plugin_settings;
+use local_forum_ai\local\provider_state;
 use local_forum_ai\helper\rubric;
 use local_forum_ai\helper\guide;
 use local_forum_ai\local\payload_pseudonymizer;
@@ -162,7 +162,7 @@ class utils {
      * @return bool
      */
     public static function is_ai_available(): bool {
-        return plugin_settings::is_enabled('local_forum_ai') && self::is_global_ai_enabled();
+        return provider_state::is_enabled() && self::is_global_ai_enabled();
     }
 
     /**
@@ -173,7 +173,7 @@ class utils {
      *                           is disabled in the provider, error_aidisabled when the global AI switch is off.
      */
     public static function require_ai_available(): void {
-        plugin_settings::require_enabled('local_forum_ai');
+        provider_state::require_enabled();
         if (!self::is_global_ai_enabled()) {
             throw new \moodle_exception('error_aidisabled', 'local_forum_ai');
         }

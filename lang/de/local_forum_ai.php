@@ -75,6 +75,7 @@ $string['error_forumclosed'] = 'Das Fälligkeitsdatum oder der Stichtag dieses F
 $string['error_graderrequired'] = 'Wählen Sie eine bewertende Person aus: Die automatische Genehmigung veröffentlicht die KI-Antwort im Namen dieser Person.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Der Beitrag, auf den geantwortet wird, ist eine private Antwort, daher kann keine KI-Antwort veröffentlicht werden.';
+$string['error_providerupgraderequired'] = 'Forum KI benötigt eine neuere Version des Datacurso-KI-Anbieters (aiprovider_datacurso 1.7.0 oder höher). Bitten Sie die Website-Administration, ihn zu aktualisieren.';
 $string['error_pseudonymisation_failed'] = 'Die Daten für den KI-Dienst konnten nicht pseudonymisiert werden, daher wurde nichts gesendet.';
 $string['error_responsebusy'] = 'Diese KI-Antwort wird gerade von einer anderen Anfrage bearbeitet. Warten Sie einen Moment und versuchen Sie es erneut.';
 $string['error_responseexpired'] = 'Diese KI-Antwort ist abgelaufen, weil das Fälligkeitsdatum oder der Stichtag des Forums überschritten ist.';

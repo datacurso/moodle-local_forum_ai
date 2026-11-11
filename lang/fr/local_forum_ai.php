@@ -75,6 +75,7 @@ $string['error_forumclosed'] = 'La date de remise ou la date limite de ce forum 
 $string['error_graderrequired'] = 'Sélectionnez un évaluateur : l\'approbation automatique publie la réponse de l\'IA au nom de cet utilisateur.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Le message auquel il est répondu est une réponse privée, une réponse de l’IA ne peut donc pas être publiée.';
+$string['error_providerupgraderequired'] = 'Forum IA nécessite une version plus récente du fournisseur d’IA Datacurso (aiprovider_datacurso 1.7.0 ou ultérieure). Demandez à l’administrateur du site de le mettre à jour.';
 $string['error_pseudonymisation_failed'] = 'Les données destinées au service d’IA n’ont pas pu être pseudonymisées, rien n’a donc été envoyé.';
 $string['error_responsebusy'] = 'Une autre requête est en train de traiter cette réponse de l’IA. Patientez un instant et réessayez.';
 $string['error_responseexpired'] = 'Cette réponse de l’IA a expiré car la date de remise ou la date limite du forum est dépassée.';

@@ -16,7 +16,7 @@
 
 namespace local_forum_ai\task;
 
-use aiprovider_datacurso\local\plugin_settings;
+use local_forum_ai\local\provider_state;
 use local_forum_ai\approval;
 
 /**
@@ -55,7 +55,7 @@ class remind_pending_approvals extends \core\task\scheduled_task {
     public function execute() {
         global $DB;
 
-        if (!plugin_settings::is_enabled('local_forum_ai')) {
+        if (!provider_state::is_enabled()) {
             mtrace(get_string('task_skipped_plugindisabled', 'local_forum_ai'));
             return;
         }

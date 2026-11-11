@@ -16,7 +16,7 @@
 
 namespace local_forum_ai\task;
 
-use aiprovider_datacurso\local\plugin_settings;
+use local_forum_ai\local\provider_state;
 
 /**
  * Adhoc task to process single forum discussions asynchronously.
@@ -53,7 +53,7 @@ class process_single_forum_discussion extends \core\task\adhoc_task {
         global $DB;
 
         // Skip before any retry is queued while the plugin is disabled in the provider.
-        if (!plugin_settings::is_enabled('local_forum_ai')) {
+        if (!provider_state::is_enabled()) {
             mtrace(get_string('task_skipped_plugindisabled', 'local_forum_ai'));
             return;
         }

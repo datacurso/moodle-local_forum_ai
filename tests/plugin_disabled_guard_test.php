@@ -200,7 +200,8 @@ final class plugin_disabled_guard_test extends \externallib_advanced_testcase {
         global $CFG;
 
         $source = file_get_contents($CFG->dirroot . '/local/forum_ai/' . $page);
-        $guard = "\\aiprovider_datacurso\\local\\plugin_settings::require_enabled('local_forum_ai');";
+        // Through provider_state, so a provider older than the plugin state refuses the page instead of failing.
+        $guard = "\\local_forum_ai\\local\\provider_state::require_enabled();";
 
         $loginpos = strrpos($source, 'require_login(');
         $guardpos = strpos($source, $guard);

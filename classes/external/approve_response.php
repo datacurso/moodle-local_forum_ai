@@ -22,7 +22,7 @@ global $CFG;
 
 require_once(__DIR__ . '/../../locallib.php');
 
-use aiprovider_datacurso\local\plugin_settings;
+use local_forum_ai\local\provider_state;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
@@ -72,7 +72,7 @@ class approve_response extends external_api {
         ]);
 
         // Refuse while the plugin is disabled in the Datacurso AI provider.
-        plugin_settings::require_enabled('local_forum_ai');
+        provider_state::require_enabled();
 
         // Token, capability and discussion group are enforced in one place.
         $loaded = \local_forum_ai\approval::load_pending_for_user($params['token'], 'pending');

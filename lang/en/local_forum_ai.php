@@ -75,6 +75,7 @@ $string['error_forumclosed'] = 'The due date or the cut-off date of this forum h
 $string['error_graderrequired'] = 'Select a grader: automatic approval publishes the AI response on behalf of this user.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'The post being replied to is a private reply, so an AI response cannot be published.';
+$string['error_providerupgraderequired'] = 'Forum AI needs a newer version of the Datacurso AI provider (aiprovider_datacurso 1.7.0 or later). Ask the site administrator to upgrade it.';
 $string['error_pseudonymisation_failed'] = 'The data for the AI service could not be pseudonymised, so nothing was sent.';
 $string['error_responsebusy'] = 'Another request is managing this AI response right now. Wait a moment and try again.';
 $string['error_responseexpired'] = 'This AI response has expired because the due date or the cut-off date of the forum has passed.';
