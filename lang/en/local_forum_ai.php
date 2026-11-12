@@ -64,7 +64,8 @@ $string['discussionname'] = 'Subject';
 $string['editingtenant'] = 'You are editing the global configuration of the tenant: {$a}';
 $string['enabled'] = 'Enable AI';
 $string['enablediainitconversation'] = 'Enable AI response to the discussion topic';
-$string['enablediainitconversation_help'] = 'Enabling this option will allow the AI ​​to respond to the initial message that starts the discussion. It is also recommended to select the Teacher role in the following field.';
+$string['enablediainitconversation_help'] = 'Enabling this option will allow the AI ​​to respond to the initial message that starts the discussion. It is also recommended to select the Teacher role in the following field. If the forum is graded and this option is off, the AI does not grade the opening post of each discussion.';
+$string['enablediainitconversation_warning'] = 'This forum is graded but the AI response to the discussion topic is off: the AI will not grade the opening post of each discussion.';
 $string['error_aidisabled'] = 'AI features are currently disabled by the site administrator.';
 $string['error_airequest'] = 'The AI response could not be loaded. Please try again later or contact your administrator.';
 $string['error_allowedrolesrequired'] = 'Select at least one role the AI may respond to.';
@@ -75,6 +76,7 @@ $string['error_forumclosed'] = 'The due date or the cut-off date of this forum h
 $string['error_graderrequired'] = 'Select a grader: automatic approval publishes the AI response on behalf of this user.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'The post being replied to is a private reply, so an AI response cannot be published.';
+$string['error_providerupgraderequired'] = 'Forum AI needs a newer version of the Datacurso AI provider (aiprovider_datacurso 1.7.0 or later). Ask the site administrator to upgrade it.';
 $string['error_pseudonymisation_failed'] = 'The data for the AI service could not be pseudonymised, so nothing was sent.';
 $string['error_responsebusy'] = 'Another request is managing this AI response right now. Wait a moment and try again.';
 $string['error_responseexpired'] = 'This AI response has expired because the due date or the cut-off date of the forum has passed.';
@@ -126,6 +128,16 @@ To review the complete message and decide whether to approve or reject it, pleas
 $string['notification_greeting'] = 'Hello {$a->firstname},';
 $string['notification_intro'] = 'An automatic response has been generated for the discussion "{$a->discussion}" in the forum "{$a->forum}" of the course "{$a->course}".';
 $string['notification_preview'] = 'Preview:';
+$string['notification_reminder_fullmessage'] = 'Hello {$a->firstname},
+
+Reminder: an AI-generated response is still waiting for review for the discussion "{$a->discussion}" in the forum "{$a->forum}" (Course: {$a->course}).
+
+Preview: {$a->preview}...
+
+To review the complete message and decide whether to approve or reject it, please visit:
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Reminder: AI response still pending in "{$a->discussion}"';
+$string['notification_reminder_subject'] = 'Reminder: AI response pending approval';
 $string['notification_review_button'] = 'Review Response';
 $string['notification_smallmessage'] = 'New pending AI response in "{$a->discussion}"';
 $string['notification_subject'] = 'Approval Required: AI Response';
@@ -136,14 +148,14 @@ $string['preview'] = 'AI Message';
 $string['privacy:metadata:datacurso_ai'] = 'Forum post content is sent to the external Datacurso AI service to generate replies and evaluations.';
 $string['privacy:metadata:datacurso_ai:author_name'] = 'Name of the post author, sent only as the pseudonymised label [STUDENT_NAME] and restored in the AI reply before it is stored.';
 $string['privacy:metadata:datacurso_ai:course_activity'] = 'Course, forum and discussion names that contextualize the AI request.';
-$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'In an AI grading request, the ID of the student whose forum participation is evaluated, with the text of their posts and the titles of their discussions (their name replaced by [STUDENT_NAME] and e-mail addresses masked as [EMAIL]).';
+$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'In an AI grading request, a pseudonym of the student whose forum participation is evaluated (never their Moodle user ID), with the text of their posts and the titles of their discussions (their name replaced by [STUDENT_NAME] and e-mail addresses masked as [EMAIL]). No forum, discussion or post ID is sent.';
 $string['privacy:metadata:datacurso_ai:grading_configuration'] = 'In an AI grading request, the whole-forum grading setting: the maximum grade or scale and the rubric or marking guide definition.';
 $string['privacy:metadata:datacurso_ai:post_content'] = 'Text of the forum post and the discussion title sent to the AI service. The names of the author and of the thread participants are replaced by their labels and e-mail addresses are masked as [EMAIL].';
-$string['privacy:metadata:datacurso_ai:provider_fields'] = 'The AI provider plugin (aiprovider_datacurso) adds to every request the site identifier, the site URL and the ID, timezone and language of the user on whose behalf it is made; see the privacy declaration of that plugin.';
+$string['privacy:metadata:datacurso_ai:provider_fields'] = 'The AI provider plugin (aiprovider_datacurso) adds to every request the site identifier, the site URL and the pseudonym, timezone and language of the user on whose behalf it is made; see the privacy declaration of that plugin.';
 $string['privacy:metadata:datacurso_ai:requester'] = 'An AI grading request is made on behalf of the teacher who requests it, and the AI provider attributes it to that teacher.';
 $string['privacy:metadata:datacurso_ai:thread_authors'] = 'Authors of the previous posts of the discussion, who are third parties (classmates and teachers), sent only as pseudonymised labels such as [PARTICIPANT_1] that are stable within one request.';
 $string['privacy:metadata:datacurso_ai:thread_history'] = 'Text of the previous posts of the discussion, written by third parties, sent as conversation context with participant names replaced and e-mail addresses masked.';
-$string['privacy:metadata:datacurso_ai:userid'] = 'The ID of the user on whose behalf the AI request is made.';
+$string['privacy:metadata:datacurso_ai:userid'] = 'A pseudonym of the user on whose behalf the AI request is made: a site-scoped token derived with a secret that never leaves the site, never the Moodle user ID.';
 $string['privacy:metadata:local_forum_ai_config'] = 'Stores AI configurations per forum.';
 $string['privacy:metadata:local_forum_ai_config:allowedroles'] = 'Comma-separated list of role IDs the AI is allowed to reply to.';
 $string['privacy:metadata:local_forum_ai_config:delayminutes'] = 'Number of minutes to wait before the delayed AI review runs.';
@@ -173,6 +185,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Post status (approv
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Subject or topic of the message.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Date when the record was created.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Date when the record was updated.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Date of the last reminder sent to the approvers about this response (0 if never).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'Queue of delayed AI processing requests.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'JSON payload with the course module and the post or discussion to process.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Whether the queued request has been processed.';
@@ -203,6 +216,7 @@ $string['statuspending'] = 'Pending';
 $string['statusrejected'] = 'Rejected';
 $string['task_process_ai_queue'] = 'Process delayed Forum AI queue';
 $string['task_process_single_forum_discussion'] = 'Process single forum discussion for AI';
+$string['task_remind_pending_approvals'] = 'Remind about Forum AI responses pending approval';
 $string['task_skipped_plugindisabled'] = 'Forum AI is disabled in the Datacurso AI provider; the task is skipped.';
 $string['unknownparticipant'] = 'Participant';
 $string['usedelay'] = 'Use delayed review';

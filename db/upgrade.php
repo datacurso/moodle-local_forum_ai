@@ -451,16 +451,108 @@ function xmldb_local_forum_ai_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026101303, 'local', 'forum_ai');
     }
 
+    if ($oldversion < 2026101500) {
+        // Pending approvals are now reminded to the approvers: remember when the last reminder went out.
+        $table = new xmldb_table('local_forum_ai_pending');
+        $field = new xmldb_field('timeremindered', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'approved_at');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // The non-editing teacher archetype now holds the approval capability by default. Roles that
+        // already have a decision recorded for it at system level are left untouched.
+        $systemid = context_system::instance()->id;
+        foreach ($DB->get_records('role', ['archetype' => 'teacher'], '', 'id') as $role) {
+            $decided = $DB->record_exists('role_capabilities', [
+                'roleid' => $role->id,
+                'capability' => 'local/forum_ai:approveresponses',
+                'contextid' => $systemid,
+            ]);
+            if (!$decided) {
+                assign_capability('local/forum_ai:approveresponses', CAP_ALLOW, $role->id, $systemid);
+            }
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026101500, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026101600) {
+        // Responding to (and grading) the opening post of each discussion is now on by default for
+        // new forums. Move the stored global default from "off" to "on"; an unset value is seeded.
+        // Per-forum rows in local_forum_ai_config are intentionally left untouched.
+        $current = get_config('local_forum_ai', 'default_enablediainitconversation');
+        if ($current === false || $current === '' || (int) $current === 0) {
+            set_config('default_enablediainitconversation', 1, 'local_forum_ai');
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026101600, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026110600) {
+        // The "Enabled" switch of the plugin is now kept by the Datacurso AI provider, which copied
+        // the value of enableforumai into its own setting before this upgrade, so the old setting is removed.
+        // Moodle Workplace: copy the site and tenant values into the provider first (never overwriting a value the
+        // provider already holds), so a deliberately disabled switch is not lost when the provider did not copy it.
+        \local_forum_ai\local\provider_switch_migration::migrate();
+        unset_config('enableforumai', 'local_forum_ai');
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026110600, 'local', 'forum_ai');
+    }
+
     if ($oldversion < 2026110902) {
         // Forum AI is now switched on and off, per tenant, only from the Datacurso AI provider. Copy the former
         // "Enable Forum AI" values (per tenant, and the site value) into the provider without overwriting a value the
         // provider already holds, then remove them. Nothing is done while the provider is missing.
-        if (class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
-            \local_forum_ai\local\provider_switch_migration::migrate();
-        }
+        \local_forum_ai\local\provider_switch_migration::migrate();
 
         // Forum_ai savepoint reached.
         upgrade_plugin_savepoint(true, 2026110902, 'local', 'forum_ai');
+    }
+
+    if ($oldversion < 2026111201) {
+        // Moodle Workplace: a site already on 1.1.3-wp or 1.1.4-wp (2026101300 to 2026110902) skipped the steps
+        // 2026101500 and 2026101600 that 1.1.7 brings, because their version numbers are lower. Apply them again;
+        // every change below is safe to repeat.
+        $table = new xmldb_table('local_forum_ai_pending');
+        $field = new xmldb_field('timeremindered', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'approved_at');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        // The non-editing teacher archetype holds the approval capability by default. Roles that already have a
+        // decision recorded for it at system level are left untouched.
+        $systemid = context_system::instance()->id;
+        foreach ($DB->get_records('role', ['archetype' => 'teacher'], '', 'id') as $role) {
+            $decided = $DB->record_exists('role_capabilities', [
+                'roleid' => $role->id,
+                'capability' => 'local/forum_ai:approveresponses',
+                'contextid' => $systemid,
+            ]);
+            if (!$decided) {
+                assign_capability('local/forum_ai:approveresponses', CAP_ALLOW, $role->id, $systemid);
+            }
+        }
+
+        // Responding to the opening post is on by default: move each tenant default from "off" to "on", as
+        // 2026101600 does for the site default. Per-forum rows in local_forum_ai_config are left untouched.
+        if ($dbman->table_exists('local_forum_ai_tenant_config')) {
+            $rows = $DB->get_records('local_forum_ai_tenant_config', ['name' => 'default_enablediainitconversation']);
+            foreach ($rows as $row) {
+                if ($row->value === null || $row->value === '' || (int) $row->value === 0) {
+                    $DB->update_record('local_forum_ai_tenant_config', (object) [
+                        'id' => $row->id,
+                        'value' => '1',
+                        'timemodified' => time(),
+                    ]);
+                }
+            }
+        }
+
+        // Forum_ai savepoint reached.
+        upgrade_plugin_savepoint(true, 2026111201, 'local', 'forum_ai');
     }
 
     return true;

@@ -46,7 +46,7 @@ if ($forumid) {
 
 // Refuse while Forum AI is disabled in the Datacurso AI provider for the tenant of the current user
 // (never the tenant of the course).
-\aiprovider_datacurso\local\plugin_settings::require_enabled('local_forum_ai');
+\local_forum_ai\local\provider_state::require_enabled();
 
 require_capability('local/forum_ai:approveresponses', $context);
 

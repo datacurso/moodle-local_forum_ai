@@ -16,7 +16,7 @@
 
 namespace local_forum_ai\external;
 
-use aiprovider_datacurso\local\plugin_settings;
+use local_forum_ai\local\provider_state;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
@@ -72,7 +72,7 @@ class get_discussion_data extends external_api {
 
         // Refuse while the plugin is disabled in the Datacurso AI provider for the tenant of the caller (never the
         // tenant of the course), before any data is returned or changed.
-        plugin_settings::require_enabled('local_forum_ai');
+        provider_state::require_enabled();
 
         // Retrieve posts.
         $posts = utils::get_visible_discussion_posts((int) $discussion->id);

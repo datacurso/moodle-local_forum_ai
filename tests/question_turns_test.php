@@ -129,6 +129,8 @@ final class question_turns_test extends \advanced_testcase {
         global $DB;
 
         $this->resetAfterTest();
+        // The fixture has no approver, so every request reports it (report 9).
+        $this->expectOutputRegex('/no eligible recipients/');
         $this->setAdminUser();
 
         $setup = $this->create_setup();

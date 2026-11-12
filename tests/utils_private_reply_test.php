@@ -285,10 +285,21 @@ final class utils_private_reply_test extends \advanced_testcase {
         // Swallow the provider's internal debugging without pinning its count.
         $this->resetDebugging();
 
+        $this->assertStringNotContainsString('private reply', $taskoutput);
+        if (\local_forum_ai\local\tenant_context::is_tenancy_available()) {
+            // Moodle Workplace records the licence failure instead of rethrowing it: the failed attempt
+            // for this post proves every gate let it through to the AI client.
+            $this->assertNull($thrown);
+            $this->assertTrue($DB->record_exists('local_forum_ai_pending', [
+                'parentpostid' => $publicreply->id,
+                'status' => 'failed',
+            ]));
+            return;
+        }
+
         // The task rethrows the AI client failure, proving every gate let the post through:
         // the gates bail out with mtrace + return and never reach the AI client.
         $this->assertNotNull($thrown, 'The AI client was expected to fail without a configured license key.');
-        $this->assertStringNotContainsString('private reply', $taskoutput);
         $this->assertSame(0, $DB->count_records('local_forum_ai_pending'));
     }
 
