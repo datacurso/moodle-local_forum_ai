@@ -51,6 +51,8 @@ final class backup_activity_scope_test extends \advanced_testcase {
     public function test_activity_backup_excludes_plugin_data(): void {
         global $CFG, $DB, $USER;
 
+        $this->require_provider();
+
         $this->resetAfterTest();
         $this->setAdminUser();
         $CFG->backup_file_logger_level = \backup::LOG_NONE;
@@ -177,5 +179,17 @@ final class backup_activity_scope_test extends \advanced_testcase {
             \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT,
             (int) $config->replyinlocked
         );
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

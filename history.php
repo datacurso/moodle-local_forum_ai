@@ -44,6 +44,8 @@ if ($forumid) {
     $context = context_course::instance($course->id);
 }
 
+\local_forum_ai\local\provider_state::require_enabled();
+
 require_capability('local/forum_ai:approveresponses', $context);
 
 $PAGE->set_url('/local/forum_ai/history.php', ['forumid' => $forumid]);

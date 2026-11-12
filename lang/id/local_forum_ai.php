@@ -63,9 +63,8 @@ $string['discussionmsg'] = 'Pesan yang dihasilkan AI';
 $string['discussionname'] = 'Subjek';
 $string['enabled'] = 'Aktifkan AI';
 $string['enablediainitconversation'] = 'Aktifkan respons AI terhadap topik diskusi';
-$string['enablediainitconversation_help'] = 'Mengaktifkan opsi ini akan memungkinkan AI merespons pesan awal yang memulai diskusi. Disarankan juga untuk memilih peran Guru pada kolom berikutnya.';
-$string['enableforumai'] = 'Aktifkan Forum AI';
-$string['enableforumai_desc'] = 'Jika dinonaktifkan, bagian "Datacurso Forum AI" disembunyikan dari pengaturan aktivitas forum dan pemrosesan otomatis dijeda.';
+$string['enablediainitconversation_help'] = 'Mengaktifkan opsi ini akan memungkinkan AI merespons pesan awal yang memulai diskusi. Disarankan juga untuk memilih peran Guru pada kolom berikutnya. Jika forum dapat dinilai dan opsi ini dinonaktifkan, AI tidak akan menilai pesan awal setiap diskusi.';
+$string['enablediainitconversation_warning'] = 'Forum ini dapat dinilai, tetapi respons AI terhadap topik diskusi dinonaktifkan: AI tidak akan menilai pesan awal setiap diskusi.';
 $string['error_aidisabled'] = 'Fitur AI saat ini dinonaktifkan oleh administrator situs.';
 $string['error_airequest'] = 'Respon AI tidak dapat dimuat. Silakan coba lagi nanti atau hubungi administrator Anda.';
 $string['error_allowedrolesrequired'] = 'Pilih setidaknya satu peran yang dapat dibalas oleh AI.';
@@ -76,6 +75,7 @@ $string['error_forumclosed'] = 'Tanggal tenggat atau tanggal batas akhir forum i
 $string['error_graderrequired'] = 'Pilih penilai: persetujuan otomatis menerbitkan respons AI atas nama pengguna ini.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Posting yang dibalas adalah balasan pribadi, sehingga respon AI tidak dapat dipublikasikan.';
+$string['error_providerupgraderequired'] = 'Forum AI memerlukan versi penyedia AI Datacurso yang lebih baru (aiprovider_datacurso 1.7.0 atau lebih baru). Minta administrator situs untuk memperbaruinya.';
 $string['error_pseudonymisation_failed'] = 'Data untuk layanan AI tidak dapat dipseudonimkan, sehingga tidak ada yang dikirim.';
 $string['error_responsebusy'] = 'Permintaan lain sedang mengelola respon AI ini. Tunggu sebentar lalu coba lagi.';
 $string['error_responseexpired'] = 'Respon AI ini telah kedaluwarsa karena tanggal tenggat atau tanggal batas akhir forum sudah lewat.';
@@ -116,6 +116,16 @@ Untuk meninjau pesan lengkap dan memutuskan apakah akan menyetujuinya atau menol
 $string['notification_greeting'] = 'Halo {$a->firstname},';
 $string['notification_intro'] = 'Respon otomatis telah dihasilkan untuk diskusi "{$a->discussion}" di forum "{$a->forum}" dalam kursus "{$a->course}".';
 $string['notification_preview'] = 'Pratinjau:';
+$string['notification_reminder_fullmessage'] = 'Halo {$a->firstname},
+
+Pengingat: sebuah respons yang dibuat oleh AI masih menunggu peninjauan untuk diskusi "{$a->discussion}" di forum "{$a->forum}" (Kursus: {$a->course}).
+
+Pratinjau: {$a->preview}...
+
+Untuk meninjau pesan lengkap dan memutuskan apakah akan menyetujui atau menolaknya, silakan kunjungi:
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Pengingat: respons AI masih tertunda di "{$a->discussion}"';
+$string['notification_reminder_subject'] = 'Pengingat: respons AI menunggu persetujuan';
 $string['notification_review_button'] = 'Tinjau Respon';
 $string['notification_smallmessage'] = 'Respon AI baru menunggu di "{$a->discussion}"';
 $string['notification_subject'] = 'Persetujuan Diperlukan: Respon AI';
@@ -126,14 +136,14 @@ $string['preview'] = 'Pesan AI';
 $string['privacy:metadata:datacurso_ai'] = 'Konten posting forum dikirim ke layanan AI eksternal Datacurso untuk menghasilkan respon dan penilaian.';
 $string['privacy:metadata:datacurso_ai:author_name'] = 'Nama penulis posting, hanya dikirim sebagai label pseudonim [STUDENT_NAME] dan dikembalikan dalam balasan AI sebelum disimpan.';
 $string['privacy:metadata:datacurso_ai:course_activity'] = 'Nama kursus, forum, dan diskusi yang menjadi konteks permintaan AI.';
-$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'Dalam permintaan penilaian AI, ID siswa yang partisipasi forumnya dinilai, beserta teks posting dan judul diskusinya (namanya diganti dengan [STUDENT_NAME] dan alamat email disamarkan sebagai [EMAIL]).';
+$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'Dalam permintaan penilaian AI, pseudonim siswa yang partisipasi forumnya dinilai (bukan ID pengguna Moodle-nya), beserta teks posting dan judul diskusinya (namanya diganti dengan [STUDENT_NAME] dan alamat email disamarkan sebagai [EMAIL]). Tidak ada ID forum, diskusi, atau posting yang dikirim.';
 $string['privacy:metadata:datacurso_ai:grading_configuration'] = 'Dalam permintaan penilaian AI, pengaturan penilaian seluruh forum: nilai maksimum atau skala dan definisi rubrik atau panduan penilaian.';
 $string['privacy:metadata:datacurso_ai:post_content'] = 'Teks posting forum dan judul diskusi yang dikirim ke layanan AI. Nama penulis dan peserta utas diganti dengan labelnya dan alamat email disamarkan sebagai [EMAIL].';
-$string['privacy:metadata:datacurso_ai:provider_fields'] = 'Plugin penyedia AI (aiprovider_datacurso) menambahkan ke setiap permintaan pengenal situs, URL situs, serta ID, zona waktu, dan bahasa pengguna yang atas namanya permintaan dibuat; lihat pernyataan privasi plugin tersebut.';
+$string['privacy:metadata:datacurso_ai:provider_fields'] = 'Plugin penyedia AI (aiprovider_datacurso) menambahkan ke setiap permintaan pengenal situs, URL situs, serta pseudonim, zona waktu, dan bahasa pengguna yang atas namanya permintaan dibuat; lihat pernyataan privasi plugin tersebut.';
 $string['privacy:metadata:datacurso_ai:requester'] = 'Permintaan penilaian AI dibuat atas nama pengajar yang memintanya, dan penyedia AI mengaitkannya dengan pengajar tersebut.';
 $string['privacy:metadata:datacurso_ai:thread_authors'] = 'Penulis posting sebelumnya dalam diskusi, yang merupakan pihak ketiga (teman sekelas dan pengajar), hanya dikirim sebagai label pseudonim seperti [PARTICIPANT_1] yang tetap sama dalam satu permintaan.';
 $string['privacy:metadata:datacurso_ai:thread_history'] = 'Teks posting sebelumnya dalam diskusi, yang ditulis oleh pihak ketiga, dikirim sebagai konteks percakapan dengan nama peserta diganti dan alamat email disamarkan.';
-$string['privacy:metadata:datacurso_ai:userid'] = 'ID pengguna yang atas namanya permintaan AI dibuat.';
+$string['privacy:metadata:datacurso_ai:userid'] = 'Pseudonim pengguna yang atas namanya permintaan AI dibuat: token khusus situs yang diturunkan dengan rahasia yang tidak pernah keluar dari situs, bukan ID pengguna Moodle.';
 $string['privacy:metadata:local_forum_ai_config'] = 'Menyimpan konfigurasi AI per forum.';
 $string['privacy:metadata:local_forum_ai_config:allowedroles'] = 'Daftar ID peran yang dipisahkan koma yang boleh dibalas oleh AI.';
 $string['privacy:metadata:local_forum_ai_config:delayminutes'] = 'Jumlah menit menunggu sebelum peninjauan AI tertunda dijalankan.';
@@ -163,6 +173,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Status posting (dis
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Subjek pesan.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Tanggal pembuatan catatan.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Tanggal pembaruan catatan.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Tanggal pengingat terakhir yang dikirim kepada penyetuju tentang respons ini (0 jika belum pernah).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'Antrean permintaan pemrosesan AI yang tertunda.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'Muatan JSON berisi modul kursus dan posting atau diskusi yang akan diproses.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Menunjukkan apakah permintaan dalam antrean sudah diproses.';
@@ -192,6 +203,8 @@ $string['statuspending'] = 'Menunggu';
 $string['statusrejected'] = 'Ditolak';
 $string['task_process_ai_queue'] = 'Proses antrean tertunda Forum AI';
 $string['task_process_single_forum_discussion'] = 'Memproses satu forum diskusi untuk AI';
+$string['task_remind_pending_approvals'] = 'Ingatkan respons Forum AI yang menunggu persetujuan';
+$string['task_skipped_plugindisabled'] = 'Forum AI dinonaktifkan di penyedia AI Datacurso; tugas dilewati.';
 $string['unknownparticipant'] = 'Peserta';
 $string['usedelay'] = 'Gunakan peninjauan tertunda';
 $string['usedelay_help'] = 'Jika diaktifkan, peninjauan AI akan dijalankan setelah waktu tunggu yang dapat dikonfigurasi, bukan dijalankan segera.';

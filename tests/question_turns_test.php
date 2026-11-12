@@ -129,6 +129,8 @@ final class question_turns_test extends \advanced_testcase {
         global $DB;
 
         $this->resetAfterTest();
+        // The fixture has no approver, so every request reports it (report 9).
+        $this->expectOutputRegex('/no eligible recipients/');
         $this->setAdminUser();
 
         $setup = $this->create_setup();
@@ -244,6 +246,8 @@ final class question_turns_test extends \advanced_testcase {
     private function create_setup(): stdClass {
         global $DB;
 
+        $this->require_provider();
+
         $setup = new stdClass();
         $setup->course = $this->getDataGenerator()->create_course();
         $setup->student = $this->getDataGenerator()->create_and_enrol($setup->course, 'student');
@@ -305,5 +309,17 @@ final class question_turns_test extends \advanced_testcase {
             'timecreated' => time(),
             'timemodified' => time(),
         ]);
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

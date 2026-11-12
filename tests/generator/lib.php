@@ -30,7 +30,7 @@ class local_forum_ai_generator extends component_generator_base {
      * Optional fields with defaults: parentpostid (discussion first post),
      * postid (null), action_userid (null), subject, message, grade (null),
      * status ('pending'), approval_token (random unique hash),
-     * timecreated/timemodified (now).
+     * timecreated/timemodified (now), timeremindered (0).
      *
      * @param array|stdClass $record Record data.
      * @return stdClass The inserted record.
@@ -71,6 +71,7 @@ class local_forum_ai_generator extends component_generator_base {
             'timecreated' => $record['timecreated'] ?? $now,
             'timemodified' => $record['timemodified'] ?? $now,
             'approved_at' => $record['approved_at'] ?? null,
+            'timeremindered' => (int) ($record['timeremindered'] ?? 0),
         ];
 
         $pending->id = $DB->insert_record('local_forum_ai_pending', $pending);

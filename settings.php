@@ -27,11 +27,10 @@ defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
     $defaults = [
-        'enableforumai' => 1,
         'default_enabled' => 1,
         'default_require_approval' => 1,
         'default_reply_message' => get_string('default_reply_message', 'local_forum_ai'),
-        'default_enablediainitconversation' => 0,
+        'default_enablediainitconversation' => 1,
         'default_usedelay' => 0,
         'default_delayminutes' => 60,
         'default_question_turns' => 1,
@@ -48,13 +47,6 @@ if ($hassiteconfig) {
     $settings = new admin_settingpage('local_forum_ai_settings', new lang_string('pluginname', 'local_forum_ai'));
 
     if ($ADMIN->fulltree) {
-        $settings->add(new admin_setting_configcheckbox(
-            'local_forum_ai/enableforumai',
-            get_string('enableforumai', 'local_forum_ai'),
-            get_string('enableforumai_desc', 'local_forum_ai'),
-            1
-        ));
-
         $globalenableaisetting = new admin_setting_configcheckbox(
             'local_forum_ai/default_enabled',
             get_string('defaultenableai', 'local_forum_ai'),
@@ -75,7 +67,7 @@ if ($hassiteconfig) {
             'local_forum_ai/default_enablediainitconversation',
             get_string('enablediainitconversation', 'local_forum_ai'),
             get_string('enablediainitconversation_help', 'local_forum_ai'),
-            0
+            1
         ));
 
         $settings->add(new admin_setting_configcheckbox(
@@ -130,15 +122,6 @@ if ($hassiteconfig) {
             3,
             3
         ));
-
-        $settings->hide_if('local_forum_ai/default_enabled', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_enablediainitconversation', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_require_approval', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_usedelay', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_delayminutes', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_question_turns', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_replyinlocked', 'local_forum_ai/enableforumai', 'eq', 0);
-        $settings->hide_if('local_forum_ai/default_reply_message', 'local_forum_ai/enableforumai', 'eq', 0);
 
         $settings->hide_if('local_forum_ai/default_enablediainitconversation', 'local_forum_ai/default_enabled', 'eq', 0);
         $settings->hide_if('local_forum_ai/default_require_approval', 'local_forum_ai/default_enabled', 'eq', 0);

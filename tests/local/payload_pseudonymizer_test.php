@@ -124,6 +124,8 @@ final class payload_pseudonymizer_test extends \advanced_testcase {
     public function test_rubric_text_is_not_altered(): void {
         global $DB;
 
+        $this->require_provider();
+
         $this->resetAfterTest();
 
         $generator = $this->getDataGenerator();
@@ -228,5 +230,17 @@ final class payload_pseudonymizer_test extends \advanced_testcase {
             get_string('unknownparticipant', 'local_forum_ai'),
             $pseudonymizer->restore_text('[PARTICIPANT_1]')
         );
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

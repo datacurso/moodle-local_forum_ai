@@ -146,7 +146,7 @@ final class provider_test extends \core_privacy\tests\provider_testcase {
             [
                 'creator_userid', 'action_userid', 'discussionid', 'forumid', 'parentpostid', 'postid',
                 'message', 'subject', 'grade', 'status', 'approved_at', 'approval_token', 'timecreated',
-                'timemodified',
+                'timemodified', 'timeremindered',
             ],
             $fieldsbytable['local_forum_ai_pending']
         );

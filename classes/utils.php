@@ -16,6 +16,7 @@
 
 namespace local_forum_ai;
 
+use local_forum_ai\local\provider_state;
 use local_forum_ai\helper\rubric;
 use local_forum_ai\helper\guide;
 use local_forum_ai\local\payload_pseudonymizer;
@@ -141,20 +142,6 @@ class utils {
     }
 
     /**
-     * Checks whether forum AI feature is globally enabled.
-     *
-     * @return bool
-     */
-    public static function is_feature_enabled(): bool {
-        $enabled = get_config('local_forum_ai', 'enableforumai');
-        if ($enabled === false || $enabled === '') {
-            return true;
-        }
-
-        return !empty($enabled);
-    }
-
-    /**
      * Checks whether forum AI can be enabled globally per forum.
      *
      * @return bool
@@ -169,23 +156,25 @@ class utils {
     }
 
     /**
-     * Checks whether AI features may run: both the Forum AI master switch
-     * and the global AI switch must be on.
+     * Checks whether AI features may run: Forum AI must be enabled in the Datacurso AI provider
+     * and the global AI switch of the plugin must be on.
      *
      * @return bool
      */
     public static function is_ai_available(): bool {
-        return self::is_feature_enabled() && self::is_global_ai_enabled();
+        return provider_state::is_enabled() && self::is_global_ai_enabled();
     }
 
     /**
      * Ensures AI features may run before any data is sent to the AI service.
      *
      * @return void
-     * @throws \moodle_exception When an AI switch is off.
+     * @throws \moodle_exception plugindisabled or plugindisabled_admin (aiprovider_datacurso) when Forum AI
+     *                           is disabled in the provider, error_aidisabled when the global AI switch is off.
      */
     public static function require_ai_available(): void {
-        if (!self::is_ai_available()) {
+        provider_state::require_enabled();
+        if (!self::is_global_ai_enabled()) {
             throw new \moodle_exception('error_aidisabled', 'local_forum_ai');
         }
     }
@@ -569,7 +558,7 @@ class utils {
      * The list is capped to the root post (which defines the topic) plus
      * the most recent posts, to keep the payload bounded in long threads.
      *
-     * Each entry contains the post id, chronological order, author label
+     * Each entry contains its position, chronological order, author label
      * and cleaned message text. Authors are third parties: they travel only as
      * pseudonymised labels, their names inside the texts are replaced and
      * e-mail addresses are masked (FAI-PRIV-001-R1).
@@ -638,8 +627,9 @@ class utils {
         $threadentries = [];
         $order = 1;
         foreach ($entries as [$post, $cleaned, $label]) {
+            // FAI-PRIV-001-R1: the id is the position in the thread, never the Moodle post id.
             $threadentries[] = [
-                'id' => (int)$post->id,
+                'id' => $order,
                 'order' => $order,
                 'author' => $label,
                 'message' => $pseudonymizer->pseudonymize_text($cleaned),
@@ -648,6 +638,88 @@ class utils {
         }
 
         return $threadentries;
+    }
+
+    /**
+     * Returns the user's own main (opening) posts of a forum, as pseudonymised thread entries.
+     *
+     * Used so the AI knows what the student already submitted in other discussions of the
+     * same forum and never asks for a post that already exists. Deleted posts, private
+     * replies, replies and posts created after the cutoff are excluded; in separate groups
+     * mode only discussions of the user's groups are included.
+     *
+     * @param int $forumid Forum ID.
+     * @param int $userid Author of the posts.
+     * @param int $beforetime Only posts created at or before this time are included.
+     * @param payload_pseudonymizer|null $pseudonymizer Request pseudonymiser, so the labels stay
+     *                                                  consistent with the rest of the payload.
+     * @param int|null $excludediscussionid Discussion to skip (already sent as thread history).
+     * @param int $maxposts Maximum number of (most recent) posts returned.
+     * @return array List of entries with id, order, author, message.
+     */
+    public static function get_user_main_posts(
+        int $forumid,
+        int $userid,
+        int $beforetime,
+        ?payload_pseudonymizer $pseudonymizer = null,
+        ?int $excludediscussionid = null,
+        int $maxposts = 10,
+    ): array {
+        global $DB;
+
+        $cm = get_coursemodule_from_instance('forum', $forumid, 0, false, IGNORE_MISSING);
+        if (!$cm) {
+            return [];
+        }
+
+        $where = 'd.forum = :forumid AND p.userid = :userid AND p.parent = 0 AND p.deleted = 0
+                  AND p.privatereplyto = 0 AND p.created <= :beforetime';
+        $params = ['forumid' => $forumid, 'userid' => $userid, 'beforetime' => $beforetime];
+
+        if ($excludediscussionid !== null) {
+            $where .= ' AND d.id <> :excludeid';
+            $params['excludeid'] = $excludediscussionid;
+        }
+
+        $allowedgroupids = \local_forum_ai\local\group_access::get_allowed_discussion_groupids(
+            $cm,
+            get_course($cm->course),
+            $userid
+        );
+        if ($allowedgroupids !== null) {
+            [$insql, $groupparams] = $DB->get_in_or_equal($allowedgroupids, SQL_PARAMS_NAMED, 'grp');
+            $where .= " AND d.groupid {$insql}";
+            $params += $groupparams;
+        }
+
+        $posts = $DB->get_records_sql(
+            "SELECT p.id, p.message, p.userid
+               FROM {forum_posts} p
+               JOIN {forum_discussions} d ON d.id = p.discussion
+              WHERE {$where}
+           ORDER BY p.created DESC, p.id DESC",
+            $params,
+            0,
+            max(1, $maxposts)
+        );
+
+        $pseudonymizer = $pseudonymizer ?? new payload_pseudonymizer();
+        $entries = [];
+        foreach (array_reverse($posts) as $post) {
+            $cleaned = trim(strip_tags($post->message));
+            if ($cleaned === '') {
+                continue;
+            }
+            // FAI-PRIV-001-R1: the id is the position in the list, never the Moodle post id.
+            $entries[] = [
+                'id' => count($entries) + 1,
+                'order' => count($entries) + 1,
+                'author' => $pseudonymizer->label_for((int) $post->userid),
+                'message' => $pseudonymizer->pseudonymize_text($cleaned),
+            ];
+        }
+
+        return $entries;
     }
 
     /**
@@ -775,7 +847,6 @@ class utils {
         foreach ($posts as $p) {
             $discussions[] = [
                 'discussion' => $pseudonymizer->pseudonymize_text($p->name),
-                'discussion_id' => $p->id,
                 'answer' => $pseudonymizer->pseudonymize_text(trim(strip_tags($p->message))),
             ];
         }
@@ -783,7 +854,8 @@ class utils {
         $participation = [
             'userid' => (string)$userid,
             'participation' => [
-                'forum_id' => (string)$forum->id,
+                // FAI-PRIV-001-R1: a request-local reference, never the Moodle forum id.
+                'forum_id' => \local_forum_ai\local\outbound_payload::FORUM_REFERENCE,
                 'forum' => $forum->name,
                 // Whole forum grading setting (not the per-post ratings scale):
                 // numeric maximum, or the option list for named scales.

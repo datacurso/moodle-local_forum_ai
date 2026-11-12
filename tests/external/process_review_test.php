@@ -349,9 +349,9 @@ final class process_review_test extends externallib_advanced_testcase {
      */
     public function test_execute_refused_when_forum_ai_disabled(): void {
         $this->resetAfterTest();
-        set_config('enableforumai', 0, 'local_forum_ai');
+        set_config('plugin_enabled_local_forum_ai', '0', 'aiprovider_datacurso');
 
-        $this->assert_execute_refused_without_transfer();
+        $this->assert_execute_refused_without_transfer('plugindisabled');
     }
 
     /**
@@ -361,15 +361,16 @@ final class process_review_test extends externallib_advanced_testcase {
         $this->resetAfterTest();
         set_config('default_enabled', 0, 'local_forum_ai');
 
-        $this->assert_execute_refused_without_transfer();
+        $this->assert_execute_refused_without_transfer('error_aidisabled');
     }
 
     /**
      * Runs execute() as an authorized teacher and asserts it is refused before any transfer.
      *
+     * @param string $errorcode Expected error code of the refusal.
      * @return void
      */
-    private function assert_execute_refused_without_transfer(): void {
+    private function assert_execute_refused_without_transfer(string $errorcode): void {
         [$cm, $student, $teacher] = $this->create_forum_course();
 
         $client = new mock_ai_client(['feedback' => 'Mock AI feedback']);
@@ -387,7 +388,7 @@ final class process_review_test extends externallib_advanced_testcase {
         $sink->close();
 
         $this->assertNotNull($thrown, 'Expected moodle_exception was not thrown.');
-        $this->assertSame('error_aidisabled', $thrown->errorcode);
+        $this->assertSame($errorcode, $thrown->errorcode);
         $this->assertSame([], $client->requests);
 
         $reviewevents = array_filter($events, static function ($event) {
@@ -404,6 +405,8 @@ final class process_review_test extends externallib_advanced_testcase {
      * @return array [$cm, $student, $teacher].
      */
     private function create_forum_course(): array {
+        $this->require_provider();
+
         $course = $this->getDataGenerator()->create_course();
         $student = $this->getDataGenerator()->create_and_enrol($course, 'student');
         $teacher = $this->getDataGenerator()->create_and_enrol($course, 'editingteacher');
@@ -420,6 +423,8 @@ final class process_review_test extends externallib_advanced_testcase {
      * @return array [$cm, $course, $groupa, $groupb].
      */
     private function create_separate_groups_forum(): array {
+        $this->require_provider();
+
         $course = $this->getDataGenerator()->create_course();
 
         $forummodule = $this->getDataGenerator()->create_module('forum', [
@@ -444,5 +449,17 @@ final class process_review_test extends externallib_advanced_testcase {
      */
     private function inject_mock_client(): void {
         ai_service::set_client_for_testing(new mock_ai_client(['feedback' => 'Mock AI feedback']));
+    }
+
+    /**
+     * Skips the current test when the Datacurso AI provider is not installed.
+     *
+     * The CI pipeline does not install declared dependencies; without the Datacurso AI provider
+     * the forum creation callbacks and AI entry points reached by these tests cannot run.
+     */
+    private function require_provider(): void {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
     }
 }

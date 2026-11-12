@@ -42,12 +42,25 @@ require_once(__DIR__ . '/fixtures/xss_payload_fixture.php');
  */
 final class sanitization_test extends \advanced_testcase {
     /**
+     * Skips every test when the Datacurso AI provider is not installed.
+     */
+    protected function setUp(): void {
+        parent::setUp();
+        // The CI pipeline does not install declared dependencies; without the Datacurso AI provider these tests cannot run.
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            $this->markTestSkipped('aiprovider_datacurso is not installed.');
+        }
+    }
+
+    /**
      * The pending row must store a cleaned message that keeps legitimate formatting.
      */
     public function test_create_approval_request_sanitizes_message(): void {
         global $DB;
 
         $this->resetAfterTest();
+        // The fixture has no approver, so the request reports it (report 9).
+        $this->expectOutputRegex('/no eligible recipients/');
 
         [$forum, $discussion] = $this->create_forum_and_discussion();
 

@@ -63,9 +63,8 @@ $string['discussionmsg'] = 'Message généré par l’IA';
 $string['discussionname'] = 'Sujet';
 $string['enabled'] = 'Activer l’IA';
 $string['enablediainitconversation'] = 'Activer la réponse de l’IA au sujet de discussion';
-$string['enablediainitconversation_help'] = 'En activant cette option, l’IA pourra répondre au message initial qui lance la discussion. Il est également recommandé de sélectionner le rôle Enseignant dans le champ suivant.';
-$string['enableforumai'] = 'Activer Forum IA';
-$string['enableforumai_desc'] = 'Si désactivé, la section "Datacurso Forum IA" est masquée dans les paramètres de l’activité forum et le traitement automatique est mis en pause.';
+$string['enablediainitconversation_help'] = 'En activant cette option, l’IA pourra répondre au message initial qui lance la discussion. Il est également recommandé de sélectionner le rôle Enseignant dans le champ suivant. Si le forum est noté et que cette option est désactivée, l’IA ne note pas le message initial de chaque discussion.';
+$string['enablediainitconversation_warning'] = 'Ce forum est noté, mais la réponse de l’IA au sujet de discussion est désactivée : l’IA ne notera pas le message initial de chaque discussion.';
 $string['error_aidisabled'] = 'Les fonctionnalités d\'IA sont actuellement désactivées par l\'administrateur du site.';
 $string['error_airequest'] = 'La réponse de l\'IA n\'a pas pu être chargée. Veuillez réessayer plus tard ou contacter votre administrateur.';
 $string['error_allowedrolesrequired'] = 'Sélectionnez au moins un rôle auquel l\'IA peut répondre.';
@@ -76,6 +75,7 @@ $string['error_forumclosed'] = 'La date de remise ou la date limite de ce forum 
 $string['error_graderrequired'] = 'Sélectionnez un évaluateur : l\'approbation automatique publie la réponse de l\'IA au nom de cet utilisateur.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Le message auquel il est répondu est une réponse privée, une réponse de l’IA ne peut donc pas être publiée.';
+$string['error_providerupgraderequired'] = 'Forum IA nécessite une version plus récente du fournisseur d’IA Datacurso (aiprovider_datacurso 1.7.0 ou ultérieure). Demandez à l’administrateur du site de le mettre à jour.';
 $string['error_pseudonymisation_failed'] = 'Les données destinées au service d’IA n’ont pas pu être pseudonymisées, rien n’a donc été envoyé.';
 $string['error_responsebusy'] = 'Une autre requête est en train de traiter cette réponse de l’IA. Patientez un instant et réessayez.';
 $string['error_responseexpired'] = 'Cette réponse de l’IA a expiré car la date de remise ou la date limite du forum est dépassée.';
@@ -116,6 +116,16 @@ Pour consulter le message complet et décider de l’approuver ou de le rejeter,
 $string['notification_greeting'] = 'Bonjour {$a->firstname},';
 $string['notification_intro'] = 'Une réponse automatique a été générée pour la discussion "{$a->discussion}" dans le forum "{$a->forum}" du cours "{$a->course}".';
 $string['notification_preview'] = 'Aperçu :';
+$string['notification_reminder_fullmessage'] = 'Bonjour {$a->firstname},
+
+Rappel : une réponse générée par l’IA attend toujours d’être examinée pour la discussion « {$a->discussion} » du forum « {$a->forum} » (Cours : {$a->course}).
+
+Aperçu : {$a->preview}...
+
+Pour examiner le message complet et décider de l’approuver ou de le rejeter, veuillez consulter :
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Rappel : réponse de l’IA toujours en attente dans « {$a->discussion} »';
+$string['notification_reminder_subject'] = 'Rappel : réponse de l’IA en attente d’approbation';
 $string['notification_review_button'] = 'Examiner la réponse';
 $string['notification_smallmessage'] = 'Nouvelle réponse IA en attente dans "{$a->discussion}"';
 $string['notification_subject'] = 'Approbation requise : Réponse IA';
@@ -126,14 +136,14 @@ $string['preview'] = 'Message IA';
 $string['privacy:metadata:datacurso_ai'] = 'Le contenu des messages du forum est envoyé au service d’IA externe de Datacurso pour générer des réponses et des évaluations.';
 $string['privacy:metadata:datacurso_ai:author_name'] = 'Nom de l’auteur du message, envoyé uniquement sous l’étiquette pseudonymisée [STUDENT_NAME] et rétabli dans la réponse de l’IA avant son enregistrement.';
 $string['privacy:metadata:datacurso_ai:course_activity'] = 'Noms du cours, du forum et de la discussion qui contextualisent la requête à l’IA.';
-$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'Dans une requête d’évaluation par l’IA, l’ID de l’étudiant dont la participation au forum est évaluée, avec le texte de ses messages et les titres de ses discussions (son nom remplacé par [STUDENT_NAME] et les adresses de courriel masquées en [EMAIL]).';
+$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'Dans une requête d’évaluation par l’IA, un pseudonyme de l’étudiant dont la participation au forum est évaluée (jamais son ID utilisateur Moodle), avec le texte de ses messages et les titres de ses discussions (son nom remplacé par [STUDENT_NAME] et les adresses de courriel masquées en [EMAIL]). Aucun ID de forum, de discussion ou de message n’est envoyé.';
 $string['privacy:metadata:datacurso_ai:grading_configuration'] = 'Dans une requête d’évaluation par l’IA, le réglage d’évaluation de l’ensemble du forum : la note maximale ou le barème et la définition de la grille d’évaluation ou du guide d’évaluation.';
 $string['privacy:metadata:datacurso_ai:post_content'] = 'Texte du message du forum et titre de la discussion envoyés au service d’IA. Les noms de l’auteur et des participants du fil sont remplacés par leurs étiquettes et les adresses de courriel sont masquées en [EMAIL].';
-$string['privacy:metadata:datacurso_ai:provider_fields'] = 'Le plugin du fournisseur d’IA (aiprovider_datacurso) ajoute à chaque requête l’identifiant du site, l’URL du site ainsi que l’ID, le fuseau horaire et la langue de l’utilisateur au nom duquel elle est effectuée ; voir la déclaration de confidentialité de ce plugin.';
+$string['privacy:metadata:datacurso_ai:provider_fields'] = 'Le plugin du fournisseur d’IA (aiprovider_datacurso) ajoute à chaque requête l’identifiant du site, l’URL du site ainsi que le pseudonyme, le fuseau horaire et la langue de l’utilisateur au nom duquel elle est effectuée ; voir la déclaration de confidentialité de ce plugin.';
 $string['privacy:metadata:datacurso_ai:requester'] = 'Une requête d’évaluation par l’IA est effectuée au nom de l’enseignant qui la demande, et le fournisseur d’IA l’attribue à cet enseignant.';
 $string['privacy:metadata:datacurso_ai:thread_authors'] = 'Auteurs des messages précédents de la discussion, qui sont des tiers (camarades et enseignants), envoyés uniquement sous des étiquettes pseudonymisées comme [PARTICIPANT_1], stables au sein d’une même requête.';
 $string['privacy:metadata:datacurso_ai:thread_history'] = 'Texte des messages précédents de la discussion, rédigés par des tiers, envoyé comme contexte de conversation avec les noms des participants remplacés et les adresses de courriel masquées.';
-$string['privacy:metadata:datacurso_ai:userid'] = 'ID de l’utilisateur au nom duquel la requête à l’IA est effectuée.';
+$string['privacy:metadata:datacurso_ai:userid'] = 'Un pseudonyme de l’utilisateur au nom duquel la requête à l’IA est effectuée : un jeton propre au site, dérivé d’un secret qui ne quitte jamais le site, jamais l’ID utilisateur Moodle.';
 $string['privacy:metadata:local_forum_ai_config'] = 'Stocke les configurations IA par forum.';
 $string['privacy:metadata:local_forum_ai_config:allowedroles'] = 'Liste, séparée par des virgules, des ID de rôles auxquels l’IA peut répondre.';
 $string['privacy:metadata:local_forum_ai_config:delayminutes'] = 'Nombre de minutes d’attente avant l’exécution de la révision différée par IA.';
@@ -163,6 +173,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Statut de la public
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Sujet du message.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Date de création de l’enregistrement.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Date de mise à jour de l’enregistrement.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Date du dernier rappel envoyé aux approbateurs au sujet de cette réponse (0 si jamais).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'File d’attente des demandes de traitement différé par IA.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'Charge JSON contenant le module de cours et le message ou la discussion à traiter.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Indique si la demande en file d’attente a été traitée.';
@@ -192,6 +203,8 @@ $string['statuspending'] = 'En attente';
 $string['statusrejected'] = 'Rejeté';
 $string['task_process_ai_queue'] = 'Traiter la file d’attente différée de Forum AI';
 $string['task_process_single_forum_discussion'] = 'Traiter un seul forum de discussion pour l\'IA';
+$string['task_remind_pending_approvals'] = 'Rappeler les réponses du Forum IA en attente d’approbation';
+$string['task_skipped_plugindisabled'] = 'Forum IA est désactivé dans le fournisseur d\'IA Datacurso ; la tâche est ignorée.';
 $string['unknownparticipant'] = 'Participant';
 $string['usedelay'] = 'Utiliser une révision différée';
 $string['usedelay_help'] = 'Si activé, la révision par IA sera exécutée après un délai configurable au lieu d’être exécutée immédiatement.';

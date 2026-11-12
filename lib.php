@@ -23,6 +23,8 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+use local_forum_ai\local\provider_state;
+
 /**
  * Extends the settings navigation (the "More" menu in forum activities).
  *
@@ -32,7 +34,7 @@
 function local_forum_ai_extend_settings_navigation(settings_navigation $nav, context $context) {
     global $PAGE, $DB, $USER;
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    if (!provider_state::is_enabled()) {
         return;
     }
 
@@ -90,7 +92,7 @@ function local_forum_ai_extend_settings_navigation(settings_navigation $nav, con
 function local_forum_ai_extend_navigation_course($navigation, $course, $context) {
     global $USER;
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    if (!provider_state::is_enabled()) {
         return;
     }
 
@@ -128,7 +130,7 @@ function local_forum_ai_extend_navigation_course($navigation, $course, $context)
 function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     global $DB, $USER;
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    if (!provider_state::is_enabled()) {
         return;
     }
 
@@ -159,7 +161,7 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
             ? get_string('default_reply_message', 'local_forum_ai')
             : (string)$rawdefaultreplymessage;
     $defaultinitconversation =
-        ($rawdefaultinitconversation === false || $rawdefaultinitconversation === '') ? 0 : (int)$rawdefaultinitconversation;
+        ($rawdefaultinitconversation === false || $rawdefaultinitconversation === '') ? 1 : (int)$rawdefaultinitconversation;
     $defaultusedelay = ($rawdefaultusedelay === false || $rawdefaultusedelay === '') ? 0 : (int)$rawdefaultusedelay;
     $defaultdelayminutes = \local_forum_ai\utils::get_default_delay_minutes();
     $defaultreplyinlocked = \local_forum_ai\utils::REPLY_IN_LOCKED_INHERIT;
@@ -229,6 +231,17 @@ function local_forum_ai_coursemodule_standard_elements($formwrapper, $mform) {
     $mform->setType('enablediainitconversation', PARAM_INT);
     $mform->addHelpButton('enablediainitconversation', 'enablediainitconversation', 'local_forum_ai');
     $mform->setDefault('enablediainitconversation', $defaults->enablediainitconversation);
+
+    // With this option off the opening post is never graded: warn only when it matters.
+    $mform->addElement(
+        'static',
+        'enablediainitconversation_warning',
+        '',
+        get_string('enablediainitconversation_warning', 'local_forum_ai')
+    );
+    $mform->hideIf('enablediainitconversation_warning', 'enablediainitconversation', 'eq', 1);
+    $mform->hideIf('enablediainitconversation_warning', 'assessed', 'eq', 0);
+    $mform->hideIf('enablediainitconversation_warning', 'local_forum_ai_enabled', 'neq', 1);
 
     $questionturnoptions = [
         0 => '0',
@@ -449,7 +462,7 @@ function local_forum_ai_coursemodule_edit_post_actions($data, $course) {
         return $data;
     }
 
-    if (!\local_forum_ai\utils::is_feature_enabled()) {
+    if (!provider_state::is_enabled()) {
         return $data;
     }
 

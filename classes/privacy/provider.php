@@ -93,6 +93,7 @@ class provider implements
                 'approval_token' => 'privacy:metadata:local_forum_ai_pending:approval_token',
                 'timecreated'    => 'privacy:metadata:local_forum_ai_pending:timecreated',
                 'timemodified'   => 'privacy:metadata:local_forum_ai_pending:timemodified',
+                'timeremindered' => 'privacy:metadata:local_forum_ai_pending:timeremindered',
             ],
             'privacy:metadata:local_forum_ai_pending'
         );
@@ -110,7 +111,8 @@ class provider implements
         );
 
         // Forum post content is sent to the external AI provider to generate replies and evaluations.
-        // Names travel pseudonymised and e-mail addresses masked (FAI-PRIV-001-R1).
+        // Names travel pseudonymised, e-mail addresses masked, user ids as the shared site-scoped
+        // pseudonym and no Moodle id of a forum, discussion or post is sent (FAI-PRIV-001-R1).
         $collection->add_external_location_link(
             'datacurso_ai',
             [
