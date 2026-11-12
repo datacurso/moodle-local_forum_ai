@@ -1,6 +1,14 @@
-## [1.1.7] - 2026-11-11
+## [1.1.8] - 2026-11-12
 
-**Compatibility note:** This version is compatible with **Moodle 4.5** only.
+**Compatibility note:** This version is compatible from **Moodle 5.0** to **Moodle 5.3**. Requires `aiprovider_datacurso` 2.2.2 (2026111100) or later.
+
+The changes of 1.1.7 (Moodle 4.5) for Moodle 5.x, with the version adaptations listed under *Changed*.
+
+### Changed
+
+- Repository maintenance, no finding code: declared compatibility is Moodle 5.0 to 5.3: `$plugin->requires` is Moodle 5.0 (`2025041400`) and `$plugin->supported` is `[500, 503]`. Moodle 4.5 sites keep the `MOODLE_405_STABLE` branch. The Jenkins pipeline tests Moodle 5.0 and 5.3 with MariaDB. No test applies
+- Repository maintenance, no finding code: the `aiprovider_datacurso` dependency is 2.2.2 (2026111100), the first Moodle 5.x provider that has both `plugin_settings` (plugin state) and `outbound_privacy` (the shared user id pseudonym used by `provider_pseudonymiser`). Earlier 5.x providers lack one or both classes. No test applies
+- Test adaptation, no finding code: on Moodle 5.x the provider client reads the licence key from an enabled AI provider instance, so `outbound_request_body_test` now creates one instead of setting the 4.5 `licensekey` config (`outbound_request_body_test::test_chat_request_body_carries_content_and_no_real_identifier`, `outbound_request_body_test::test_grade_request_body_carries_content_and_no_real_identifier`)
 
 ### Security
 
@@ -14,11 +22,10 @@
 
 ### Fixed
 
-- No finding code: updating Forum AI on a site whose `aiprovider_datacurso` is older than 1.7.0 (2026110400) no longer breaks every page. The footer hook, the navigation and form callbacks of `lib.php` and the event observers called `aiprovider_datacurso\local\plugin_settings`, a class that only exists from that provider version, so every page threw `Class "aiprovider_datacurso\local\plugin_settings" not found`, including the upgrade page that reports the missing dependency, and the administrator could not reach the upgrade. Every read of the plugin state now goes through `\local_forum_ai\local\provider_state` (same approach as Tutor-IA 2.0.16), which reports Forum AI as disabled while that class does not exist; the plugin's own pages and web services refuse with the new message `error_providerupgraderequired` until the provider is upgraded (`provider_state_test::test_missing_provider_class_reports_forum_ai_disabled`, `provider_state_test::test_missing_provider_class_refuses_with_the_upgrade_message`, `provider_state_test::test_follows_the_provider_state`, `provider_state_test::test_only_provider_state_reads_the_provider_plugin_settings`, `plugin_disabled_guard_test::test_page_requires_enabled_after_login`)
+- No finding code: updating Forum AI on a site whose `aiprovider_datacurso` is older than 2.2.0 (2026110900) no longer breaks every page. The footer hook, the navigation and form callbacks of `lib.php` and the event observers called `aiprovider_datacurso\local\plugin_settings`, a class that only exists from that provider version, so every page threw `Class "aiprovider_datacurso\local\plugin_settings" not found`, including the upgrade page that reports the missing dependency, and the administrator could not reach the upgrade. Every read of the plugin state now goes through `\local_forum_ai\local\provider_state` (same approach as Tutor-IA 2.0.16), which reports Forum AI as disabled while that class does not exist; the plugin's own pages and web services refuse with the new message `error_providerupgraderequired` until the provider is upgraded (`provider_state_test::test_missing_provider_class_reports_forum_ai_disabled`, `provider_state_test::test_missing_provider_class_refuses_with_the_upgrade_message`, `provider_state_test::test_follows_the_provider_state`, `provider_state_test::test_only_provider_state_reads_the_provider_plugin_settings`, `plugin_disabled_guard_test::test_page_requires_enabled_after_login`)
 
 ### Removed
 
-- Repository maintenance, no finding code: declared compatibility narrowed to Moodle 4.5 (`$plugin->supported` is now `[405, 405]`), the only version the Jenkins pipeline tests. No test applies
 - Repository maintenance, no finding code: the `.github` folder (GitHub `plugin-ci.yml` and `moodle-release.yml` workflows and issue templates) is removed; CI runs in Jenkins (`Jenkinsfile.moodleplugin`). No test applies
 
 ## [1.1.6] - 2026-11-06

@@ -214,9 +214,17 @@ final class outbound_request_body_test extends \advanced_testcase {
      * @return recording_curl
      */
     private function install_provider_client(array $answer): recording_curl {
+        global $DB;
+
         $this->resetAfterTest();
         \core\plugininfo\aiprovider::enable_plugin('datacurso', 1);
-        set_config('licensekey', 'forum-ai-test-key', 'aiprovider_datacurso');
+        // On Moodle 5.x the provider client reads the licence key from an enabled provider instance.
+        (new \core_ai\manager($DB))->create_provider_instance(
+            classname: \aiprovider_datacurso\provider::class,
+            name: 'forum-ai-test',
+            enabled: true,
+            config: ['licensekey' => 'forum-ai-test-key'],
+        );
         // Resolve the region beforehand, so building a client does not ask the shop.
         set_config(license_region::REGION, '0', 'aiprovider_datacurso');
         set_config(license_region::FINGERPRINT, license_region::fingerprint(), 'aiprovider_datacurso');
