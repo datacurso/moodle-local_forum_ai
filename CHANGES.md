@@ -1,3 +1,26 @@
+## [1.1.7] - 2026-11-11
+
+**Compatibility note:** This version is compatible with **Moodle 4.5** only.
+
+### Security
+
+- FAI-PRIV-001-R1: every request to the AI service goes through a single outbound boundary (`\local_forum_ai\local\outbound_payload`) that keeps only allowlisted fields at every nesting level and drops anything else, so the outbound contract cannot grow silently. The discussions and their content are still sent, because they are what the AI grades. Fields and justification in `_docs/privacy.md` (`outbound_payload_test::test_for_chat_keeps_content_and_drops_identifiers`, `outbound_payload_test::test_for_grade_keeps_content_and_drops_identifiers`)
+- FAI-PRIV-001-R1: the reply request no longer sends `discussion_id` or `postid`, and the `id` of each `thread_history` and `own_main_posts` entry is its position in the list instead of the Moodle post id (`payload_contract_test::test_chat_payload_matches_contract`, `utils_own_main_posts_test::test_returns_own_main_posts_of_other_discussions`)
+- FAI-PRIV-001-R1: the grading request no longer sends `discussion_id`, and `forum_id` is the request-local reference `"1"` instead of the Moodle forum id; discussions are told apart by name (`payload_contract_test::test_grade_payload_uses_whole_forum_scale_not_post_scale`, `group_isolation_test::test_review_payload_excludes_posts_from_other_group_discussions`)
+- FAI-PRIV-001-R1: the evaluated student in the grading request (`forum_participations[].userid`) was sent with the real Moodle user id, because the provider only pseudonymises the top-level `userid`. Every user id now travels as the suite's shared site-scoped pseudonym, with the same mechanism as Assign AI: the `userid_pseudonymiser` port, bound through the DI container (`\local_forum_ai\hook\di_callbacks`) to `provider_pseudonymiser`, which delegates to `\aiprovider_datacurso\local\outbound_privacy`; the plugin derives no token of its own (`provider_pseudonymiser_test::test_container_resolves_the_provider_adapter_by_default`, `provider_pseudonymiser_test::test_adapter_returns_the_shared_suite_token`)
+- FAI-PRIV-001-R1: new test that captures the exact JSON body that goes on the wire, built by the real task or web service and the real provider client with only cURL replaced, and checks that it carries the discussion content and no real identifier, name or e-mail address. Written before the fix and confirmed to fail without it: the grading request carried the student's real user id (`outbound_request_body_test::test_chat_request_body_carries_content_and_no_real_identifier`, `outbound_request_body_test::test_grade_request_body_carries_content_and_no_real_identifier`)
+- FAI-PRIV-001-R1: privacy metadata of the AI service updated in every language: user ids are sent as pseudonyms and no forum, discussion or post id is sent (`privacy_provider_test::test_metadata_declares_pseudonymised_identifiers_for_the_ai_service`)
+- FAI-PRIV-001-R1, service side (python_plugins-ai, branch `fix/mindfree-v3`): the forum endpoints process requests in memory and store nothing; their logs carry operational data only (no texts, names, pseudonyms, ids or grades), error messages are neither logged nor returned, the thread is no longer echoed in the response and discussion ids no longer reach the model prompt. Documented in the service's `docs/privacy/forum.md`, with the model provider (Gemini API, paid tier) (`tests/test_forum_privacy.py`)
+
+### Fixed
+
+- No finding code: updating Forum AI on a site whose `aiprovider_datacurso` is older than 1.7.0 (2026110400) no longer breaks every page. The footer hook, the navigation and form callbacks of `lib.php` and the event observers called `aiprovider_datacurso\local\plugin_settings`, a class that only exists from that provider version, so every page threw `Class "aiprovider_datacurso\local\plugin_settings" not found`, including the upgrade page that reports the missing dependency, and the administrator could not reach the upgrade. Every read of the plugin state now goes through `\local_forum_ai\local\provider_state` (same approach as Tutor-IA 2.0.16), which reports Forum AI as disabled while that class does not exist; the plugin's own pages and web services refuse with the new message `error_providerupgraderequired` until the provider is upgraded (`provider_state_test::test_missing_provider_class_reports_forum_ai_disabled`, `provider_state_test::test_missing_provider_class_refuses_with_the_upgrade_message`, `provider_state_test::test_follows_the_provider_state`, `provider_state_test::test_only_provider_state_reads_the_provider_plugin_settings`, `plugin_disabled_guard_test::test_page_requires_enabled_after_login`)
+
+### Removed
+
+- Repository maintenance, no finding code: declared compatibility narrowed to Moodle 4.5 (`$plugin->supported` is now `[405, 405]`), the only version the Jenkins pipeline tests. No test applies
+- Repository maintenance, no finding code: the `.github` folder (GitHub `plugin-ci.yml` and `moodle-release.yml` workflows and issue templates) is removed; CI runs in Jenkins (`Jenkinsfile.moodleplugin`). No test applies
+
 ## [1.1.6] - 2026-11-06
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.

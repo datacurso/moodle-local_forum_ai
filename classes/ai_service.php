@@ -17,6 +17,7 @@
 namespace local_forum_ai;
 
 use aiprovider_datacurso\httpclient\ai_services_api;
+use local_forum_ai\local\outbound_payload;
 
 /**
  * Class for AI service communication.
@@ -69,10 +70,10 @@ class ai_service {
         // the choke point that honours the site AI switches.
         utils::require_ai_available();
 
-        // The payload travels verbatim: the HTTP client sends UTF-8 JSON, so
-        // accents and special characters must reach the AI service intact.
+        // FAI-PRIV-001-R1: only allowlisted fields leave the site, without Moodle ids and with
+        // the shared user pseudonym. Texts keep their accents: the client sends UTF-8 JSON.
         $client = self::get_client();
-        $response = $client->request('POST', '/forum/chat/v2', $payload);
+        $response = $client->request('POST', '/forum/chat/v2', outbound_payload::for_chat($payload));
 
         return self::format_chat_response($response);
     }
@@ -105,10 +106,11 @@ class ai_service {
     public static function call_ai_service_global(array $payload): array {
         utils::require_ai_available();
 
-        // The payload travels verbatim: rubric and guide criteria must keep
-        // their accents so the AI echoes them exactly as the form shows them.
+        // FAI-PRIV-001-R1: only allowlisted fields leave the site, without Moodle ids and with
+        // the shared user pseudonym. Rubric and guide criteria travel verbatim, so the AI
+        // echoes them exactly as the form shows them.
         $client = self::get_client();
-        $response = $client->request('POST', '/forum/grade', $payload);
+        $response = $client->request('POST', '/forum/grade', outbound_payload::for_grade($payload));
 
         if (is_array($response)) {
             return $response;
