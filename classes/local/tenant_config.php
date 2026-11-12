@@ -46,7 +46,7 @@ class tenant_config {
     /** @var array Built-in plugin defaults; the default reply message is the language string 'default_reply_message'. */
     public const DEFAULTS = [
         'default_enabled' => 1,
-        'default_enablediainitconversation' => 0,
+        'default_enablediainitconversation' => 1,
         'default_require_approval' => 1,
         'default_usedelay' => 0,
         'default_delayminutes' => 60,

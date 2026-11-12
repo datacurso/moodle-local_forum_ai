@@ -180,8 +180,9 @@ final class payload_contract_test extends \advanced_testcase {
         $this->assertSame($fixture->course->fullname, $body['course']);
         $this->assertSame($fixture->forum->name, $body['forum']);
         $this->assertSame($fixture->discussion->name, $body['discussion']);
-        $this->assertEquals($fixture->discussion->id, $body['discussion_id']);
-        $this->assertEquals($post->id, $body['postid']);
+        // FAI-PRIV-001-R1: no Moodle id of the discussion or the post leaves the site.
+        $this->assertArrayNotHasKey('discussion_id', $body);
+        $this->assertArrayNotHasKey('postid', $body);
 
         // Post block.
         $this->assertSame($post->subject, $body['post']['subject']);
@@ -194,7 +195,8 @@ final class payload_contract_test extends \advanced_testcase {
         $this->assertNotEmpty($body['thread_history']);
         $expectedorder = 1;
         foreach ($body['thread_history'] as $entry) {
-            $this->assertIsInt($entry['id']);
+            // The id is the entry position, never the Moodle post id.
+            $this->assertSame($expectedorder, $entry['id']);
             $this->assertSame($expectedorder, $entry['order']);
             $this->assertIsString($entry['author']);
             $this->assertIsString($entry['message']);
@@ -204,15 +206,67 @@ final class payload_contract_test extends \advanced_testcase {
         $this->assertContains('Visible teacher contribution', $messages);
         $this->assertNotContains('Deleted secret content', $messages);
         $this->assertNotContains('Private teacher note', $messages);
-        $ids = array_column($body['thread_history'], 'id');
-        $this->assertNotContains((int) $deletedpost->id, $ids);
 
         // Request attribution and options.
-        $this->assertSame((string) $fixture->student->id, $body['userid']);
+        // FAI-PRIV-001-R1: the shared site-scoped pseudonym, never the Moodle user id.
+        $this->assertSame(
+            \aiprovider_datacurso\local\outbound_privacy::pseudonymise_userid($fixture->student->id),
+            $body['userid']
+        );
         $this->assertSame('Test prompt', $body['prompt']);
         $this->assertIsBool($body['allow_followup_question']);
         $this->assertTrue($body['grading_enabled']);
         $this->assertSame(100, $body['scale']);
+    }
+
+    /**
+     * Report 3: the student's own main posts of other discussions travel in the chat
+     * payload, so the AI never asks for a post that already exists.
+     */
+    public function test_chat_payload_carries_own_main_posts_of_other_discussions(): void {
+        $this->resetAfterTest();
+
+        $fixture = $this->create_fixture();
+        $forumgenerator = $this->getDataGenerator()->get_plugin_generator('mod_forum');
+        $forumgenerator->create_discussion([
+            'course' => $fixture->course->id,
+            'forum' => $fixture->forum->id,
+            'userid' => $fixture->student->id,
+            'message' => 'My own summary in another discussion',
+        ]);
+        $post = $this->create_reply($fixture, (int) $fixture->student->id, 'Reply in the first discussion');
+
+        $mock = $this->inject_mock(['reply' => 'Own posts check']);
+        $messagesink = $this->redirectMessages();
+        $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
+        $messagesink->close();
+
+        $body = $mock->last_request()['body'];
+        $this->assertSame(
+            ['My own summary in another discussion'],
+            array_column($body['own_main_posts'], 'message')
+        );
+        $this->assertSame('[STUDENT_NAME]', $body['own_main_posts'][0]['author']);
+        $this->assertSame(1, $body['own_main_posts'][0]['order']);
+        // The opening post of the current discussion is not repeated: it is in the thread history.
+        $this->assertNotContains('Opening topic message', array_column($body['own_main_posts'], 'message'));
+    }
+
+    /**
+     * Report 3: without other main posts the field is an empty list, not missing.
+     */
+    public function test_chat_payload_own_main_posts_empty_when_none(): void {
+        $this->resetAfterTest();
+
+        $fixture = $this->create_fixture();
+        $post = $this->create_reply($fixture, (int) $fixture->student->id, 'Only reply');
+
+        $mock = $this->inject_mock(['reply' => 'No own posts']);
+        $messagesink = $this->redirectMessages();
+        $this->run_post_task((int) $post->id, (int) $fixture->cm->id);
+        $messagesink->close();
+
+        $this->assertSame([], $mock->last_request()['body']['own_main_posts']);
     }
 
     /**
@@ -373,7 +427,8 @@ final class payload_contract_test extends \advanced_testcase {
 
         $participation = $payload['forum_participations'][0]['participation'];
         $this->assertSame(80, $participation['scale']);
-        $this->assertSame((string) $fixture->forum->id, $participation['forum_id']);
+        // FAI-PRIV-001-R1: a request-local reference, never the Moodle forum id.
+        $this->assertSame(local\outbound_payload::FORUM_REFERENCE, $participation['forum_id']);
         $this->assertSame($fixture->forum->name, $participation['forum']);
         $this->assertSame((string) $fixture->student->id, $payload['forum_participations'][0]['userid']);
 

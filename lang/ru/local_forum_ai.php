@@ -64,7 +64,8 @@ $string['discussionname'] = 'Тема';
 $string['editingtenant'] = 'Вы редактируете глобальную конфигурацию арендатора: {$a}';
 $string['enabled'] = 'Включить ИИ';
 $string['enablediainitconversation'] = 'Включить ИИ-ответ на тему обсуждения';
-$string['enablediainitconversation_help'] = 'Если включить эту опцию, ИИ сможет отвечать на первое сообщение, которое начинает обсуждение. Также рекомендуется выбрать роль «Преподаватель» в следующем поле.';
+$string['enablediainitconversation_help'] = 'Если включить эту опцию, ИИ сможет отвечать на первое сообщение, которое начинает обсуждение. Также рекомендуется выбрать роль «Преподаватель» в следующем поле. Если форум оценивается, а эта опция отключена, ИИ не оценивает первое сообщение каждого обсуждения.';
+$string['enablediainitconversation_warning'] = 'Этот форум оценивается, но ответ ИИ на тему обсуждения отключён: ИИ не будет оценивать первое сообщение каждого обсуждения.';
 $string['error_aidisabled'] = 'Функции ИИ в настоящее время отключены администратором сайта.';
 $string['error_airequest'] = 'Не удалось загрузить ответ ИИ. Повторите попытку позже или обратитесь к администратору.';
 $string['error_allowedrolesrequired'] = 'Выберите хотя бы одну роль, которой ИИ может отвечать.';
@@ -75,6 +76,7 @@ $string['error_forumclosed'] = 'Срок сдачи или крайний сро
 $string['error_graderrequired'] = 'Выберите оценивающего: при автоматическом одобрении ответ ИИ публикуется от имени этого пользователя.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Сообщение, на которое даётся ответ, является личным ответом, поэтому ответ ИИ не может быть опубликован.';
+$string['error_providerupgraderequired'] = 'Для плагина «Форум ИИ» нужна более новая версия ИИ-провайдера Datacurso (aiprovider_datacurso 1.7.0 или новее). Попросите администратора сайта обновить его.';
 $string['error_pseudonymisation_failed'] = 'Не удалось псевдонимизировать данные для ИИ-сервиса, поэтому ничего не было отправлено.';
 $string['error_responsebusy'] = 'Этот ответ ИИ сейчас обрабатывается другим запросом. Подождите немного и попробуйте снова.';
 $string['error_responseexpired'] = 'Срок действия этого ответа ИИ истёк, потому что срок сдачи или крайний срок форума прошёл.';
@@ -126,6 +128,16 @@ $string['notification_fullmessage'] = 'Здравствуйте, {$a->firstname}
 $string['notification_greeting'] = 'Здравствуйте, {$a->firstname},';
 $string['notification_intro'] = 'Автоматический ответ был сгенерирован для обсуждения "{$a->discussion}" на форуме "{$a->forum}" курса "{$a->course}".';
 $string['notification_preview'] = 'Предпросмотр:';
+$string['notification_reminder_fullmessage'] = 'Здравствуйте, {$a->firstname}!
+
+Напоминание: ответ, созданный ИИ, всё ещё ожидает проверки в обсуждении «{$a->discussion}» форума «{$a->forum}» (Курс: {$a->course}).
+
+Предпросмотр: {$a->preview}...
+
+Чтобы просмотреть сообщение полностью и решить, одобрить его или отклонить, перейдите по ссылке:
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Напоминание: ответ ИИ всё ещё ожидает в обсуждении «{$a->discussion}»';
+$string['notification_reminder_subject'] = 'Напоминание: ответ ИИ ожидает одобрения';
 $string['notification_review_button'] = 'Проверить ответ';
 $string['notification_smallmessage'] = 'Новый ответ ИИ ожидает в "{$a->discussion}"';
 $string['notification_subject'] = 'Требуется одобрение: ответ ИИ';
@@ -136,14 +148,14 @@ $string['preview'] = 'Сообщение ИИ';
 $string['privacy:metadata:datacurso_ai'] = 'Содержимое сообщений форума отправляется во внешний ИИ-сервис Datacurso для генерации ответов и оценок.';
 $string['privacy:metadata:datacurso_ai:author_name'] = 'Имя автора сообщения, отправляемое только в виде псевдонимной метки [STUDENT_NAME] и восстанавливаемое в ответе ИИ перед сохранением.';
 $string['privacy:metadata:datacurso_ai:course_activity'] = 'Названия курса, форума и обсуждения, задающие контекст запроса к ИИ.';
-$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'В запросе на оценивание ИИ — ID студента, чьё участие в форуме оценивается, вместе с текстом его сообщений и названиями его обсуждений (его имя заменяется на [STUDENT_NAME], адреса электронной почты маскируются как [EMAIL]).';
+$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'В запросе на оценивание ИИ — псевдоним студента, чьё участие в форуме оценивается (никогда не его ID пользователя Moodle), вместе с текстом его сообщений и названиями его обсуждений (его имя заменяется на [STUDENT_NAME], адреса электронной почты маскируются как [EMAIL]). ID форума, обсуждений и сообщений не отправляются.';
 $string['privacy:metadata:datacurso_ai:grading_configuration'] = 'В запросе на оценивание ИИ — настройка оценивания всего форума: максимальная оценка или шкала и определение рубрики или руководства по оцениванию.';
 $string['privacy:metadata:datacurso_ai:post_content'] = 'Текст сообщения форума и название обсуждения, отправляемые в ИИ-сервис. Имена автора и участников обсуждения заменяются их метками, а адреса электронной почты маскируются как [EMAIL].';
-$string['privacy:metadata:datacurso_ai:provider_fields'] = 'Плагин ИИ-провайдера (aiprovider_datacurso) добавляет к каждому запросу идентификатор сайта, URL сайта, а также ID, часовой пояс и язык пользователя, от имени которого выполняется запрос; см. заявление о конфиденциальности этого плагина.';
+$string['privacy:metadata:datacurso_ai:provider_fields'] = 'Плагин ИИ-провайдера (aiprovider_datacurso) добавляет к каждому запросу идентификатор сайта, URL сайта, а также псевдоним, часовой пояс и язык пользователя, от имени которого выполняется запрос; см. заявление о конфиденциальности этого плагина.';
 $string['privacy:metadata:datacurso_ai:requester'] = 'Запрос на оценивание ИИ выполняется от имени запросившего его преподавателя, и ИИ-провайдер связывает его с этим преподавателем.';
 $string['privacy:metadata:datacurso_ai:thread_authors'] = 'Авторы предыдущих сообщений обсуждения, являющиеся третьими лицами (одногруппники и преподаватели), отправляются только в виде псевдонимных меток, например [PARTICIPANT_1], неизменных в пределах одного запроса.';
 $string['privacy:metadata:datacurso_ai:thread_history'] = 'Текст предыдущих сообщений обсуждения, написанных третьими лицами, отправляемый как контекст беседы, с заменёнными именами участников и замаскированными адресами электронной почты.';
-$string['privacy:metadata:datacurso_ai:userid'] = 'ID пользователя, от имени которого выполняется запрос к ИИ.';
+$string['privacy:metadata:datacurso_ai:userid'] = 'Псевдоним пользователя, от имени которого выполняется запрос к ИИ: токен, привязанный к сайту и вычисленный с секретом, который никогда не покидает сайт; никогда не ID пользователя Moodle.';
 $string['privacy:metadata:local_forum_ai_config'] = 'Хранит настройки ИИ по каждому форуму.';
 $string['privacy:metadata:local_forum_ai_config:allowedroles'] = 'Список ID ролей через запятую, которым ИИ разрешено отвечать.';
 $string['privacy:metadata:local_forum_ai_config:delayminutes'] = 'Количество минут ожидания перед запуском отложенной проверки ИИ.';
@@ -173,6 +185,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Статус пуб
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Тема сообщения.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Дата создания записи.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Дата обновления записи.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Дата последнего напоминания утверждающим об этом ответе (0, если не отправлялось).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'Очередь отложенных запросов на обработку ИИ.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'JSON-данные с модулем курса и сообщением или обсуждением для обработки.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Указывает, обработан ли запрос в очереди.';
@@ -203,6 +216,7 @@ $string['statuspending'] = 'Ожидает';
 $string['statusrejected'] = 'Отклонено';
 $string['task_process_ai_queue'] = 'Обработать отложенную очередь Forum AI';
 $string['task_process_single_forum_discussion'] = 'Обработать один форум обсуждений для ИИ';
+$string['task_remind_pending_approvals'] = 'Напоминать об ответах Forum AI, ожидающих одобрения';
 $string['task_skipped_plugindisabled'] = 'Форум ИИ отключён в поставщике ИИ Datacurso; задача пропущена.';
 $string['unknownparticipant'] = 'Участник';
 $string['usedelay'] = 'Использовать отложенную проверку';

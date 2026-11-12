@@ -73,7 +73,7 @@ final class tenant_config_test extends \advanced_testcase {
      */
     private function set_divergent_site_config(): void {
         set_config('default_enabled', 0, 'local_forum_ai');
-        set_config('default_enablediainitconversation', 1, 'local_forum_ai');
+        set_config('default_enablediainitconversation', 0, 'local_forum_ai');
         set_config('default_require_approval', 0, 'local_forum_ai');
         set_config('default_usedelay', 1, 'local_forum_ai');
         set_config('default_delayminutes', 5, 'local_forum_ai');
@@ -90,7 +90,7 @@ final class tenant_config_test extends \advanced_testcase {
     public static function plugin_defaults_provider(): array {
         return [
             'default_enabled' => ['default_enabled', 1],
-            'default_enablediainitconversation' => ['default_enablediainitconversation', 0],
+            'default_enablediainitconversation' => ['default_enablediainitconversation', 1],
             'default_require_approval' => ['default_require_approval', 1],
             'default_usedelay' => ['default_usedelay', 0],
             'default_delayminutes' => ['default_delayminutes', 60],

@@ -20,7 +20,7 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/../../locallib.php');
 
-use aiprovider_datacurso\local\plugin_settings;
+use local_forum_ai\local\provider_state;
 use core\event\course_module_created;
 use core\event\course_module_deleted;
 
@@ -54,7 +54,7 @@ class module {
             // Only while the plugin is enabled in the provider for the tenant of the user who created the module,
             // never the tenant of the course: observers run for any acting user.
             $creatorid = (int) $event->userid;
-            if (!plugin_settings::is_enabled('local_forum_ai', \local_forum_ai\utils::get_user_tenant_id($creatorid))) {
+            if (!provider_state::is_enabled(\local_forum_ai\utils::get_user_tenant_id($creatorid))) {
                 return true;
             }
 

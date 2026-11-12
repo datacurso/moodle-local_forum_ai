@@ -22,8 +22,8 @@ use aiprovider_datacurso\local\plugin_settings;
  * Tests that the state of Forum AI is kept by the Datacurso AI provider.
  *
  * The provider stores whether the plugin is enabled, per tenant on Moodle Workplace (falling back to the
- * site default). The plugin has no switch of its own: turning Forum AI off for one tenant never affects
- * another tenant.
+ * site default). The plugin has no switch of its own (the former setting is removed on upgrade): turning
+ * Forum AI off for one tenant never affects another tenant.
  *
  * @package    local_forum_ai
  * @category   test
@@ -32,10 +32,11 @@ use aiprovider_datacurso\local\plugin_settings;
  * @covers     \local_forum_ai\utils
  * @covers     \local_forum_ai\observer\module
  * @covers     \local_forum_ai\task\process_single_forum_discussion
+ * @covers     \local_forum_ai\local\provider_state
  */
 final class provider_plugin_state_test extends \advanced_testcase {
     /**
-     * Load the admin library the tests use.
+     * Load the admin and upgrade libraries the tests use.
      *
      * @return void
      */
@@ -44,6 +45,8 @@ final class provider_plugin_state_test extends \advanced_testcase {
 
         parent::setUpBeforeClass();
         require_once($CFG->libdir . '/adminlib.php');
+        require_once($CFG->libdir . '/upgradelib.php');
+        require_once($CFG->dirroot . '/local/forum_ai/db/upgrade.php');
     }
 
     /**
@@ -65,6 +68,26 @@ final class provider_plugin_state_test extends \advanced_testcase {
 
         plugin_settings::set_enabled('local_forum_ai', true);
         $this->assertTrue(utils::is_ai_available());
+    }
+
+    /**
+     * S6: the former setting of the plugin is no longer read.
+     *
+     * @return void
+     */
+    public function test_former_setting_is_ignored(): void {
+        $this->require_provider();
+
+        $this->resetAfterTest();
+        set_config('default_enabled', 1, 'local_forum_ai');
+
+        plugin_settings::set_enabled('local_forum_ai', true);
+        set_config('enableforumai', 0, 'local_forum_ai');
+        $this->assertTrue(utils::is_ai_available());
+
+        plugin_settings::set_enabled('local_forum_ai', false);
+        set_config('enableforumai', 1, 'local_forum_ai');
+        $this->assertFalse(utils::is_ai_available());
     }
 
     /**
@@ -218,6 +241,8 @@ final class provider_plugin_state_test extends \advanced_testcase {
         $this->resetAfterTest();
         $this->setAdminUser();
 
+        unset_config('enableforumai', 'local_forum_ai');
+
         $root = admin_get_root(true, true);
         $page = $root->locate('local_forum_ai_settings');
         $this->assertInstanceOf(\admin_settingpage::class, $page);
@@ -228,6 +253,23 @@ final class provider_plugin_state_test extends \advanced_testcase {
         }
         $this->assertContains('local_forum_ai/default_enabled', $names);
         $this->assertNotContains('local_forum_ai/enableforumai', $names);
+        $this->assertFalse(get_config('local_forum_ai', 'enableforumai'), 'The settings page must not reseed it.');
+    }
+
+    /**
+     * S7: the upgrade removes the former setting.
+     *
+     * @return void
+     */
+    public function test_upgrade_removes_the_former_setting(): void {
+        $this->resetAfterTest();
+
+        set_config('enableforumai', '1', 'local_forum_ai');
+        set_config('version', 2026110500, 'local_forum_ai');
+
+        xmldb_local_forum_ai_upgrade(2026110500);
+
+        $this->assertFalse(get_config('local_forum_ai', 'enableforumai'));
     }
 
     /**

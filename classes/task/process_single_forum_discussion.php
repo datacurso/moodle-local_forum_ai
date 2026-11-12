@@ -16,7 +16,7 @@
 
 namespace local_forum_ai\task;
 
-use aiprovider_datacurso\local\plugin_settings;
+use local_forum_ai\local\provider_state;
 
 /**
  * Adhoc task to process single forum discussions asynchronously.
@@ -65,7 +65,7 @@ class process_single_forum_discussion extends \core\task\adhoc_task {
         // was stored fall back to the task user, else to the site default; the tenant of the discussion author is
         // checked again by observer\discussion::process_discussion().
         $creatorid = (int) ($data->userid ?? $this->get_userid() ?? 0);
-        if (!plugin_settings::is_enabled('local_forum_ai', \local_forum_ai\utils::get_user_tenant_id($creatorid))) {
+        if (!provider_state::is_enabled(\local_forum_ai\utils::get_user_tenant_id($creatorid))) {
             mtrace(get_string('task_skipped_plugindisabled', 'local_forum_ai'));
             return;
         }

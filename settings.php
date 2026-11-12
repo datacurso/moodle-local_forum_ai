@@ -97,7 +97,7 @@ if ($parentcategory !== null) {
             'local_forum_ai/default_enablediainitconversation',
             get_string('enablediainitconversation', 'local_forum_ai'),
             get_string('enablediainitconversation_help', 'local_forum_ai'),
-            0
+            1
         ));
 
         $settings->add(new $checkbox(

@@ -16,8 +16,6 @@
 
 namespace local_forum_ai\local;
 
-use aiprovider_datacurso\local\plugin_settings;
-
 /**
  * Moves the former "Enable Forum AI" switch (enableforumai) into the Datacurso AI provider.
  *
@@ -52,7 +50,7 @@ class provider_switch_migration {
     public static function migrate(): void {
         global $DB;
 
-        if (!class_exists(plugin_settings::class)) {
+        if (!provider_state::is_available()) {
             return;
         }
 
@@ -94,7 +92,7 @@ class provider_switch_migration {
             return;
         }
 
-        plugin_settings::set_enabled(self::COMPONENT, $enabled, $tenantid);
+        provider_state::set_enabled($enabled, $tenantid);
     }
 
     /**
@@ -125,7 +123,6 @@ class provider_switch_migration {
      * @return string
      */
     private static function provider_key(): string {
-        $prefix = defined(plugin_settings::class . '::CONFIG_PREFIX') ? plugin_settings::CONFIG_PREFIX : 'plugin_enabled_';
-        return $prefix . self::COMPONENT;
+        return provider_state::config_name();
     }
 }

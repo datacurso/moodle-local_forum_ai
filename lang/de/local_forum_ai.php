@@ -64,7 +64,8 @@ $string['discussionname'] = 'Thema';
 $string['editingtenant'] = 'Sie bearbeiten die globale Konfiguration des Mandanten: {$a}';
 $string['enabled'] = 'KI aktivieren';
 $string['enablediainitconversation'] = 'KI-Antworten auf das Diskussionsthema aktivieren';
-$string['enablediainitconversation_help'] = 'Wenn diese Option aktiviert ist, kann die KI auf die erste Nachricht antworten, die die Diskussion startet. Es wird außerdem empfohlen, im folgenden Feld die Rolle „Lehrer“ auszuwählen.';
+$string['enablediainitconversation_help'] = 'Wenn diese Option aktiviert ist, kann die KI auf die erste Nachricht antworten, die die Diskussion startet. Es wird außerdem empfohlen, im folgenden Feld die Rolle „Lehrer“ auszuwählen. Wenn das Forum bewertbar ist und diese Option deaktiviert ist, bewertet die KI den Eingangsbeitrag jeder Diskussion nicht.';
+$string['enablediainitconversation_warning'] = 'Dieses Forum ist bewertbar, aber die KI-Antwort auf das Diskussionsthema ist deaktiviert: Die KI bewertet den Eingangsbeitrag jeder Diskussion nicht.';
 $string['error_aidisabled'] = 'KI-Funktionen sind derzeit von der Website-Administration deaktiviert.';
 $string['error_airequest'] = 'Die KI-Antwort konnte nicht geladen werden. Bitte versuchen Sie es später erneut oder wenden Sie sich an Ihren Administrator.';
 $string['error_allowedrolesrequired'] = 'Wählen Sie mindestens eine Rolle aus, auf die die KI antworten darf.';
@@ -75,6 +76,7 @@ $string['error_forumclosed'] = 'Das Fälligkeitsdatum oder der Stichtag dieses F
 $string['error_graderrequired'] = 'Wählen Sie eine bewertende Person aus: Die automatische Genehmigung veröffentlicht die KI-Antwort im Namen dieser Person.';
 $string['error_invalidgrade'] = 'The AI grade could not be resolved to a valid forum grade.';
 $string['error_privatereply'] = 'Der Beitrag, auf den geantwortet wird, ist eine private Antwort, daher kann keine KI-Antwort veröffentlicht werden.';
+$string['error_providerupgraderequired'] = 'Forum KI benötigt eine neuere Version des Datacurso-KI-Anbieters (aiprovider_datacurso 1.7.0 oder höher). Bitten Sie die Website-Administration, ihn zu aktualisieren.';
 $string['error_pseudonymisation_failed'] = 'Die Daten für den KI-Dienst konnten nicht pseudonymisiert werden, daher wurde nichts gesendet.';
 $string['error_responsebusy'] = 'Diese KI-Antwort wird gerade von einer anderen Anfrage bearbeitet. Warten Sie einen Moment und versuchen Sie es erneut.';
 $string['error_responseexpired'] = 'Diese KI-Antwort ist abgelaufen, weil das Fälligkeitsdatum oder der Stichtag des Forums überschritten ist.';
@@ -126,6 +128,16 @@ Um die vollständige Nachricht zu überprüfen und zu entscheiden, ob sie genehm
 $string['notification_greeting'] = 'Hallo {$a->firstname},';
 $string['notification_intro'] = 'Eine automatische Antwort wurde für die Diskussion "{$a->discussion}" im Forum "{$a->forum}" des Kurses "{$a->course}" generiert.';
 $string['notification_preview'] = 'Vorschau:';
+$string['notification_reminder_fullmessage'] = 'Hallo {$a->firstname},
+
+Erinnerung: Eine von der KI erstellte Antwort wartet noch auf Prüfung, und zwar für die Diskussion „{$a->discussion}“ im Forum „{$a->forum}“ (Kurs: {$a->course}).
+
+Vorschau: {$a->preview}...
+
+Um die vollständige Nachricht zu prüfen und zu entscheiden, ob Sie sie freigeben oder ablehnen, besuchen Sie bitte:
+{$a->reviewurl}';
+$string['notification_reminder_smallmessage'] = 'Erinnerung: KI-Antwort noch offen in „{$a->discussion}“';
+$string['notification_reminder_subject'] = 'Erinnerung: KI-Antwort wartet auf Freigabe';
 $string['notification_review_button'] = 'Antwort überprüfen';
 $string['notification_smallmessage'] = 'Neue KI-Antwort ausstehend in "{$a->discussion}"';
 $string['notification_subject'] = 'Genehmigung erforderlich: KI-Antwort';
@@ -136,14 +148,14 @@ $string['preview'] = 'KI-Nachricht';
 $string['privacy:metadata:datacurso_ai'] = 'Die Inhalte von Forenbeiträgen werden an den externen KI-Dienst von Datacurso gesendet, um Antworten und Bewertungen zu erzeugen.';
 $string['privacy:metadata:datacurso_ai:author_name'] = 'Name der Beitragsautorin bzw. des Beitragsautors, der nur als pseudonymisierte Kennzeichnung [STUDENT_NAME] gesendet und in der KI-Antwort vor dem Speichern wiederhergestellt wird.';
 $string['privacy:metadata:datacurso_ai:course_activity'] = 'Namen von Kurs, Forum und Diskussion, die die KI-Anfrage kontextualisieren.';
-$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'Bei einer KI-Bewertungsanfrage die ID der bzw. des Teilnehmenden, deren bzw. dessen Forumsbeteiligung bewertet wird, mit dem Text der Beiträge und den Titeln der Diskussionen (der Name wird durch [STUDENT_NAME] ersetzt und E-Mail-Adressen werden als [EMAIL] maskiert).';
+$string['privacy:metadata:datacurso_ai:evaluated_userid'] = 'Bei einer KI-Bewertungsanfrage ein Pseudonym der bzw. des Teilnehmenden, deren bzw. dessen Forumsbeteiligung bewertet wird (niemals die Moodle-Benutzer-ID), mit dem Text der Beiträge und den Titeln der Diskussionen (der Name wird durch [STUDENT_NAME] ersetzt und E-Mail-Adressen werden als [EMAIL] maskiert). Es wird keine Foren-, Diskussions- oder Beitrags-ID gesendet.';
 $string['privacy:metadata:datacurso_ai:grading_configuration'] = 'Bei einer KI-Bewertungsanfrage die Bewertungseinstellung des gesamten Forums: die Höchstbewertung oder Skala und die Definition der Bewertungsrubrik oder des Bewertungsleitfadens.';
 $string['privacy:metadata:datacurso_ai:post_content'] = 'Text des Forenbeitrags und Titel der Diskussion, die an den KI-Dienst gesendet werden. Die Namen der Autorin bzw. des Autors und der Diskussionsteilnehmenden werden durch ihre Kennzeichnungen ersetzt und E-Mail-Adressen als [EMAIL] maskiert.';
-$string['privacy:metadata:datacurso_ai:provider_fields'] = 'Das KI-Anbieter-Plugin (aiprovider_datacurso) fügt jeder Anfrage die Website-Kennung, die Website-URL sowie ID, Zeitzone und Sprache des Benutzers hinzu, in dessen Namen sie gestellt wird; siehe die Datenschutzerklärung dieses Plugins.';
+$string['privacy:metadata:datacurso_ai:provider_fields'] = 'Das KI-Anbieter-Plugin (aiprovider_datacurso) fügt jeder Anfrage die Website-Kennung, die Website-URL sowie Pseudonym, Zeitzone und Sprache des Benutzers hinzu, in dessen Namen sie gestellt wird; siehe die Datenschutzerklärung dieses Plugins.';
 $string['privacy:metadata:datacurso_ai:requester'] = 'Eine KI-Bewertungsanfrage wird im Namen der anfragenden Lehrkraft gestellt, und der KI-Anbieter ordnet sie dieser Lehrkraft zu.';
 $string['privacy:metadata:datacurso_ai:thread_authors'] = 'Autorinnen und Autoren der früheren Beiträge der Diskussion, die Dritte sind (Mitlernende und Lehrkräfte), werden nur als pseudonymisierte Kennzeichnungen wie [PARTICIPANT_1] gesendet, die innerhalb einer Anfrage gleich bleiben.';
 $string['privacy:metadata:datacurso_ai:thread_history'] = 'Text der früheren Beiträge der Diskussion, die von Dritten verfasst wurden, als Gesprächskontext gesendet, mit ersetzten Namen der Teilnehmenden und maskierten E-Mail-Adressen.';
-$string['privacy:metadata:datacurso_ai:userid'] = 'Die ID des Benutzers, in dessen Namen die KI-Anfrage gestellt wird.';
+$string['privacy:metadata:datacurso_ai:userid'] = 'Ein Pseudonym des Benutzers, in dessen Namen die KI-Anfrage gestellt wird: ein websitebezogenes Token, das mit einem Geheimnis abgeleitet wird, das die Website nie verlässt, niemals die Moodle-Benutzer-ID.';
 $string['privacy:metadata:local_forum_ai_config'] = 'Speichert KI-Konfigurationen pro Forum.';
 $string['privacy:metadata:local_forum_ai_config:allowedroles'] = 'Kommagetrennte Liste der Rollen-IDs, denen die KI antworten darf.';
 $string['privacy:metadata:local_forum_ai_config:delayminutes'] = 'Anzahl der Minuten, die vor der verzögerten KI-Überprüfung gewartet wird.';
@@ -173,6 +185,7 @@ $string['privacy:metadata:local_forum_ai_pending:status'] = 'Status des Beitrags
 $string['privacy:metadata:local_forum_ai_pending:subject'] = 'Betreff oder Thema der Nachricht.';
 $string['privacy:metadata:local_forum_ai_pending:timecreated'] = 'Datum, an dem der Datensatz erstellt wurde.';
 $string['privacy:metadata:local_forum_ai_pending:timemodified'] = 'Datum, an dem der Datensatz aktualisiert wurde.';
+$string['privacy:metadata:local_forum_ai_pending:timeremindered'] = 'Datum der letzten Erinnerung an die Freigebenden zu dieser Antwort (0, falls nie).';
 $string['privacy:metadata:local_forum_ai_queue'] = 'Warteschlange verzögerter KI-Verarbeitungsanfragen.';
 $string['privacy:metadata:local_forum_ai_queue:payload'] = 'JSON-Daten mit dem Kursmodul und dem zu verarbeitenden Beitrag oder der Diskussion.';
 $string['privacy:metadata:local_forum_ai_queue:processed'] = 'Gibt an, ob die Anfrage in der Warteschlange verarbeitet wurde.';
@@ -203,6 +216,7 @@ $string['statuspending'] = 'Ausstehend';
 $string['statusrejected'] = 'Abgelehnt';
 $string['task_process_ai_queue'] = 'Verzögerte Warteschlange von Forum AI verarbeiten';
 $string['task_process_single_forum_discussion'] = 'Ein einzelnes Diskussionsforum für KI verarbeiten';
+$string['task_remind_pending_approvals'] = 'An ausstehende Forum-KI-Antworten zur Freigabe erinnern';
 $string['task_skipped_plugindisabled'] = 'Forum KI ist im Datacurso-KI-Anbieter deaktiviert; die Aufgabe wird übersprungen.';
 $string['unknownparticipant'] = 'Teilnehmer/in';
 $string['usedelay'] = 'Verzögerte Überprüfung verwenden';

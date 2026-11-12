@@ -33,7 +33,7 @@ require_login();
 
 // Refuse while Forum AI is disabled in the Datacurso AI provider for the tenant of the current user (never the
 // tenant of the course), before the token is looked up or anything is shown.
-\aiprovider_datacurso\local\plugin_settings::require_enabled('local_forum_ai');
+\local_forum_ai\local\provider_state::require_enabled();
 
 // Token, capability and discussion group are enforced in one place. Only data
 // errors are wrapped: the standard 403 (required_capability_exception) and the
